@@ -27,7 +27,7 @@ cmake_minimum_required(VERSION 3.23)
 # set the project name
 project(
 	libcifpp
-	VERSION 7.0.5
+	VERSION 7.0.6
 	LANGUAGES CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -369,7 +369,7 @@ target_include_directories(
 	"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
 	PRIVATE "${BOOST_REGEX_INCLUDE_DIR}" "${EIGEN_INCLUDE_DIR}")
 
-target_link_libraries(cifpp PUBLIC Threads::Threads ZLIB::ZLIB std::atomic)
+target_link_libraries(cifpp PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

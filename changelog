@@ -1,3 +1,6 @@
+Version 7.0.6
+- Fix linking to std::atomic
+
 Version 7.0.5
 - Fix case where category index was not updated for updated value
 

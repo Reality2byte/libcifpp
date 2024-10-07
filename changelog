@@ -1,3 +1,7 @@
+Version 7.0.7
+- Set CIFPP_DATA_DIR on target cifpp for use in projects that include
+  libcifpp directly
+
 Version 7.0.6
 - Fix linking to std::atomic
 

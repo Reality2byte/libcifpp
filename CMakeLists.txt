@@ -27,7 +27,7 @@ cmake_minimum_required(VERSION 3.23)
 # set the project name
 project(
 	libcifpp
-	VERSION 7.0.6
+	VERSION 7.0.7
 	LANGUAGES CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -440,6 +440,7 @@ endif()
 
 if(CIFPP_DATA_DIR)
 	target_compile_definitions(cifpp PUBLIC DATA_DIR="${CIFPP_DATA_DIR}")
+	set_target_properties(cifpp PROPERTIES CIFPP_DATA_DIR ${CIFPP_DATA_DIR})
 endif()
 
 if(NOT PROJECT_IS_TOP_LEVEL)

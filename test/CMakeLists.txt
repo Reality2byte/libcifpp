@@ -34,10 +34,10 @@ add_library(test-main OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/test-main.cpp")
 
 target_link_libraries(test-main cifpp::cifpp Catch2::Catch2)
 
-if(${Catch2_VERSION} VERSION_GREATER_EQUAL 3.0.0)
-	target_compile_definitions(test-main PUBLIC CATCH22=0)
-else()
+if("${Catch2_VERSION}" VERSION_LESS 3.0.0)
 	target_compile_definitions(test-main PUBLIC CATCH22=1)
+else()
+	target_compile_definitions(test-main PUBLIC CATCH22=0)
 endif()
 
 foreach(CIFPP_TEST IN LISTS CIFPP_tests)

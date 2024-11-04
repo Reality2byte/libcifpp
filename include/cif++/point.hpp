@@ -662,11 +662,22 @@ struct point_type
 		return std::make_tuple(std::ref(m_x), std::ref(m_y), std::ref(m_z));
 	}
 
-	/// \brief Compare with @a rhs
+#if defined(__cpp_impl_three_way_comparison)
+	/// \brief a default spaceship operator
+	constexpr auto operator<=>(const point_type &rhs) const = default;
+#else
+	/// \brief a default equals operator
 	constexpr bool operator==(const point_type &rhs) const
 	{
 		return m_x == rhs.m_x and m_y == rhs.m_y and m_z == rhs.m_z;
 	}
+
+	/// \brief a default not-equals operator
+	constexpr bool operator!=(const point_type &rhs) const
+	{
+		return not operator==(rhs);
+	}
+#endif
 
 	// consider point as a vector... perhaps I should rename point?
 

@@ -1480,6 +1480,9 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 
 		for (auto &cat1 : best.parser->mDb)
 		{
+			if (cat1.empty())
+				continue;
+
 			auto &cat2 = db[cat1.name()];
 
 			// copy only the values in the first row for the following categories

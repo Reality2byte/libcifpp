@@ -1,5 +1,6 @@
 Version 7.0.8
 - Fix PDB Remark 3 parser
+- Added three way comparison for point
 
 Version 7.0.7
 - Set CIFPP_DATA_DIR on target cifpp for use in projects that include

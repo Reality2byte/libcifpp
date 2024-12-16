@@ -42,6 +42,11 @@ include(GenerateExportHeader)
 include(CTest)
 include(FetchContent)
 
+# FindBoost, take care of it now.
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
+	cmake_policy(SET CMP0167 NEW)
+endif()
+
 # When building with ninja-multiconfig, build both debug and release by default
 if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
 	set(CMAKE_CROSS_CONFIGS "Debug;Release")

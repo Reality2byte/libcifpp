@@ -180,8 +180,7 @@ class compound
 	friend class local_compound_factory_impl;
 
 	compound(cif::datablock &db);
-	compound(cif::datablock &db, int);
-
+	
 	std::string m_id;
 	std::string m_name;
 	std::string m_type;

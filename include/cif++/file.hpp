@@ -176,6 +176,17 @@ class file : public std::list<datablock>
 	 * @brief Attempt to load the named dictionary @a name and
 	 * create a validator based on it.
 	 * 
+	 * Tje @a name can be the name of a single file, or even the
+	 * stem of that filename. So, e.g. mmcif_pdbx is valid.
+	 * 
+	 * Since libcifpp can use extensions to validators, you
+	 * can add them to the name. So if you would like to add
+	 * the dssp extensions you would have to write:
+	 * 
+	 * @code{cpp}
+	 * file.load_dictionary("mmcif_pdbx;dssp-extension");
+	 * @endcode
+	 * 
 	 * @param name The name of the dictionary to load
 	 */
 	void load_dictionary(std::string_view name);

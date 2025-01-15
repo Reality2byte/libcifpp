@@ -27,7 +27,7 @@ cmake_minimum_required(VERSION 3.23)
 # set the project name
 project(
 	libcifpp
-	VERSION 7.0.8
+	VERSION 7.0.9
 	LANGUAGES CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

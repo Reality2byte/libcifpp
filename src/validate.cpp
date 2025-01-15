@@ -138,7 +138,7 @@ int type_validator::compare(std::string_view a, std::string_view b) const
 				ra = selected_charconv<double>::from_chars(a.data(), a.data() + a.length(), da);
 				rb = selected_charconv<double>::from_chars(b.data(), b.data() + b.length(), db);
 
-				if (not (bool)ra.ec and not (bool)rb.ec)
+				if (not(bool) ra.ec and not(bool) rb.ec)
 				{
 					auto d = da - db;
 					if (std::abs(d) > std::numeric_limits<double>::epsilon())
@@ -232,7 +232,7 @@ bool item_validator::validate_value(std::string_view value, std::error_code &ec)
 			ec = make_error_code(validation_error::value_is_not_in_enumeration_list);
 	}
 
-	return not (bool)ec;
+	return not(bool) ec;
 }
 
 // --------------------------------------------------------------------
@@ -408,9 +408,7 @@ void validator::report_error(std::error_code ec, bool fatal) const
 void validator::report_error(std::error_code ec, std::string_view category,
 	std::string_view item, bool fatal) const
 {
-	auto ex = item.empty() ?
-		validation_exception(ec, category) :
-		validation_exception(ec, category, item);
+	auto ex = item.empty() ? validation_exception(ec, category) : validation_exception(ec, category, item);
 
 	if (m_strict or fatal)
 		throw ex;
@@ -455,58 +453,70 @@ const validator &validator_factory::operator[](std::string_view dictionary_name)
 		}
 
 		// not found, add it
-		auto data = load_resource(dictionary_name);
 
-		if (not data and dictionary.extension().string() != ".dic")
-			data = load_resource(dictionary.parent_path() / (dictionary.filename().string() + ".dic"));
+		validator v(dictionary_name);
 
-		if (data)
-			construct_validator(dictionary_name, *data);
-		else
+		for (bool first = true; auto part_name : cif::split(dictionary_name, ";", true))
 		{
-			std::error_code ec;
+			auto data = load_resource(part_name);
+			dictionary.assign(part_name.begin(), part_name.end());
 
-			// might be a compressed dictionary on disk
-			std::filesystem::path p = dictionary;
-			if (p.extension() == ".dic")
-				p = p.parent_path() / (p.filename().string() + ".gz");
-			else
-				p = p.parent_path() / (p.filename().string() + ".dic.gz");
+			if (not data and dictionary.extension().string() != ".dic")
+				data = load_resource(dictionary.parent_path() / (dictionary.filename().string() + ".dic"));
+
+			if (not data)
+			{
+				std::error_code ec;
+
+				// might be a compressed dictionary on disk
+				std::filesystem::path p = dictionary;
+				if (p.extension() == ".dic")
+					p = p.parent_path() / (p.filename().string() + ".gz");
+				else
+					p = p.parent_path() / (p.filename().string() + ".dic.gz");
 
 #if defined(CACHE_DIR) or defined(DATA_DIR)
-			if (not std::filesystem::exists(p, ec) or ec)
-			{
-				for (const char *dir : {
+				if (not std::filesystem::exists(p, ec) or ec)
+				{
+					for (const char *dir : {
 # if defined(CACHE_DIR)
-						 CACHE_DIR,
+							 CACHE_DIR,
 # endif
 # if defined(DATA_DIR)
 							 DATA_DIR
 # endif
-					 })
-				{
-					auto p2 = std::filesystem::path(dir) / p;
-					if (std::filesystem::exists(p2, ec) and not ec)
+						 })
 					{
-						swap(p, p2);
-						break;
+						auto p2 = std::filesystem::path(dir) / p;
+						if (std::filesystem::exists(p2, ec) and not ec)
+						{
+							swap(p, p2);
+							break;
+						}
 					}
 				}
-			}
 #endif
 
-			if (std::filesystem::exists(p, ec) and not ec)
-			{
-				gzio::ifstream in(p);
+				if (std::filesystem::exists(p, ec) and not ec)
+				{
+					auto in = std::make_unique<gzio::ifstream>(p);
 
-				if (not in.is_open())
-					throw std::runtime_error("Could not open dictionary (" + p.string() + ")");
+					if (not in->is_open())
+						throw std::runtime_error("Could not open dictionary (" + p.string() + ")");
 
-				construct_validator(dictionary_name, in);
+					data.reset(in.release());
+				}
+				else
+					throw std::runtime_error("Dictionary not found or defined (" + dictionary.string() + ")");
 			}
+
+			if (std::exchange(first, false))
+				v = parse_dictionary(part_name, *data);
 			else
-				throw std::runtime_error("Dictionary not found or defined (" + dictionary.string() + ")");
+				extend_dictionary(v, *data);
 		}
+
+		m_validators.emplace_back(std::move(v));
 
 		return m_validators.back();
 	}

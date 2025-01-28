@@ -492,7 +492,7 @@ compound *local_compound_factory_impl::create(const std::string &id)
 
 	for (auto &db : m_local_file)
 	{
-		if (db.name() == "comp_" + id)
+		if (db.name() == id)
 		{
 			auto chem_comp = db.get("chem_comp");
 			if (not chem_comp)

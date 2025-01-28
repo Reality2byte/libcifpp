@@ -73,7 +73,17 @@ class sac_parser
 {
   public:
 	/** @cond */
-	using datablock_index = std::map<std::string, std::size_t>;
+	struct iless_op
+	{
+		bool operator()(std::string a, std::string b) const
+		{
+			to_upper(a);
+			to_upper(b);
+			return a < b;
+		}
+	};
+
+	using datablock_index = std::map<std::string, std::size_t, iless_op>;
 
 	virtual ~sac_parser() = default;
 	/** @endcond */

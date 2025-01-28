@@ -296,8 +296,6 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 
 	compound *get(std::string id)
 	{
-		cif::to_upper(id);
-
 		std::shared_lock lock(mMutex);
 
 		compound *result = nullptr;
@@ -318,7 +316,8 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 				break;
 		}
 
-		if (result == nullptr and m_missing.count(id) == 0)
+		if (result == nullptr and
+			find_if(m_missing.begin(), m_missing.end(), [&id](const std::string &m_id) { return cif::iequals(id, m_id); }) == m_missing.end())
 		{
 			for (auto impl = shared_from_this(); impl; impl = impl->m_next)
 			{
@@ -328,7 +327,7 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 			}
 
 			if (result == nullptr)
-				m_missing.insert(id);
+				m_missing.emplace_back(id);
 		}
 
 		return result;
@@ -361,7 +360,7 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 	cif::parser::datablock_index m_index;
 
 	std::vector<compound *> m_compounds;
-	std::set<std::string> m_missing;
+	std::vector<std::string> m_missing;
 	std::shared_ptr<compound_factory_impl> m_next;
 };
 

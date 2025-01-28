@@ -2,6 +2,9 @@ Version 7.0.9
 - Using cif::file::load_dictionary it is now possible to
   load a dictionary along with its extensions in one go.
   E.g. file.load_dictionary("mmcif_pdbx;dssp-extension")
+- Fix in compound factory to avoid errors with lower case
+  compound id's
+- Fix sac_parser's index to be case insensitive
 
 Version 7.0.8
 - Fix PDB Remark 3 parser

@@ -3482,7 +3482,7 @@ TEST_CASE("compound_test_1")
 	cif::compound_factory::instance().push_dictionary(gTestDir / "REA_v2.cif");
 	auto compound = cif::compound_factory::instance().create("REA_v2");
 	REQUIRE(compound != nullptr);
-	REQUIRE(compound->id() == "REA_v2");
+	REQUIRE(cif::iequals(compound->id(), "REA_v2"));
 }
 
 // --------------------------------------------------------------------

@@ -41,6 +41,7 @@ include(CheckCXXSourceCompiles)
 include(GenerateExportHeader)
 include(CTest)
 include(FetchContent)
+include(ExternalProject)
 
 # FindBoost, take care of it now.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
@@ -237,18 +238,23 @@ endif()
 # 		INTERFACE_INCLUDE_DIRECTORIES)
 # else()
 	# Create a private copy of eigen3 and populate it only, no need to build
-	FetchContent_Declare(
-		my-eigen3
+	# FetchContent_Declare(
+	# 	my-eigen3
+	# 	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+	# 	GIT_TAG 3.4.0)
+
+	# FetchContent_MakeAvailable(my-eigen3)
+	# FetchContent_GetProperties(my-eigen3)
+
+	ExternalProject_Add(my-eigen3
 		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-		GIT_TAG 3.4.0)
+		GIT_TAG 3.4.0
+		INSTALL_COMMAND "")
+	
+	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
+	message("Source dir of eigen is ${SOURCE_DIR}")
 
-	FetchContent_GetProperties(my-eigen3)
-
-	if(NOT my-eigen3_POPULATED)
-		FetchContent_Populate(my-eigen3)
-	endif()
-
-	set(EIGEN_INCLUDE_DIR ${my-eigen3_SOURCE_DIR})
+	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 # endif()
 
 # Create a revision file, containing the current git version info
@@ -336,6 +342,8 @@ set(project_headers
 
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
+
+add_dependencies(cifpp my-eigen3)
 
 target_sources(cifpp
 	PRIVATE ${project_sources}

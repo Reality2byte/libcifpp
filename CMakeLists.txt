@@ -230,12 +230,12 @@ endif()
 # Using Eigen3 is a bit of a thing. We don't want to build it completely since
 # we only need a couple of header files. Nothing special. But often, eigen3 is
 # already installed and then we prefer that.
-find_package(Eigen3 3.4 QUIET)
+# find_package(Eigen3 3.4 QUIET)
 
-if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
-	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
-		INTERFACE_INCLUDE_DIRECTORIES)
-else()
+# if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
+# 	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
+# 		INTERFACE_INCLUDE_DIRECTORIES)
+# else()
 	# Create a private copy of eigen3 and populate it only, no need to build
 	FetchContent_Declare(
 		my-eigen3
@@ -249,7 +249,7 @@ else()
 	endif()
 
 	set(EIGEN_INCLUDE_DIR ${my-eigen3_SOURCE_DIR})
-endif()
+# endif()
 
 # Create a revision file, containing the current git version info
 include(VersionString)

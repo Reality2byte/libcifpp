@@ -116,7 +116,7 @@ void checkEntities(datablock &db)
 					type = "water";
 				else
 				{
-					if (db["pdbx_entity_branch_link"].exists("entity_id"_key == entity_id))
+					if (db["pdbx_entity_branch_link"].contains("entity_id"_key == entity_id))
 						type = "branched";
 					else
 						type = "non-polymer";

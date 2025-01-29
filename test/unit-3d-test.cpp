@@ -148,9 +148,8 @@ TEST_CASE("dh_q_0")
 	cif::point axis(1, 0, 0);
 
 	cif::point p(1, 1, 0);
-	
-	cif::point t[3] =
-	{
+
+	cif::point t[3] = {
 		{ 0, 1, 0 },
 		{ 0, 0, 0 },
 		{ 1, 0, 0 }
@@ -180,7 +179,6 @@ TEST_CASE("dh_q_0")
 
 	a = cif::dihedral_angle(t[0], t[1], t[2], p);
 	REQUIRE(std::abs(a - 0.f) < 0.01f);
-
 }
 
 TEST_CASE("dh_q_1")
@@ -248,9 +246,9 @@ TEST_CASE("m2q_0")
 		Eigen::Matrix4f em;
 
 		em << Qxx - Qyy - Qzz, Qyx + Qxy, Qzx + Qxz, Qzy - Qyz,
-		      Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
-			  Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
-			  Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz;
+			Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
+			Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
+			Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz;
 
 		Eigen::EigenSolver<Eigen::Matrix4f> es(em / 3);
 
@@ -278,12 +276,51 @@ TEST_CASE("m2q_0")
 			static_cast<float>(col(0).real()),
 			static_cast<float>(col(1).real()),
 			static_cast<float>(col(2).real()) });
-		
+
 		cif::point p1{ 1, 1, 1 };
 		cif::point p2 = p1;
 		p2.rotate(q);
 
 		cif::point p3 = rot * p1;
+
+		REQUIRE_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
+		REQUIRE_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
+		REQUIRE_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
+	}
+}
+
+TEST_CASE("m2q_0a")
+{
+	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
+	{
+		auto d = cif::kSymopNrTable[i].symop().data();
+
+		Eigen::Matrix3f rot;
+		rot << d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8];
+
+		if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
+			continue;
+
+		Eigen::Quaternionf qe(rot);
+
+		auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
+
+		cif::point p1{ 1, 1, 1 };
+		cif::point p2 = p1;
+		p2.rotate(q);
+
+		cif::matrix3x3<float> rot_c;
+		float Qxx = rot_c(0, 0) = d[0];
+		float Qxy = rot_c(0, 1) = d[1];
+		float Qxz = rot_c(0, 2) = d[2];
+		float Qyx = rot_c(1, 0) = d[3];
+		float Qyy = rot_c(1, 1) = d[4];
+		float Qyz = rot_c(1, 2) = d[5];
+		float Qzx = rot_c(2, 0) = d[6];
+		float Qzy = rot_c(2, 1) = d[7];
+		float Qzz = rot_c(2, 2) = d[8];
+
+		cif::point p3 = rot_c * p1;
 
 		REQUIRE_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
 		REQUIRE_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
@@ -337,7 +374,7 @@ TEST_CASE("m2q_0")
 // 			static_cast<float>(em(bestJ, 0)),
 // 			static_cast<float>(em(bestJ, 1)),
 // 			static_cast<float>(em(bestJ, 2)) });
-		
+
 // 		cif::point p1{ 1, 1, 1 };
 // 		cif::point p2 = p1;
 // 		p2.rotate(q);
@@ -397,10 +434,10 @@ TEST_CASE("symm_4")
 	// based on 2b8h
 	auto sg = cif::spacegroup(154); // p 32 2 1
 	auto c = cif::cell(107.516, 107.516, 338.487, 90.00, 90.00, 120.00);
-	
-	cif::point a{   -8.688,  79.351, 10.439 }; // O6 NAG A 500
-	cif::point b{  -35.356,  33.693, -3.236 }; // CG2 THR D 400
-	cif::point sb(  -6.916,   79.34,   3.236); // 4_565 copy of b
+
+	cif::point a{ -8.688, 79.351, 10.439 };  // O6 NAG A 500
+	cif::point b{ -35.356, 33.693, -3.236 }; // CG2 THR D 400
+	cif::point sb(-6.916, 79.34, 3.236);     // 4_565 copy of b
 
 	REQUIRE_THAT(distance(a, sg(a, c, "1_455"_symop)), Catch::Matchers::WithinRel(static_cast<float>(c.get_a()), 0.01f));
 	REQUIRE_THAT(distance(a, sg(a, c, "1_545"_symop)), Catch::Matchers::WithinRel(static_cast<float>(c.get_b()), 0.01f));
@@ -411,7 +448,7 @@ TEST_CASE("symm_4")
 	REQUIRE_THAT(sb.m_y, Catch::Matchers::WithinRel(sb2.m_y, 0.01f));
 	REQUIRE_THAT(sb.m_z, Catch::Matchers::WithinRel(sb2.m_z, 0.01f));
 
-	REQUIRE_THAT(distance(a, sb2), Catch::Matchers::WithinRel(7.42f, 0.01f));	
+	REQUIRE_THAT(distance(a, sb2), Catch::Matchers::WithinRel(7.42f, 0.01f));
 }
 
 // --------------------------------------------------------------------
@@ -427,7 +464,7 @@ TEST_CASE("symm_4wvp_1")
 
 	cif::crystal c(db);
 
-	cif::point p{ -78.722, 98.528,  11.994 };
+	cif::point p{ -78.722, 98.528, 11.994 };
 	auto a = s.get_residue("A", 10, "").get_atom_by_atom_id("O");
 
 	auto sp1 = c.symmetry_copy(a.get_location(), "2_565"_symop);
@@ -442,7 +479,6 @@ TEST_CASE("symm_4wvp_1")
 	REQUIRE_THAT(sp2.m_x, Catch::Matchers::WithinAbs(p.m_x, 0.5f));
 	REQUIRE_THAT(sp2.m_y, Catch::Matchers::WithinAbs(p.m_y, 0.5f));
 	REQUIRE_THAT(sp2.m_z, Catch::Matchers::WithinAbs(p.m_z, 0.5f));
-
 }
 
 TEST_CASE("symm_2bi3_1")
@@ -455,18 +491,15 @@ TEST_CASE("symm_2bi3_1")
 	cif::crystal c(db);
 
 	auto struct_conn = db["struct_conn"];
-	for (const auto &[
-			asym1, seqid1, authseqid1, atomid1, symm1,
-			asym2, seqid2, authseqid2, atomid2, symm2,
-			dist] : struct_conn.find<
-				std::string,int,std::string,std::string,std::string,
-				std::string,int,std::string,std::string,std::string,
-				float>(
-			cif::key("ptnr1_symmetry") != "1_555" or cif::key("ptnr2_symmetry") != "1_555",
-			"ptnr1_label_asym_id", "ptnr1_label_seq_id", "ptnr1_auth_seq_id", "ptnr1_label_atom_id", "ptnr1_symmetry", 
-			"ptnr2_label_asym_id", "ptnr2_label_seq_id", "ptnr2_auth_seq_id", "ptnr2_label_atom_id", "ptnr2_symmetry", 
-			"pdbx_dist_value"
-		))
+	for (const auto &[asym1, seqid1, authseqid1, atomid1, symm1,
+			 asym2, seqid2, authseqid2, atomid2, symm2,
+			 dist] : struct_conn.find<std::string, int, std::string, std::string, std::string,
+			 std::string, int, std::string, std::string, std::string,
+			 float>(
+			 cif::key("ptnr1_symmetry") != "1_555" or cif::key("ptnr2_symmetry") != "1_555",
+			 "ptnr1_label_asym_id", "ptnr1_label_seq_id", "ptnr1_auth_seq_id", "ptnr1_label_atom_id", "ptnr1_symmetry",
+			 "ptnr2_label_asym_id", "ptnr2_label_seq_id", "ptnr2_auth_seq_id", "ptnr2_label_atom_id", "ptnr2_symmetry",
+			 "pdbx_dist_value"))
 	{
 		auto &r1 = s.get_residue(asym1, seqid1, authseqid1);
 		auto &r2 = s.get_residue(asym2, seqid2, authseqid2);
@@ -504,23 +537,20 @@ TEST_CASE("symm_2bi3_1a")
 	auto struct_conn = db["struct_conn"];
 	auto atom_site = db["atom_site"];
 
-	for (const auto &[
-			asym1, seqid1, authseqid1, atomid1, symm1,
-			asym2, seqid2, authseqid2, atomid2, symm2,
-			dist] : struct_conn.find<
-				std::string,std::optional<int>,std::string,std::string,std::string,
-				std::string,std::optional<int>,std::string,std::string,std::string,
-				float>(
-			cif::key("ptnr1_symmetry") != "1_555" or cif::key("ptnr2_symmetry") != "1_555",
-			"ptnr1_label_asym_id", "ptnr1_label_seq_id", "ptnr1_auth_seq_id", "ptnr1_label_atom_id", "ptnr1_symmetry", 
-			"ptnr2_label_asym_id", "ptnr2_label_seq_id", "ptnr2_auth_seq_id", "ptnr2_label_atom_id", "ptnr2_symmetry", 
-			"pdbx_dist_value"
-		))
+	for (const auto &[asym1, seqid1, authseqid1, atomid1, symm1,
+			 asym2, seqid2, authseqid2, atomid2, symm2,
+			 dist] : struct_conn.find<std::string, std::optional<int>, std::string, std::string, std::string,
+			 std::string, std::optional<int>, std::string, std::string, std::string,
+			 float>(
+			 cif::key("ptnr1_symmetry") != "1_555" or cif::key("ptnr2_symmetry") != "1_555",
+			 "ptnr1_label_asym_id", "ptnr1_label_seq_id", "ptnr1_auth_seq_id", "ptnr1_label_atom_id", "ptnr1_symmetry",
+			 "ptnr2_label_asym_id", "ptnr2_label_seq_id", "ptnr2_auth_seq_id", "ptnr2_label_atom_id", "ptnr2_symmetry",
+			 "pdbx_dist_value"))
 	{
-		cif::point p1 = atom_site.find1<float,float,float>(
+		cif::point p1 = atom_site.find1<float, float, float>(
 			"label_asym_id"_key == asym1 and "label_seq_id"_key == seqid1 and "auth_seq_id"_key == authseqid1 and "label_atom_id"_key == atomid1,
 			"cartn_x", "cartn_y", "cartn_z");
-		cif::point p2 = atom_site.find1<float,float,float>(
+		cif::point p2 = atom_site.find1<float, float, float>(
 			"label_asym_id"_key == asym2 and "label_seq_id"_key == seqid2 and "auth_seq_id"_key == authseqid2 and "label_atom_id"_key == atomid2,
 			"cartn_x", "cartn_y", "cartn_z");
 
@@ -555,8 +585,8 @@ TEST_CASE("symm_3bwh_1")
 		{
 			if (a1 == a2)
 				continue;
-			
-			const auto&[ d, p, so ] = c.closest_symmetry_copy(a1.get_location(), a2.get_location());
+
+			const auto &[d, p, so] = c.closest_symmetry_copy(a1.get_location(), a2.get_location());
 
 			REQUIRE_THAT(d, Catch::Matchers::WithinAbs(distance(a1.get_location(), p), 0.5f));
 		}
@@ -573,4 +603,3 @@ TEST_CASE("volume_3bwh_1")
 
 	REQUIRE_THAT(c.get_cell().get_volume(), Catch::Matchers::WithinRel(741009.625f, 0.01f));
 }
-

@@ -228,7 +228,7 @@ TEST_CASE("dh_q_1")
 
 // --------------------------------------------------------------------
 
-TEST_CASE("m2q_0, *utf::tolerance(0.001f)")
+TEST_CASE("m2q_0")
 {
 	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
 	{
@@ -291,7 +291,7 @@ TEST_CASE("m2q_0, *utf::tolerance(0.001f)")
 	}
 }
 
-// "TEST_CASE(m2q_1, *utf::tolerance(0.001f)")
+// "TEST_CASE(m2q_1")
 // {
 // 	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
 // 	{
@@ -390,7 +390,7 @@ TEST_CASE("symm_3")
 	REQUIRE(sg.get_name() == "P 21 21 2");
 }
 
-TEST_CASE("symm_4, *utf::tolerance(0.1f)")
+TEST_CASE("symm_4")
 {
 	using namespace cif::literals;
 
@@ -416,7 +416,7 @@ TEST_CASE("symm_4, *utf::tolerance(0.1f)")
 
 // --------------------------------------------------------------------
 
-TEST_CASE("symm_4wvp_1, *utf::tolerance(0.1f)")
+TEST_CASE("symm_4wvp_1")
 {
 	using namespace cif::literals;
 
@@ -445,7 +445,7 @@ TEST_CASE("symm_4wvp_1, *utf::tolerance(0.1f)")
 
 }
 
-TEST_CASE("symm_2bi3_1, *utf::tolerance(0.1f)")
+TEST_CASE("symm_2bi3_1")
 {
 	cif::file f(gTestDir / "2bi3.cif.gz");
 
@@ -492,7 +492,7 @@ TEST_CASE("symm_2bi3_1, *utf::tolerance(0.1f)")
 	}
 }
 
-TEST_CASE("symm_2bi3_1a, *utf::tolerance(0.1f)")
+TEST_CASE("symm_2bi3_1a")
 {
 	using namespace cif::literals;
 
@@ -540,7 +540,7 @@ TEST_CASE("symm_2bi3_1a, *utf::tolerance(0.1f)")
 	}
 }
 
-TEST_CASE("symm_3bwh_1, *utf::tolerance(0.1f)")
+TEST_CASE("symm_3bwh_1")
 {
 	cif::file f(gTestDir / "3bwh.cif.gz");
 
@@ -563,7 +563,7 @@ TEST_CASE("symm_3bwh_1, *utf::tolerance(0.1f)")
 	}
 }
 
-TEST_CASE("volume_3bwh_1, *utf::tolerance(0.1f)")
+TEST_CASE("volume_3bwh_1")
 {
 	cif::file f(gTestDir / "1juh.cif.gz");
 

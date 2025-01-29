@@ -237,28 +237,17 @@ if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
 	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
 		INTERFACE_INCLUDE_DIRECTORIES)
 else()
-	if(CMAKE_VERSION GREATER_EQUAL 3.28)
-		FetchContent_Declare(my-eigen3
-			GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-			GIT_TAG 3.4.0
-			EXCLUDE_FROM_ALL
-		)
-		FetchContent_MakeAvailable(my-eigen3)
-
-		get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
-			INTERFACE_INCLUDE_DIRECTORIES)
-	else()
-		# Use ExternalProject since FetchContent always tries to install the result...
-		ExternalProject_Add(my-eigen3
-			GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-			GIT_TAG 3.4.0
-			INSTALL_COMMAND ""
-			CMAKE_ARGS "-DPROJECT_IS_TOP_LEVEL=OFF")
-
-		ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
-		set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
-	endif()
+	# Use ExternalProject since FetchContent always tries to install the result...
+	ExternalProject_Add(my-eigen3
+		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
+		GIT_TAG 3.4.0
+		INSTALL_COMMAND "")
+	
+	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
+	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
+
+message(STATUS "Eigen include dir is ${EIGEN_INCLUDE_DIR}")
 
 # Create a revision file, containing the current git version info
 include(VersionString)

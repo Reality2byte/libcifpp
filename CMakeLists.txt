@@ -231,31 +231,23 @@ endif()
 # Using Eigen3 is a bit of a thing. We don't want to build it completely since
 # we only need a couple of header files. Nothing special. But often, eigen3 is
 # already installed and then we prefer that.
-# find_package(Eigen3 3.4 QUIET)
+find_package(Eigen3 3.4 QUIET)
 
-# if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
-# 	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
-# 		INTERFACE_INCLUDE_DIRECTORIES)
-# else()
-	# Create a private copy of eigen3 and populate it only, no need to build
-	# FetchContent_Declare(
-	# 	my-eigen3
-	# 	GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-	# 	GIT_TAG 3.4.0)
-
-	# FetchContent_MakeAvailable(my-eigen3)
-	# FetchContent_GetProperties(my-eigen3)
-
+if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
+	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
+		INTERFACE_INCLUDE_DIRECTORIES)
+else()
+	# Use ExternalProject since FetchContent always tries to install the result...
 	ExternalProject_Add(my-eigen3
 		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
 		GIT_TAG 3.4.0
 		INSTALL_COMMAND "")
 	
 	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
-	message("Source dir of eigen is ${SOURCE_DIR}")
-
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
-# endif()
+endif()
+
+message(STATUS "Eigen include dir is ${EIGEN_INCLUDE_DIR}")
 
 # Create a revision file, containing the current git version info
 include(VersionString)
@@ -343,7 +335,9 @@ set(project_headers
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
 
-add_dependencies(cifpp my-eigen3)
+if(TARGET my-eigen3)
+	add_dependencies(cifpp my-eigen3)
+endif()
 
 target_sources(cifpp
 	PRIVATE ${project_sources}

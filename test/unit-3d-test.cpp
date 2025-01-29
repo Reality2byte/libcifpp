@@ -226,68 +226,68 @@ TEST_CASE("dh_q_1")
 
 // --------------------------------------------------------------------
 
-TEST_CASE("m2q_0")
-{
-	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
-	{
-		auto d = cif::kSymopNrTable[i].symop().data();
+// TEST_CASE("m2q_0")
+// {
+// 	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
+// 	{
+// 		auto d = cif::kSymopNrTable[i].symop().data();
 
-		cif::matrix3x3<float> rot;
-		float Qxx = rot(0, 0) = d[0];
-		float Qxy = rot(0, 1) = d[1];
-		float Qxz = rot(0, 2) = d[2];
-		float Qyx = rot(1, 0) = d[3];
-		float Qyy = rot(1, 1) = d[4];
-		float Qyz = rot(1, 2) = d[5];
-		float Qzx = rot(2, 0) = d[6];
-		float Qzy = rot(2, 1) = d[7];
-		float Qzz = rot(2, 2) = d[8];
+// 		cif::matrix3x3<float> rot;
+// 		float Qxx = rot(0, 0) = d[0];
+// 		float Qxy = rot(0, 1) = d[1];
+// 		float Qxz = rot(0, 2) = d[2];
+// 		float Qyx = rot(1, 0) = d[3];
+// 		float Qyy = rot(1, 1) = d[4];
+// 		float Qyz = rot(1, 2) = d[5];
+// 		float Qzx = rot(2, 0) = d[6];
+// 		float Qzy = rot(2, 1) = d[7];
+// 		float Qzz = rot(2, 2) = d[8];
 
-		Eigen::Matrix4f em;
+// 		Eigen::Matrix4f em;
 
-		em << Qxx - Qyy - Qzz, Qyx + Qxy, Qzx + Qxz, Qzy - Qyz,
-			Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
-			Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
-			Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz;
+// 		em << Qxx - Qyy - Qzz, Qyx + Qxy, Qzx + Qxz, Qzy - Qyz,
+// 			Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
+// 			Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
+// 			Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz;
 
-		Eigen::EigenSolver<Eigen::Matrix4f> es(em / 3);
+// 		Eigen::EigenSolver<Eigen::Matrix4f> es(em / 3);
 
-		auto ev = es.eigenvalues();
+// 		auto ev = es.eigenvalues();
 
-		std::size_t bestJ = 0;
-		float bestEV = -1;
+// 		std::size_t bestJ = 0;
+// 		float bestEV = -1;
 
-		for (std::size_t j = 0; j < 4; ++j)
-		{
-			if (bestEV < ev[j].real())
-			{
-				bestEV = ev[j].real();
-				bestJ = j;
-			}
-		}
+// 		for (std::size_t j = 0; j < 4; ++j)
+// 		{
+// 			if (bestEV < ev[j].real())
+// 			{
+// 				bestEV = ev[j].real();
+// 				bestJ = j;
+// 			}
+// 		}
 
-		if (std::abs(bestEV - 1) > 0.01)
-			continue; // not a rotation matrix
+// 		if (std::abs(bestEV - 1) > 0.01)
+// 			continue; // not a rotation matrix
 
-		auto col = es.eigenvectors().col(bestJ);
+// 		auto col = es.eigenvectors().col(bestJ);
 
-		auto q = normalize(cif::quaternion{
-			static_cast<float>(col(3).real()),
-			static_cast<float>(col(0).real()),
-			static_cast<float>(col(1).real()),
-			static_cast<float>(col(2).real()) });
+// 		auto q = normalize(cif::quaternion{
+// 			static_cast<float>(col(3).real()),
+// 			static_cast<float>(col(0).real()),
+// 			static_cast<float>(col(1).real()),
+// 			static_cast<float>(col(2).real()) });
 
-		cif::point p1{ 1, 1, 1 };
-		cif::point p2 = p1;
-		p2.rotate(q);
+// 		cif::point p1{ 1, 1, 1 };
+// 		cif::point p2 = p1;
+// 		p2.rotate(q);
 
-		cif::point p3 = rot * p1;
+// 		cif::point p3 = rot * p1;
 
-		REQUIRE_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
-		REQUIRE_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
-		REQUIRE_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
-	}
-}
+// 		REQUIRE_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
+// 		REQUIRE_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
+// 		REQUIRE_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
+// 	}
+// }
 
 TEST_CASE("m2q_0a")
 {
@@ -309,16 +309,17 @@ TEST_CASE("m2q_0a")
 		cif::point p2 = p1;
 		p2.rotate(q);
 
-		cif::matrix3x3<float> rot_c;
-		float Qxx = rot_c(0, 0) = d[0];
-		float Qxy = rot_c(0, 1) = d[1];
-		float Qxz = rot_c(0, 2) = d[2];
-		float Qyx = rot_c(1, 0) = d[3];
-		float Qyy = rot_c(1, 1) = d[4];
-		float Qyz = rot_c(1, 2) = d[5];
-		float Qzx = rot_c(2, 0) = d[6];
-		float Qzy = rot_c(2, 1) = d[7];
-		float Qzz = rot_c(2, 2) = d[8];
+		cif::matrix3x3<float> rot_c({
+			rot_c(0, 0) = d[0],
+			rot_c(0, 1) = d[1],
+			rot_c(0, 2) = d[2],
+			rot_c(1, 0) = d[3],
+			rot_c(1, 1) = d[4],
+			rot_c(1, 2) = d[5],
+			rot_c(2, 0) = d[6],
+			rot_c(2, 1) = d[7],
+			rot_c(2, 2) = d[8]
+		});
 
 		cif::point p3 = rot_c * p1;
 

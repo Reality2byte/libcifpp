@@ -100,10 +100,35 @@ void checkEntities(datablock &db)
 
 	for (auto entity : db["entity"].find("formula_weight"_key == null or "formula_weight"_key == 0))
 	{
-		const auto &[entity_id, type] = entity.get<std::string, std::string>("id", "type");
+		auto &&[entity_id, type] = entity.get<std::string, std::string>("id", "type");
 
 		float formula_weight = 0;
 
+		if (type.empty())	// yes, that happens
+		{
+			const auto comp_id = db["atom_site"].find_first<std::string>("label_entity_id"_key == entity_id, "label_comp_id");
+			auto compound = cf.create(comp_id);
+			if (compound != nullptr)
+			{
+				if (compound->is_base() or compound->is_peptide())
+					type = "polymer";
+				else if (compound->is_water())
+					type = "water";
+				else
+				{
+					if (db["pdbx_entity_branch_link"].exists("entity_id"_key == entity_id))
+						type = "branched";
+					else
+						type = "non-polymer";
+				}
+			}
+
+			if (type.empty())
+				throw std::runtime_error("Entity without type and cannot determine what it should be");
+			
+			entity["type"] = type;
+		}
+		
 		if (type == "polymer")
 		{
 			int n = 0;

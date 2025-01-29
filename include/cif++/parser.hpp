@@ -75,11 +75,9 @@ class sac_parser
 	/** @cond */
 	struct iless_op
 	{
-		bool operator()(std::string a, std::string b) const
+		bool operator()(std::string_view a, std::string_view b) const
 		{
-			to_upper(a);
-			to_upper(b);
-			return a < b;
+			return icompare(a, b) < 0;
 		}
 	};
 

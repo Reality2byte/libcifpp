@@ -69,7 +69,7 @@ bool iequals(const char *a, const char *b)
 {
 	bool result = true;
 	for (; result and *a and *b; ++a, ++b)
-		result = tolower(*a) == tolower(*b);
+		result = kCharToLowerMap[uint8_t(*a)] == kCharToLowerMap[uint8_t(*b)];
 
 	return result and *a == *b;
 }
@@ -80,7 +80,7 @@ int icompare(std::string_view a, std::string_view b)
 	auto ai = a.begin(), bi = b.begin();
 
 	for (; d == 0 and ai != a.end() and bi != b.end(); ++ai, ++bi)
-		d = tolower(*ai) - tolower(*bi);
+		d = (int)kCharToLowerMap[uint8_t(*ai)] - (int)kCharToLowerMap[uint8_t(*bi)];
 
 	if (d == 0)
 	{
@@ -98,7 +98,7 @@ int icompare(const char *a, const char *b)
 	int d = 0;
 
 	for (; d == 0 and *a != 0 and *b != 0; ++a, ++b)
-		d = tolower(*a) - tolower(*b);
+		d = (int)kCharToLowerMap[uint8_t(*a)] - (int)kCharToLowerMap[uint8_t(*b)];
 
 	if (d == 0)
 	{

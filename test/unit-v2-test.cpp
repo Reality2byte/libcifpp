@@ -50,6 +50,23 @@ cif::file operator""_cf(const char *text, std::size_t length)
 
 // --------------------------------------------------------------------
 
+TEST_CASE("text_1")
+{
+	CHECK(cif::iequals("TEST", "test"));
+	CHECK(cif::iequals(std::string_view{"TEST"}, std::string_view{"test"}));
+
+	CHECK(cif::icompare("TEST", "test") == 0);
+	CHECK(cif::icompare(std::string_view{"TEST"}, std::string_view{"test"}) == 0);
+
+	CHECK(cif::icompare("TEST1", "test") > 0);
+	CHECK(cif::icompare(std::string_view{"TEST1"}, std::string_view{"test"}) > 0);
+
+	CHECK(cif::icompare("aap", "noot") < 0);
+	CHECK(cif::icompare(std::string_view{"aap"}, std::string_view{"noot"}) < 0);
+}
+
+// --------------------------------------------------------------------
+
 TEST_CASE("from_chars_1")
 {
 auto f = R"(data_TEST
@@ -70,8 +87,6 @@ _test.v
 	auto r2 = c.back();
 	REQUIRE(r2.get<double>("v") == 616.487);
 	REQUIRE(r2["v"].compare(616.487) == 0);
-
-
 }
 
 // --------------------------------------------------------------------

@@ -176,7 +176,7 @@ class file : public std::list<datablock>
 	 * @brief Attempt to load the named dictionary @a name and
 	 * create a validator based on it.
 	 * 
-	 * Tje @a name can be the name of a single file, or even the
+	 * The @a name can be the name of a single file, or even the
 	 * stem of that filename. So, e.g. mmcif_pdbx is valid.
 	 * 
 	 * Since libcifpp can use extensions to validators, you

@@ -306,8 +306,8 @@ bool is_valid_pdbx_file(const file &file, std::string_view dictionary, std::erro
 
 			if (not seq_can.has_value())
 			{
-				if (cif::VERBOSE > 0)
-					std::clog << "Warning: entity_poly has no sequence for entity_id " << entity_id << '\n';
+				if (cif::VERBOSE > 1)
+					std::clog << "Warning: entity_poly has no canonical sequence for entity_id " << entity_id << '\n';
 			}
 			else
 			{

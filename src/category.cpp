@@ -718,7 +718,7 @@ bool category::is_valid() const
 		auto iv = m_cat_validator->get_validator_for_item(col.m_name);
 		if (iv == nullptr)
 		{
-			m_validator->report_error(validation_error::unknown_item, col.m_name, m_name, false);
+			m_validator->report_error(validation_error::unknown_item, m_name, col.m_name, false);
 			result = false;
 		}
 

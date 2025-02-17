@@ -91,7 +91,7 @@ const validator *datablock::get_validator() const
 bool datablock::is_valid() const
 {
 	if (m_validator == nullptr)
-		throw std::runtime_error("Validator not specified");
+		throw std::runtime_error("Validator not specified for datablock data_" + name());
 
 	bool result = true;
 	for (auto &cat : *this)
@@ -103,7 +103,7 @@ bool datablock::is_valid() const
 bool datablock::is_valid()
 {
 	if (m_validator == nullptr)
-		throw std::runtime_error("Validator not specified");
+		throw std::runtime_error("Validator not specified for datablock data_" + name());
 
 	bool result = true;
 	for (auto &cat : *this)

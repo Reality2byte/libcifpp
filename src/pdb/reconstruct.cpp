@@ -1037,6 +1037,10 @@ void comparePolySeqSchemes(datablock &db)
 	auto &ndb_poly_seq_scheme = db["ndb_poly_seq_scheme"];
 	auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
 
+	// Don't bother if ndb_poly_seq_scheme is empty
+	if (ndb_poly_seq_scheme.empty())
+		return;
+
 	// Since often ndb_poly_seq_scheme only contains an id and mon_id item
 	// we assume that it should match the accompanying pdbx_poly_seq
 

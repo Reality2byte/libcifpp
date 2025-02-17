@@ -53,8 +53,8 @@ TEST_CASE("create_nonpoly_1")
 	cif::VERBOSE = 1;
 
 	cif::file file;
-	file.load_dictionary("mmcif_pdbx.dic");
-	file.emplace("TEST"); // create a datablock
+	auto &&[dbi, ignore] = file.emplace("TEST"); // create a datablock
+	dbi->load_dictionary("mmcif_pdbx.dic");
 
 	cif::mm::structure structure(file);
 
@@ -82,7 +82,7 @@ _atom_site.pdbx_formal_charge
 # that's enough to test with
 )"_cf;
 
-	atoms.load_dictionary("mmcif_pdbx.dic");
+	atoms.front().load_dictionary("mmcif_pdbx.dic");
 
 	auto &hem_data = atoms["HEM"];
 	auto &atom_site = hem_data["atom_site"];
@@ -159,7 +159,7 @@ _struct_asym.details                       ?
 _atom_type.symbol   C
 )"_cf;
 
-	expected.load_dictionary("mmcif_pdbx.dic");
+	expected.front().load_dictionary("mmcif_pdbx.dic");
 
 	if (not(expected.front() == structure.get_datablock()))
 	{
@@ -177,8 +177,8 @@ TEST_CASE("create_nonpoly_2")
 	cif::VERBOSE = 1;
 
 	cif::file file;
-	file.load_dictionary("mmcif_pdbx.dic");
-	file.emplace("TEST"); // create a datablock
+	auto &&[dbi, ignore] = file.emplace("TEST"); // create a datablock
+	dbi->load_dictionary("mmcif_pdbx.dic");
 
 	cif::mm::structure structure(file);
 
@@ -270,7 +270,7 @@ _struct_asym.details                       ?
 _atom_type.symbol   C
 )"_cf;
 
-	expected.load_dictionary("mmcif_pdbx.dic");
+	expected.front().load_dictionary("mmcif_pdbx.dic");
 
 	REQUIRE(expected.front() == structure.get_datablock());
 
@@ -354,7 +354,7 @@ _struct_asym.details                       ?
 #
 )"_cf;
 
-	data.load_dictionary("mmcif_pdbx.dic");
+	data.front().load_dictionary("mmcif_pdbx.dic");
 
 	cif::mm::structure s(data);
 

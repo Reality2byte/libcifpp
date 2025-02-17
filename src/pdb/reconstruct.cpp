@@ -1371,7 +1371,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	db["chem_comp"].reorder_by_index();
 
-	file.load_dictionary(dictionary);
+	db.load_dictionary(dictionary);
 
 	if (db.get("atom_site_anisotrop"))
 		checkAtomAnisotropRecords(db);

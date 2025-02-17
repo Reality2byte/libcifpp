@@ -1,3 +1,7 @@
+Version 8.0.0
+- A dictionary is for a datablock and a file can have
+  datablocks with differing dictionaries.
+
 Version 7.0.10
 - Deal with missing _entity.type in reconstructing mmCIF files
 - Replace code creating quaternions from rotation matrices

@@ -99,6 +99,19 @@ class datablock : public std::list<category>
 	}
 
 	/**
+	 * @brief Attempt to load the dictionary specified in audit_conform category
+	 * 
+	 */
+	void load_dictionary();
+
+	/**
+	 * @brief Load the dictionary named @a dict_name
+	 * 
+	 * @param dict_name 
+	 */
+	void load_dictionary(std::string_view dict_name);
+
+	/**
 	 * @brief Set the validator object to @a v
 	 * 
 	 * @param v The new validator object, may be null

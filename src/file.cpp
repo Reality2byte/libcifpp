@@ -30,40 +30,8 @@
 namespace cif
 {
 
-// --------------------------------------------------------------------
-// TODO: This is wrong. A validator should be assigned to datablocks,
-// not to a file. Since audit_conform is a category specifying the
-// content of a datablock. Not the entire file.
-
-void file::set_validator(const validator *v)
-{
-	m_validator = v;
-	for (bool first = true; auto &db : *this)
-	{
-		try
-		{
-			db.set_validator(v);
-		}
-		catch (const std::exception &e)
-		{
-			if (first)
-				throw;
-
-			// Accept failure on secondary datablocks
-			// now that many mmCIF files have invalid
-			// restraint data concatenated.
-			std::cerr << e.what() << '\n';
-		}
-
-		first = false;
-	}
-}
-
 bool file::is_valid() const
 {
-	if (m_validator == nullptr)
-		std::runtime_error("No validator loaded explicitly, cannot continue");
-
 	bool result = true;
 	for (auto &d : *this)
 		result = d.is_valid() and result;
@@ -76,14 +44,6 @@ bool file::is_valid() const
 
 bool file::is_valid()
 {
-	if (m_validator == nullptr)
-	{
-		if (VERBOSE > 0)
-			std::cerr << "No dictionary loaded explicitly, loading default\n";
-
-		load_dictionary();
-	}
-
 	bool result = not empty();
 
 	for (auto &d : *this)
@@ -97,9 +57,6 @@ bool file::is_valid()
 
 bool file::validate_links() const
 {
-	if (m_validator == nullptr)
-		std::runtime_error("No validator loaded explicitly, cannot continue");
-
 	bool result = true;
 
 	for (auto &db : *this)
@@ -108,41 +65,41 @@ bool file::validate_links() const
 	return result;
 }
 
-void file::load_dictionary()
-{
-	if (not empty())
-	{
-		auto *audit_conform = front().get("audit_conform");
-		if (audit_conform and not audit_conform->empty())
-		{
-			std::string name = audit_conform->front().get<std::string>("dict_name");
+// void file::load_dictionary()
+// {
+// 	if (not empty())
+// 	{
+// 		auto *audit_conform = front().get("audit_conform");
+// 		if (audit_conform and not audit_conform->empty())
+// 		{
+// 			std::string name = audit_conform->front().get<std::string>("dict_name");
 
-			if (name == "mmcif_pdbx_v50")
-				name = "mmcif_pdbx.dic"; // we had a bug here in libcifpp...
+// 			if (name == "mmcif_pdbx_v50")
+// 				name = "mmcif_pdbx.dic"; // we had a bug here in libcifpp...
 
-			if (not name.empty())
-			{
-				try
-				{
-					load_dictionary(name);
-				}
-				catch (const std::exception &ex)
-				{
-					if (VERBOSE)
-						std::cerr << "Failed to load dictionary " << std::quoted(name) << ": " << ex.what() << '\n';
-				}
-			}
-		}
-	}
+// 			if (not name.empty())
+// 			{
+// 				try
+// 				{
+// 					load_dictionary(name);
+// 				}
+// 				catch (const std::exception &ex)
+// 				{
+// 					if (VERBOSE)
+// 						std::cerr << "Failed to load dictionary " << std::quoted(name) << ": " << ex.what() << '\n';
+// 				}
+// 			}
+// 		}
+// 	}
 
-	// if (not m_validator)
-	// 	load_dictionary("mmcif_pdbx.dic");	// TODO: maybe incorrect? Perhaps improve?
-}
+// 	// if (not m_validator)
+// 	// 	load_dictionary("mmcif_pdbx.dic");	// TODO: maybe incorrect? Perhaps improve?
+// }
 
-void file::load_dictionary(std::string_view name)
-{
-	set_validator(&validator_factory::instance()[name]);
-}
+// void file::load_dictionary(std::string_view name)
+// {
+// 	set_validator(&validator_factory::instance()[name]);
+// }
 
 bool file::contains(std::string_view name) const
 {
@@ -187,10 +144,7 @@ std::tuple<file::iterator, bool> file::emplace(std::string_view name)
 	}
 
 	if (is_new)
-	{
 		i = insert(end(), { name });
-		i->set_validator(m_validator);
-	}
 
 	assert(i != end());
 	return std::make_tuple(i, is_new);
@@ -212,18 +166,44 @@ void file::load(const std::filesystem::path &p)
 	}
 }
 
-void file::load(std::istream &is)
+void file::load(const std::filesystem::path &p, std::string_view dict)
 {
-	auto saved = m_validator;
-	set_validator(nullptr);
+	load(p, validator_factory::instance().operator[](dict));
+}
 
+void file::load(std::istream &is, std::string_view dict)
+{
+	load(is, validator_factory::instance().operator[](dict));
+}
+
+void file::load(const std::filesystem::path &p, const validator &v)
+{
+	gzio::ifstream in(p);
+	if (not in.is_open())
+		throw std::runtime_error("Could not open file '" + p.string() + '\'');
+
+	try
+	{
+		load(in, v);
+	}
+	catch (const std::exception &)
+	{
+		throw_with_nested(std::runtime_error("Error reading file '" + p.string() + '\''));
+	}
+}
+
+void file::load(std::istream &is, const validator &v)
+{
 	parser p(is, *this);
 	p.parse_file();
+	for (auto &db : *this)
+		db.set_validator(&v);
+}
 
-	if (saved != nullptr)
-		set_validator(saved);
-	else
-		load_dictionary();
+void file::load(std::istream &is)
+{
+	parser p(is, *this);
+	p.parse_file();
 }
 
 void file::save(const std::filesystem::path &p) const

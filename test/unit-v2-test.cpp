@@ -774,7 +774,6 @@ save__cat_2.desc
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -805,7 +804,7 @@ _cat_2.desc
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	SECTION("one")
 	{
@@ -927,7 +926,6 @@ save__cat_1.c
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -950,7 +948,7 @@ mies Mies
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 
@@ -1089,7 +1087,6 @@ save__cat_2.desc
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -1123,7 +1120,7 @@ _cat_2.desc
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -1292,7 +1289,6 @@ save__cat_2.parent_id3
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -1336,7 +1332,7 @@ _cat_2.parent_id3
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -1513,7 +1509,6 @@ cat_2 3 cat_2:cat_1:3
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -1550,7 +1545,7 @@ _cat_2.parent_id3
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -1753,7 +1748,6 @@ cat_2 1 cat_2:cat_1:1
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -1790,7 +1784,7 @@ _cat_2.parent_id_2
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	// auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -2149,7 +2143,6 @@ cat_2 1 '_cat_2.num'  '_cat_3.num'  cat_3
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -2191,7 +2184,7 @@ _cat_3.num
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -2434,7 +2427,6 @@ cat_2 1 '_cat_2.num'  '_cat_3.num'  cat_3
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -2476,7 +2468,7 @@ _cat_3.num
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -3031,7 +3023,6 @@ save__cat_1.name
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -3054,7 +3045,7 @@ _cat_1.name
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	REQUIRE(f.is_valid());
 
@@ -3226,7 +3217,6 @@ save__cat_1.name
 	auto &validator = cif::validator_factory::instance().construct_validator("test_dict.dic", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -3253,7 +3243,7 @@ _cat_1.name
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	REQUIRE(f.is_valid());
 
@@ -3333,7 +3323,6 @@ save__cat_1.id_2
 	auto validator = cif::parse_dictionary("test", is_dict);
 
 	cif::file f;
-	f.set_validator(&validator);
 
 	// --------------------------------------------------------------------
 
@@ -3358,7 +3347,7 @@ _cat_1.id_2
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data);
+	f.load(is_data, validator);
 
 	auto &cat1 = f.front()["cat_1"];
 

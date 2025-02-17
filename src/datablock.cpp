@@ -38,6 +38,35 @@ datablock::datablock(const datablock &db)
 		cat.update_links(*this);
 }
 
+void datablock::load_dictionary()
+{
+	if (auto *audit_conform = get("audit_conform"); audit_conform and not audit_conform->empty())
+	{
+		std::string name = audit_conform->front().get<std::string>("dict_name");
+
+		if (name == "mmcif_pdbx_v50")
+			name = "mmcif_pdbx.dic"; // we had a bug here in libcifpp...
+
+		if (not name.empty())
+		{
+			try
+			{
+				load_dictionary(name);
+			}
+			catch (const std::exception &ex)
+			{
+				if (VERBOSE)
+					std::cerr << "Failed to load dictionary " << std::quoted(name) << ": " << ex.what() << '\n';
+			}
+		}
+	}
+}
+
+void datablock::load_dictionary(std::string_view name)
+{
+	set_validator(&validator_factory::instance()[name]);
+}
+
 void datablock::set_validator(const validator *v)
 {
 	m_validator = v;

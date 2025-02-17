@@ -3245,17 +3245,19 @@ _cat_1.name
 	std::istream is_data(&data_buffer);
 	f.load(is_data, validator);
 
-	REQUIRE(f.is_valid());
+	CHECK(f.is_valid());
 
 	std::stringstream ss;
 	ss << f;
 
 	cif::file f2(ss);
-	REQUIRE(f2.is_valid());
+	REQUIRE(f2.empty() == false);
+	f2.front().load_dictionary();
+	CHECK(f2.is_valid());
 
 	auto &audit_conform = f2.front()["audit_conform"];
-	REQUIRE(audit_conform.front()["dict_name"].as<std::string>() == "test_dict.dic");
-	REQUIRE(audit_conform.front()["dict_version"].as<float>() == 1.0);
+	CHECK(audit_conform.front()["dict_name"].as<std::string>() == "test_dict.dic");
+	CHECK(audit_conform.front()["dict_version"].as<float>() == 1.0);
 }
 
 // --------------------------------------------------------------------

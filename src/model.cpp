@@ -1306,6 +1306,9 @@ structure::structure(datablock &db, std::size_t modelNr, StructureOpenOptions op
 	: m_db(db)
 	, m_model_nr(modelNr)
 {
+	if (db.get_validator() == nullptr)
+		db.load_dictionary();
+
 	auto &atomCat = db["atom_site"];
 
 	load_atoms_for_model(options);

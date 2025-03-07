@@ -877,11 +877,10 @@ enum OccupancyPolicy {
 struct StructureOpenOptions
 {
 public:
-	//TODO Update documentation
-	//! \brief By default, all chains are loaded for all files
-	//! For each file, one can select a different subset of chains, which will be the same for all possible models extracted from the file.
-	//! If no chain is provided for a given file, then all chains are loaded.
-	//! The hypothesis is that if the user doesn't want to load any chain, it's better not to add the file at all.
+	//! \brief By default, all chains are loaded
+	//! One can select a different subset of chains, which will be the same for all possible models.
+	//! If no chain is provided, then all chains are loaded.
+	//! The hypothesis is that if the user doesn't want to load any chain, it's better not to read the file at all.
 	void set_loaded_chains(std::vector<std::string> value) { loaded_chains = value; }
 
 	/**
@@ -896,7 +895,6 @@ public:
 
    /**
 	* \brief By default, the water molecules are skipped (not loaded and neither are associated atoms).
-	* TODO Finish documentation
 	*/
 	void set_skip_water(bool value) { skip_water = value; }
 

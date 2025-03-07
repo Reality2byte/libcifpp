@@ -853,19 +853,86 @@ class branch : public std::vector<sugar>
 	std::string m_asym_id, m_entity_id;
 };
 
-// --------------------------------------------------------------------
+/** @brief Enumeration for controlling atom selection based on occupancy. */
+enum OccupancyPolicy {
+	/** @brief Include all atoms regardless of their occupancy factor. */
+	ALL = 1,
 
-/// \brief A still very limited set of options for reading structures
-enum class StructureOpenOptions
-{
-	SkipHydrogen = 1 << 0 ///< Do not include hydrogen atoms in the structure object
+    /** @brief Exclude all atoms with an occupancy factor greater than zero. */
+    NONE = 2,
+
+    /** @brief Select only alternate atoms with the maximum occupancy factor. 
+     * If multiple atoms have the same maximum occupancy, choose the one with the minimum B-factor. 
+     * If multiple atoms share both the maximum occupancy and the minimum B-factor, select the first encountered atom.
+     */
+    MAX = 3,
+
+    /** @brief Select only alternate atoms with the minimum occupancy factor. 
+     * Similar to MAX, if multiple atoms have the same minimum occupancy, choose the one with the minimum B-factor. 
+     * If multiple atoms share both the minimum occupancy and the minimum B-factor, select the first encountered atom.
+     */
+    MIN = 4
 };
 
-/// \brief A way to combine two options. Not very useful as there is only one...
-constexpr inline bool operator&(StructureOpenOptions a, StructureOpenOptions b)
+struct StructureOpenOptions
 {
-	return static_cast<int>(a) bitand static_cast<int>(b);
-}
+public:
+	//TODO Update documentation
+	//! \brief By default, all chains are loaded for all files
+	//! For each file, one can select a different subset of chains, which will be the same for all possible models extracted from the file.
+	//! If no chain is provided for a given file, then all chains are loaded.
+	//! The hypothesis is that if the user doesn't want to load any chain, it's better not to add the file at all.
+	void set_loaded_chains(std::vector<std::string> value) { loaded_chains = value; }
+
+	/**
+	 * \brief By default, hydrogen atoms are skipped (not loaded).
+	 */
+	void set_skip_hydrogen(bool value) { skip_hydrogen = value; }
+
+	/**
+	 * \brief By default, hetero atoms are not loaded. These are filtered.
+	 */
+	void set_skip_hetatom(bool value) { skip_hetatom = value; }
+
+   /**
+	* \brief By default, the water molecules are skipped (not loaded and neither are associated atoms).
+	* TODO Finish documentation
+	*/
+	void set_skip_water(bool value) { skip_water = value; }
+
+   /**
+	* \brief By default, the occupancy policy is set to OccupancyPolicy::MAX.
+	*/
+	void set_occupancy_mode(OccupancyPolicy value) { occupancy_mode = value; }
+
+	/**
+	 * \brief By default, the alternate atom is chosen according to the occupancy policy. If specified, the alternate atom with alternate_selected charater will be selected.
+	 */
+	void set_loaded_alternate_selected(char value) { loaded_alternate_selected = value; }
+
+   /**
+	* \brief By default, there is no limit to the b_factor (double numeric limit). Hence, by default, no atom is filtered according to this property.
+	*/
+	void set_b_factor_limit(double value) { b_factor_limit = value; }
+
+	const std::vector<std::string>& get_loaded_chains() const { return loaded_chains; }
+	bool get_skip_hydrogen() const { return skip_hydrogen; }
+	bool get_skip_water() const { return skip_water; }
+	bool get_skip_hetatoms() const { return skip_hetatom; }
+    
+	unsigned get_occupancy_mode() const { return occupancy_mode; }
+	char get_loaded_alternate_selected() const { return loaded_alternate_selected; }
+	double get_b_factor_limit() const { return b_factor_limit; }
+
+private:
+	bool skip_hydrogen = true;
+	bool skip_water = true;
+	bool skip_hetatom = true;
+	std::vector<std::string> loaded_chains = {};
+	OccupancyPolicy occupancy_mode = OccupancyPolicy::MAX;
+	char loaded_alternate_selected = ' ';
+	double b_factor_limit = std::numeric_limits<double>::max(); // No limit by default
+};
 
 // --------------------------------------------------------------------
 

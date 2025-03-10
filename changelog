@@ -1,3 +1,6 @@
+Version 7.0.10
+- Fix reconstruction to build pdbx_nonpoly_scheme
+
 Version 7.0.9
 - Using cif::file::load_dictionary it is now possible to
   load a dictionary along with its extensions in one go.

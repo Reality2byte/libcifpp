@@ -1125,7 +1125,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	auto &validator =
 		db.get("audit_conform") != nullptr
-			? validator_factory::instance().construct_validator(*db.get("audit_conform"))
+			? validator_factory::instance().create(*db.get("audit_conform"))
 			: validator_factory::instance()[dictionary];
 
 	std::string entry_id;

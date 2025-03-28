@@ -3214,7 +3214,7 @@ save__cat_1.name
 
 	std::istream is_dict(&buffer);
 
-	auto &validator = cif::validator_factory::instance().construct_validator("test_dict.dic", is_dict);
+	auto &validator = cif::validator_factory::instance().create("test_dict.dic", is_dict);
 
 	cif::file f;
 

@@ -41,7 +41,7 @@ datablock::datablock(const datablock &db)
 void datablock::load_dictionary()
 {
 	if (auto *audit_conform = get("audit_conform"); audit_conform and not audit_conform->empty())
-		set_validator(&validator_factory::instance().construct_validator(*audit_conform));
+		set_validator(&validator_factory::instance().create(*audit_conform));
 }
 
 void datablock::load_dictionary(std::string_view name)
@@ -97,17 +97,11 @@ bool datablock::is_valid()
 		// If the dictionary declares an audit_conform category, put it in,
 		// but only if it does not exist already!
 
-		if (m_validator->get_validator_for_category("audit_conform") != nullptr)
+		if (auto audit_conform = get("audit_conform");
+			audit_conform == nullptr and m_validator->get_validator_for_category("audit_conform") != nullptr)
 		{
-			auto &audit_conform = operator[]("audit_conform");
-
-			audit_conform.clear();
-			audit_conform.emplace({
-				// clang-format off
-				{ "dict_name", m_validator->name() },
-				{ "dict_version", m_validator->version() }
-				// clang-format on
-			});
+			audit_conform->clear();
+			m_validator->fill_audit_conform(*audit_conform);
 		}
 	}
 	else

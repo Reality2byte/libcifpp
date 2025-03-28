@@ -1123,7 +1123,10 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
 		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
 
-	auto &validator = validator_factory::instance()[dictionary];
+	auto &validator =
+		db.get("audit_conform") != nullptr
+			? validator_factory::instance().construct_validator(*db.get("audit_conform"))
+			: validator_factory::instance()[dictionary];
 
 	std::string entry_id;
 
@@ -1375,7 +1378,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	db["chem_comp"].reorder_by_index();
 
-	db.load_dictionary(dictionary);
+	db.set_validator(&validator);
 
 	if (db.get("atom_site_anisotrop"))
 		checkAtomAnisotropRecords(db);

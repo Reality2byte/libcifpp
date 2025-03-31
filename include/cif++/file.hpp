@@ -210,12 +210,6 @@ class file : public std::list<datablock>
 	/** Load the data from @a is using validator @a v */
 	void load(std::istream &is, const validator &v);
 
-	/** Load the data from the file specified by @a p using a validator constructed from dictionary @a dict */
-	void load(const std::filesystem::path &p, std::string_view dict);
-
-	/** Load the data from @a is using a validator constructed from dictionary @a dict */
-	void load(std::istream &is, std::string_view dict);
-
 	/** Save the data to the file specified by @a p */
 	void save(const std::filesystem::path &p) const;
 

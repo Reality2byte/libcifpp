@@ -6376,11 +6376,20 @@ void read_pdb_file(std::istream &pdbFile, cif::file &cifFile)
 
 	p.Parse(pdbFile, cifFile);
 
-	if (not cifFile.empty() and cifFile.front().get_validator() == nullptr)
-		cifFile.front().load_dictionary("mmcif_pdbx.dic");
+	if (cifFile.empty())
+	{
+		if (VERBOSE >= 0)
+			std::cerr << "PDB is empty!\n";
+	}
+	else
+	{
+		cifFile.front().load_dictionary();
+		if (cifFile.front().get_validator() == nullptr)
+			cifFile.front().set_validator(&validator_factory::instance().get("mmcif_pdbx.dic"));
 
-	if (not cifFile.is_valid() and cif::VERBOSE >= 0)
-		std::cerr << "Resulting mmCIF file is not valid!\n";
+		if (not cifFile.is_valid() and cif::VERBOSE >= 0)
+			std::cerr << "Resulting mmCIF file is not valid!\n";
+	}
 }
 
 // --------------------------------------------------------------------
@@ -6424,7 +6433,7 @@ file read(std::istream &is)
 
 	// Must be a PDB like file, right?
 	if (not result.empty() and result.front().get_validator() == nullptr)
-		result.front().load_dictionary("mmcif_pdbx.dic");
+		result.front().set_validator(&validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	return result;
 }

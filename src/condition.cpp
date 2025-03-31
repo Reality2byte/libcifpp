@@ -26,6 +26,7 @@
 
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
+#include "cif++/validate.hpp"
 
 namespace cif
 {

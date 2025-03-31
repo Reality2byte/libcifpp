@@ -28,6 +28,7 @@
 #include "cif++/datablock.hpp"
 #include "cif++/parser.hpp"
 #include "cif++/utilities.hpp"
+#include "cif++/validate.hpp"
 
 #include <numeric>
 #include <stack>
@@ -541,6 +542,49 @@ category::~category()
 }
 
 // --------------------------------------------------------------------
+
+uint16_t category::get_item_ix(std::string_view item_name) const
+{
+	uint16_t result;
+
+	for (result = 0; result < m_items.size(); ++result)
+	{
+		if (iequals(item_name, m_items[result].m_name))
+			break;
+	}
+
+	if (VERBOSE > 0 and result == m_items.size() and m_cat_validator != nullptr) // validate the name, if it is known at all (since it was not found)
+	{
+		auto iv = m_cat_validator->get_validator_for_item(item_name);
+		if (iv == nullptr)
+			std::cerr << "Invalid name used '" << item_name << "' is not a known item in " + m_name << '\n';
+	}
+
+	return result;
+}
+
+uint16_t category::add_item(std::string_view item_name)
+{
+	using namespace std::literals;
+
+	uint16_t result = get_item_ix(item_name);
+
+	if (result == m_items.size())
+	{
+		const item_validator *item_validator = nullptr;
+
+		if (m_cat_validator != nullptr)
+		{
+			item_validator = m_cat_validator->get_validator_for_item(item_name);
+			if (item_validator == nullptr)
+				m_validator->report_error(validation_error::item_not_allowed_in_category, m_name, item_name, false);
+		}
+
+		m_items.emplace_back(item_name, item_validator);
+	}
+
+	return result;
+}
 
 void category::remove_item(std::string_view item_name)
 {

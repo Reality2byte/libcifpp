@@ -25,6 +25,7 @@
  */
 
 #include "cif++/datablock.hpp"
+#include "cif++/validate.hpp"
 
 namespace cif
 {
@@ -41,12 +42,7 @@ datablock::datablock(const datablock &db)
 void datablock::load_dictionary()
 {
 	if (auto *audit_conform = get("audit_conform"); audit_conform and not audit_conform->empty())
-		set_validator(&validator_factory::instance().create(*audit_conform));
-}
-
-void datablock::load_dictionary(std::string_view name)
-{
-	set_validator(&validator_factory::instance()[name]);
+		set_validator(&validator_factory::instance().get(*audit_conform));
 }
 
 void datablock::set_validator(const validator *v)
@@ -98,7 +94,7 @@ bool datablock::is_valid()
 		// but only if it does not exist already!
 
 		if (auto audit_conform = get("audit_conform");
-			audit_conform == nullptr and m_validator->get_validator_for_category("audit_conform") != nullptr)
+			audit_conform != nullptr and m_validator->get_validator_for_category("audit_conform") != nullptr)
 		{
 			audit_conform->clear();
 			m_validator->fill_audit_conform(*audit_conform);

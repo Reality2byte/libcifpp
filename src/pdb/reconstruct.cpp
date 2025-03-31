@@ -1109,7 +1109,20 @@ void comparePolySeqSchemes(datablock &db)
 	}
 }
 
-bool reconstruct_pdbx(file &file, std::string_view dictionary)
+bool reconstruct_pdbx(file &file)
+{
+	if (file.empty())
+		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
+
+	auto &db = file.front();
+
+	if (auto ac = db.get("audit_conform"); ac != nullptr)
+		return reconstruct_pdbx(file, validator_factory::instance().get(*ac));
+	else
+		return reconstruct_pdbx(file, validator_factory::instance().get("mmcif_pdbx.dic"));
+}
+
+bool reconstruct_pdbx(file &file, const validator &validator)
 {
 	if (file.empty())
 		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
@@ -1122,11 +1135,6 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
 		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
-
-	auto &validator =
-		db.get("audit_conform") != nullptr
-			? validator_factory::instance().create(*db.get("audit_conform"))
-			: validator_factory::instance()[dictionary];
 
 	std::string entry_id;
 
@@ -1405,7 +1413,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 	for (auto &cat : db)
 		valid = valid and (cat.get_cat_validator() == nullptr or cat.is_valid());
 
-	return valid and is_valid_pdbx_file(file, dictionary);
+	return valid and is_valid_pdbx_file(file, validator);
 }
 
 } // namespace cif::pdb

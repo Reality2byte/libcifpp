@@ -65,42 +65,6 @@ bool file::validate_links() const
 	return result;
 }
 
-// void file::load_dictionary()
-// {
-// 	if (not empty())
-// 	{
-// 		auto *audit_conform = front().get("audit_conform");
-// 		if (audit_conform and not audit_conform->empty())
-// 		{
-// 			std::string name = audit_conform->front().get<std::string>("dict_name");
-
-// 			if (name == "mmcif_pdbx_v50")
-// 				name = "mmcif_pdbx.dic"; // we had a bug here in libcifpp...
-
-// 			if (not name.empty())
-// 			{
-// 				try
-// 				{
-// 					load_dictionary(name);
-// 				}
-// 				catch (const std::exception &ex)
-// 				{
-// 					if (VERBOSE)
-// 						std::cerr << "Failed to load dictionary " << std::quoted(name) << ": " << ex.what() << '\n';
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	// if (not m_validator)
-// 	// 	load_dictionary("mmcif_pdbx.dic");	// TODO: maybe incorrect? Perhaps improve?
-// }
-
-// void file::load_dictionary(std::string_view name)
-// {
-// 	set_validator(&validator_factory::instance()[name]);
-// }
-
 bool file::contains(std::string_view name) const
 {
 	return std::find_if(begin(), end(), [name](const datablock &db)
@@ -164,16 +128,6 @@ void file::load(const std::filesystem::path &p)
 	{
 		throw_with_nested(std::runtime_error("Error reading file '" + p.string() + '\''));
 	}
-}
-
-void file::load(const std::filesystem::path &p, std::string_view dict)
-{
-	load(p, validator_factory::instance().operator[](dict));
-}
-
-void file::load(std::istream &is, std::string_view dict)
-{
-	load(is, validator_factory::instance().operator[](dict));
 }
 
 void file::load(const std::filesystem::path &p, const validator &v)

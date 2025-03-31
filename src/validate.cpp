@@ -110,9 +110,15 @@ type_validator::type_validator(std::string_view name, DDL_PrimitiveType type, st
 {
 }
 
+type_validator::type_validator(const type_validator &tv)
+	: m_name(tv.m_name)
+	, m_primitive_type(tv.m_primitive_type)
+	, m_rx(tv.m_rx)
+{
+}
+
 type_validator::~type_validator()
 {
-	delete m_rx;
 }
 
 int type_validator::compare(std::string_view a, std::string_view b) const
@@ -243,7 +249,7 @@ void category_validator::add_item_validator(item_validator &&v)
 	if (v.m_mandatory)
 		m_mandatory_items.insert(v.m_item_name);
 
-	v.m_category = this;
+	v.m_category = m_name;
 
 	auto r = m_item_validators.insert(std::move(v));
 	if (not r.second and VERBOSE >= 4)
@@ -286,25 +292,26 @@ const item_validator *category_validator::get_validator_for_aliased_item(std::st
 // --------------------------------------------------------------------
 
 validator::validator(const validator &rhs)
-	: m_name(rhs.m_name)
-	, m_version(rhs.m_version)
+	: m_audit_conform(rhs.m_audit_conform)
 	, m_strict(rhs.m_strict)
 	, m_type_validators(rhs.m_type_validators)
 	, m_category_validators(rhs.m_category_validators)
 	, m_link_validators(rhs.m_link_validators)
-	, m_base(rhs.m_base)
 {
 }
 
 void swap(validator &a, validator &b) noexcept
 {
-	std::swap(a.m_name, b.m_name);
-	std::swap(a.m_version, b.m_version);
+	std::swap(a.m_audit_conform, b.m_audit_conform);
 	std::swap(a.m_strict, b.m_strict);
 	std::swap(a.m_type_validators, b.m_type_validators);
 	std::swap(a.m_category_validators, b.m_category_validators);
 	std::swap(a.m_link_validators, b.m_link_validators);
-	std::swap(a.m_base, b.m_base);
+}
+
+void validator::parse(std::istream &is)
+{
+	parse_dictionary(*this, is);
 }
 
 void validator::add_type_validator(type_validator &&v)
@@ -441,15 +448,8 @@ void validator::report_error(std::error_code ec, std::string_view category,
 
 void validator::fill_audit_conform(category &audit_conform) const
 {
-	if (m_base)
-		m_base->fill_audit_conform(audit_conform);
-	
-	audit_conform.emplace({
-		// clang-format off
-		{ "dict_name", m_name },
-		{ "dict_version", m_version }
-		// clang-format on
-	});
+	audit_conform.clear();
+	audit_conform.emplace(m_audit_conform.begin(), m_audit_conform.end());
 }
 
 bool validator::matches_audit_conform(const category &audit_conform) const
@@ -457,29 +457,35 @@ bool validator::matches_audit_conform(const category &audit_conform) const
 	if (audit_conform.empty())
 		return false;
 
-	std::stack<const validator *> s;
-	for (auto v = this; v != nullptr; v = v->m_base)
-		s.push(v);
-	
-	for (const auto &[name, version] : audit_conform.rows<std::string, std::optional<std::string>>("dict_name", "dict_version"))
-	{
-		if (s.empty())
-			return false;
-		
-		auto v = s.top();
-		s.pop();
+	auto ai = m_audit_conform.begin();
+	auto bi = audit_conform.begin();
 
-		if (v->name() != name)
+	while (ai != m_audit_conform.end() and bi != audit_conform.end())
+	{
+		const auto &[name_a, version_a] = ai->get<std::string, std::optional<std::string>>("dict_name", "dict_version");
+		const auto &[name_b, version_b] = bi->get<std::string, std::optional<std::string>>("dict_name", "dict_version");
+
+		++ai;
+		++bi;
+
+		if (name_a != name_b)
 			return false;
-		
-		if (not version.has_value())
+
+		if (not version_b.has_value() or not version_a.has_value())
 			continue;
-		
-		if (validator_factory::check_version(name, *version, v->version()) == false)
+
+		if (validator_factory::check_version(name_a, *version_b, *version_a) == false)
 			return false;
 	}
-	
-	return s.empty();
+
+	return ai == m_audit_conform.end() and bi == audit_conform.end();
+}
+
+void validator::append_audit_conform(const std::string &name, const std::optional<std::string> &version)
+{
+	m_audit_conform.emplace({ //
+		{ "dict_name", name },
+		{ "dict_version", version } });
 }
 
 // --------------------------------------------------------------------
@@ -490,16 +496,16 @@ validator_factory &validator_factory::instance()
 	return s_instance;
 }
 
-const validator &validator_factory::operator[](std::string_view dictionary_name)
+const validator &validator_factory::get(std::string_view dictionary_name)
 {
 	category audit_conform("audit_conform");
 	for (auto part : cif::split(dictionary_name, ";", true))
 		audit_conform.emplace({ { "dict_name", part } });
 
-	return create(audit_conform);
+	return get(audit_conform);
 }
 
-const validator &validator_factory::create(const category &audit_conform)
+const validator &validator_factory::get(const category &audit_conform)
 {
 	if (audit_conform.empty())
 		throw std::runtime_error("Empty audit_conform category, cannot create a validator");
@@ -520,29 +526,27 @@ const validator &validator_factory::create(const category &audit_conform)
 		return m_validators.emplace_back(construct_validator(name, version));
 	}
 
-	// // A new, merged dictionary
+	// A new, merged dictionary
 
-	// for (const auto &[name, version] : audit_conform.rows<std::string, std::optional<std::string>>("dict_name", "dict_version"))
-	// {
+	std::optional<validator> v;
+	for (const auto &[name, version] : audit_conform.rows<std::string, std::optional<std::string>>("dict_name", "dict_version"))
+	{
+		if (not v)
+			v = construct_validator(name, version);
+		else
+		{
+			auto data = load_resource(name);
+			if (not data)
+				throw std::runtime_error("Could not load dictionary " + std::string{ name });
 
+			v->parse(*data);
+		}
+	}
 
-	// 	auto &v = construct_validator(name, version);
-	// 	validators.emplace_back(&v);
-	// }
+	if (not v)
+		throw std::runtime_error("Missing dictionary information?");
 
-	// if (validators.size() == 1)
-	// 	return *validators.front();
-
-	// // override mode, last dictionary is most important
-	// std::reverse(validators.begin(), validators.end());
-
-	// for (auto &ev : m_validators)
-	// {
-	// 	if (ev.m_merged == validators)
-	// 		return ev;
-	// }
-
-	// return m_validators.emplace_back(validators);
+	return m_validators.emplace_back(std::move(*v));
 }
 
 validator validator_factory::construct_validator(std::string_view name, std::optional<std::string> version)
@@ -551,16 +555,14 @@ validator validator_factory::construct_validator(std::string_view name, std::opt
 	if (not data)
 		throw std::runtime_error("Could not load dictionary " + std::string{ name });
 
-	auto v = parse_dictionary(name, *data);
+	validator v;
+	v.parse(*data);
 
-	if (version.has_value() and VERBOSE >= 0)
+	if (version.has_value() and VERBOSE >= 0 and
+		not v.matches_audit_conform(category{ "audit_conform", //
+			{ { "dict_name", name }, { "dict_version", version } } }))
 	{
-		auto vv = v.version();
-
-		if (vv.empty())
-			std::clog << "Could not check version of dictionary " << name << " since this info is missing\n";
-		else
-			check_version(name, *version, vv);
+		std::clog << "Invalid dictionary?\n";
 	}
 
 	return v;

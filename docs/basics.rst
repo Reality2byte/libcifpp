@@ -217,7 +217,7 @@ A simple case:
     #include <cif++.hpp>
 
     cif::file f("1cbs.cif.gz");
-    f.load_dictionary("mmcif_pdbx");
+    f.load_dictionary("mmcif_pdbx.dic");
 
     if (not f.is_valid())
         std::cout << "This file is not valid\n";

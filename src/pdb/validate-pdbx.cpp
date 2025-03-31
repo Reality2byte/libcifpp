@@ -67,10 +67,10 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 	return result;
 }
 
-bool is_valid_pdbx_file(const file &file, std::string_view dictionary)
+bool is_valid_pdbx_file(const file &file, const validator &v)
 {
 	std::error_code ec;
-	bool result = is_valid_pdbx_file(file, dictionary, ec);
+	bool result = is_valid_pdbx_file(file, v, ec);
 	return result and not (bool)ec;
 }
 
@@ -80,33 +80,15 @@ bool is_valid_pdbx_file(const file &file, std::error_code &ec)
 
 	if (file.empty())
 		ec = make_error_code(validation_error::empty_file);
+	else if (auto ac = file.front().get("audit_conform"); ac != nullptr)
+		result = is_valid_pdbx_file(file, validator_factory::instance().get(*ac), ec);
 	else
-	{
-		std::string dictionary = "mmcif_pdbx";
-
-		for (auto &db : file)
-		{
-			auto audit_conform = db.get("audit_conform");
-			if (audit_conform == nullptr)
-				continue;
-			
-			if (not audit_conform->empty())
-			{
-				auto specified_dict = audit_conform->front()["dict_name"];
-				if (not specified_dict.empty())
-					dictionary = specified_dict.as<std::string>();
-			}
-
-			break;
-		}
-
-		result = is_valid_pdbx_file(file, dictionary, ec);
-	}
+		result = is_valid_pdbx_file(file, validator_factory::instance().get("mmcif_pdbx.dic"), ec);
 	
 	return result;
 }
 
-bool is_valid_pdbx_file(const file &file, std::string_view dictionary, std::error_code &ec)
+bool is_valid_pdbx_file(const file &file, const validator &validator, std::error_code &ec)
 {
 	using namespace cif::literals;
 
@@ -115,7 +97,6 @@ bool is_valid_pdbx_file(const file &file, std::string_view dictionary, std::erro
 	try
 	{
 		auto &cf = cif::compound_factory::instance();
-		auto &validator = cif::validator_factory::instance().operator[](dictionary);
 
 		if (file.empty())
 			throw std::runtime_error("Empty file");

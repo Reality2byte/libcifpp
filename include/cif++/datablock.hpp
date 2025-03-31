@@ -29,6 +29,8 @@
 #include "cif++/category.hpp"
 #include "cif++/forward_decl.hpp"
 
+#include <list>
+
 /** \file datablock.hpp
  * Each valid mmCIF file contains at least one @ref cif::datablock.
  * A datablock has a name and can contain one or more @ref cif::category "categories"
@@ -103,13 +105,6 @@ class datablock : public std::list<category>
 	 * 
 	 */
 	void load_dictionary();
-
-	/**
-	 * @brief Load the dictionary named @a dict_name
-	 * 
-	 * @param dict_name 
-	 */
-	void load_dictionary(std::string_view dict_name);
 
 	/**
 	 * @brief Set the validator object to @a v

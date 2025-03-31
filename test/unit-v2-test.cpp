@@ -28,8 +28,6 @@
 
 #include <cif++.hpp>
 
-#include "cif++/dictionary_parser.hpp"
-
 #include <stdexcept>
 
 // --------------------------------------------------------------------
@@ -771,7 +769,7 @@ save__cat_2.desc
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -923,7 +921,7 @@ save__cat_1.c
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -1084,7 +1082,7 @@ save__cat_2.desc
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -1286,7 +1284,7 @@ save__cat_2.parent_id3
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -1506,7 +1504,7 @@ cat_2 3 cat_2:cat_1:3
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -1745,7 +1743,7 @@ cat_2 1 cat_2:cat_1:1
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -2140,7 +2138,7 @@ cat_2 1 '_cat_2.num'  '_cat_3.num'  cat_3
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -2424,7 +2422,7 @@ cat_2 1 '_cat_2.num'  '_cat_3.num'  cat_3
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -3020,7 +3018,7 @@ save__cat_1.name
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 
@@ -3214,7 +3212,7 @@ save__cat_1.name
 
 	std::istream is_dict(&buffer);
 
-	auto &validator = cif::validator_factory::instance().create("test_dict.dic", is_dict);
+	auto &validator = cif::validator_factory::instance().add(cif::validator(is_dict));
 
 	cif::file f;
 
@@ -3322,7 +3320,7 @@ save__cat_1.id_2
 
 	std::istream is_dict(&buffer);
 
-	auto validator = cif::parse_dictionary("test", is_dict);
+	cif::validator validator(is_dict);
 
 	cif::file f;
 

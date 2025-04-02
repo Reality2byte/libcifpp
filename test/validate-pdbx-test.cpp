@@ -167,7 +167,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 
 		REQUIRE(n == 1);
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Delete an entity_poly_seq record")
@@ -177,7 +177,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 
 		REQUIRE(n == 1);
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Delete an entity_poly record")
@@ -187,7 +187,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 
 		REQUIRE(n == 1);
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Mutate an atom_site record")
@@ -199,7 +199,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 			{ "auth_comp_id", "ALA" }
 		});
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Hetero consistency")
@@ -227,7 +227,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 			{ "hetero", "n" }
 		});
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Missing hetero for record in atom_site")
@@ -241,7 +241,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 
 		db["atom_site"].emplace(std::move(cr));
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Missing letter in entity_poly.pdbx_seq_one_letter_code")
@@ -253,7 +253,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 			{ "pdbx_seq_one_letter_code", "PNSG" }
 		});
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Too many letters in entity_poly.pdbx_seq_one_letter_code")
@@ -265,7 +265,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 			{ "pdbx_seq_one_letter_code", "PNFSGX" }
 		});
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
 
 	SECTION("Mismatch in entity_poly.pdbx_seq_one_letter_code")
@@ -277,8 +277,12 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 			{ "pdbx_seq_one_letter_code", "PNASG" }
 		});
 
-		REQUIRE_FALSE(cif::pdb::is_valid_pdbx_file(f));
+		CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f));
 	}
+}
 
-
+TEST_CASE("brak")
+{
+	auto f = cif::pdb::read(gTestDir / "brak.pdb");
+	CHECK(f.is_valid());
 }

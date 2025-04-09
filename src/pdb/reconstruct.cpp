@@ -802,7 +802,7 @@ void createEntityPoly(datablock &db)
 			auto c = cf.create(comp_id);
 
 			std::string letter;
-			char letter_can;
+			char letter_can{};
 
 			// TODO: Perhaps we should improve this...
 			if (type != "other")

@@ -2717,9 +2717,12 @@ std::string structure::create_entity_for_branch(branch &branch)
 
 void structure::cleanup_empty_categories()
 {
+
 	using namespace literals;
 
 	auto &atomSite = m_db["atom_site"];
+	auto &pdbxPolySeqScheme = m_db["pdbx_poly_seq_scheme"];
+	auto &entityPolySeq = m_db["entity_poly_seq"];
 
 	// Remove chem_comp's for which there are no atoms at all
 	auto &chem_comp = m_db["chem_comp"];
@@ -2728,8 +2731,12 @@ void structure::cleanup_empty_categories()
 	for (auto chemComp : chem_comp)
 	{
 		std::string compID = chemComp["id"].as<std::string>();
-		if (atomSite.contains("label_comp_id"_key == compID or "auth_comp_id"_key == compID))
+		if (atomSite.contains("label_comp_id"_key == compID or "auth_comp_id"_key == compID) or
+			pdbxPolySeqScheme.contains("mon_id"_key == compID or "auth_mon_id"_key == compID or "pdb_mon_id"_key == compID) or
+			entityPolySeq.contains("mon_id"_key == compID))
+		{
 			continue;
+		}
 
 		obsoleteChemComps.push_back(chemComp);
 	}

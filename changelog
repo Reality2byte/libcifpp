@@ -1,3 +1,6 @@
+Version 8.0.1
+- Fix cif::mm::structure::cleanup_empty_categories, removed too much
+
 Version 8.0.0
 - A dictionary is for a datablock and a file can have
   datablocks with differing dictionaries.

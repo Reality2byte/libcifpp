@@ -26,12 +26,14 @@
 
 #pragma once
 
+#include "cif++/category.hpp"
 #include "cif++/text.hpp"
 
 #include <cassert>
 #include <filesystem>
 #include <list>
 #include <mutex>
+#include <optional>
 #include <system_error>
 #include <utility>
 
@@ -48,6 +50,7 @@
 namespace cif
 {
 
+class category;
 struct category_validator;
 
 // --------------------------------------------------------------------
@@ -227,37 +230,38 @@ struct type_validator
 {
 	std::string m_name;                 ///< The name of the type
 	DDL_PrimitiveType m_primitive_type; ///< The primitive_type of the type
-	regex_impl *m_rx;                   ///< The regular expression for the type
+	std::shared_ptr<regex_impl> m_rx;   ///< The regular expression for the type
 
 	type_validator() = delete;
 
 	/// @brief Constructor
 	type_validator(std::string_view name, DDL_PrimitiveType type, std::string_view rx);
 
-	type_validator(const type_validator &) = delete;
-
 	/// @brief Copy constructor
-	type_validator(type_validator &&rhs)
-		: m_name(std::move(rhs.m_name))
-		, m_primitive_type(rhs.m_primitive_type)
-	{
-		m_rx = std::exchange(rhs.m_rx, nullptr);
-	}
-
-	type_validator &operator=(const type_validator &) = delete;
+	type_validator(const type_validator &tv);
 
 	/// @brief Move constructor
-	type_validator &operator=(type_validator &&rhs)
+	type_validator(type_validator &&rhs)
 	{
-		m_name = std::move(rhs.m_name);
-		m_primitive_type = rhs.m_primitive_type;
-		m_rx = std::exchange(rhs.m_rx, nullptr);
+		swap(*this, rhs);
+	}
 
+	/// @brief Move constructor
+	type_validator &operator=(type_validator rhs)
+	{
+		swap(*this, rhs);
 		return *this;
 	}
 
 	/// @brief Destructor
 	~type_validator();
+
+	friend void swap(type_validator &a, type_validator &b)
+	{
+		std::swap(a.m_name, b.m_name);
+		std::swap(a.m_primitive_type, b.m_primitive_type);
+		std::swap(a.m_rx, b.m_rx);
+	}
 
 	/// @brief Return the sorting order
 	bool operator<(const type_validator &rhs) const
@@ -303,13 +307,13 @@ struct item_alias
  */
 struct item_validator
 {
-	std::string m_item_name;                  ///< The item name
-	bool m_mandatory;                         ///< Flag indicating this item is mandatory
-	const type_validator *m_type;             ///< The type for this item
-	cif::iset m_enums;                        ///< If filled, the set of allowed values
-	std::string m_default;                    ///< If filled, a default value for this item
-	category_validator *m_category = nullptr; ///< The category_validator this item_validator belongs to
-	std::vector<item_alias> m_aliases;        ///< The aliases for this item
+	std::string m_item_name;           ///< The item name
+	bool m_mandatory;                  ///< Flag indicating this item is mandatory
+	const type_validator *m_type;      ///< The type for this item
+	cif::iset m_enums;                 ///< If filled, the set of allowed values
+	std::string m_default;             ///< If filled, a default value for this item
+	std::string m_category;            ///< The category this item_validator belongs to
+	std::vector<item_alias> m_aliases; ///< The aliases for this item
 
 	/// @brief Compare based on the name
 	bool operator<(const item_validator &rhs) const
@@ -396,24 +400,48 @@ class validator
 	 *
 	 * @param name The name of the underlying dictionary
 	 */
-	validator(std::string_view name)
-		: m_name(name)
+	validator()
+		: m_audit_conform("audit_conform")
 	{
+	}
+
+	/**
+	 * @brief Construct a new validator object
+	 *
+	 * @param name The name of the underlying dictionary
+	 * @param is The data to parse
+	 */
+	validator(std::istream &is)
+		: m_audit_conform("audit_conform")
+	{
+		parse(is);
 	}
 
 	/// @brief destructor
 	~validator() = default;
 
-	validator(const validator &rhs) = delete;
-	validator &operator=(const validator &rhs) = delete;
+	validator(const validator &rhs);
 
 	/// @brief move constructor
-	validator(validator &&rhs) = default;
+	validator(validator &&rhs)
+	{
+		swap(*this, rhs);
+	}
 
-	/// @brief move assignment operator
-	validator &operator=(validator &&rhs) = default;
+	validator &operator=(validator rhs)
+	{
+		swap(*this, rhs);
+		return *this;
+	}
+
+	friend void swap(validator &a, validator &b) noexcept;
 
 	friend class dictionary_parser;
+	friend class validator_factory;
+
+	/// @brief Parse dictionary in @a is and put content in this validator, optionally extending it
+	/// @param is The stream containing a valid cif dictionary
+	void parse(std::istream &is);
 
 	/// @brief Add type_validator @a v to the list of type validators
 	void add_type_validator(type_validator &&v);
@@ -456,18 +484,22 @@ class validator
 	void report_error(std::error_code ec, std::string_view category,
 		std::string_view item, bool fatal = true) const;
 
-	const std::string &name() const { return m_name; }        ///< Get the name of this validator
-	void set_name(const std::string &name) { m_name = name; } ///< Set the name of this validator
+	/// @brief Write out the audit_conform data for this validator
+	/// @param audit_conform
+	void fill_audit_conform(category &audit_conform) const;
 
-	const std::string &version() const { return m_version; }              ///< Get the version of this validator
-	void set_version(const std::string &version) { m_version = version; } ///< Set the version of this validator
+	/// @brief Return true if this validator matches @a audit_conform
+	bool matches_audit_conform(const category &audit_conform) const;
+
+	/// @brief Add info
+	void append_audit_conform(const std::string &name, const std::optional<std::string> &version);
 
   private:
 	// name is fully qualified here:
 	item_validator *get_validator_for_item(std::string_view name) const;
 
-	std::string m_name;
-	std::string m_version;
+	category m_audit_conform;
+
 	bool m_strict = false;
 	std::set<type_validator> m_type_validators;
 	std::set<category_validator> m_category_validators;
@@ -487,16 +519,27 @@ class validator_factory
 	/// @brief Return the singleton instance
 	static validator_factory &instance();
 
-	/// @brief Return the validator with name @a dictionary_name
-	const validator &operator[](std::string_view dictionary_name);
+	/// @brief Return validator with info recorded in @a audit_conform
+	const validator &get(const category &audit_conform);
 
-	/// @brief Construct a new validator with name @a name from the data in @a is
-	const validator &construct_validator(std::string_view name, std::istream &is);
+	/// @brief Return the single-file validator with name @a dictionary_name
+	const validator &get(std::string_view dictionary_name);
+
+	/// @brief Return true if the version @a found is equal or higher than @a expected for dictionary @a name
+	static bool check_version(std::string_view name, std::string_view expected, std::string_view found);
+
+	/// @brief Add validator @a v to the list of known validators
+	const validator &add(validator &&v)
+	{
+		std::unique_lock lock(m_mutex);
+		return m_validators.emplace_back(std::move(v));
+	}
 
   private:
-	// --------------------------------------------------------------------
-
 	validator_factory() = default;
+
+	/// @brief Construct a new validator with name @a name from the data in @a is with at least version @a version if specified
+	validator construct_validator(std::string_view name, std::optional<std::string> version);
 
 	std::mutex m_mutex;
 	std::list<validator> m_validators;

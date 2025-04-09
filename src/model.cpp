@@ -376,6 +376,7 @@ atom residue::create_new_atom(atom_type inType, const std::string &inAtomID, poi
 		{ "auth_comp_id", m_compound_id },
 		{ "auth_seq_id", m_auth_seq_id },
 		{ "occupancy", 1.0f, 2 },
+		{ "B_iso_or_equiv", 20.0f },
 		{ "pdbx_PDB_model_num", m_structure->get_model_nr() },
 	});
 
@@ -1306,6 +1307,9 @@ structure::structure(datablock &db, std::size_t modelNr, StructureOpenOptions op
 	: m_db(db)
 	, m_model_nr(modelNr)
 {
+	if (db.get_validator() == nullptr)
+		db.load_dictionary();
+
 	auto &atomCat = db["atom_site"];
 
 	load_atoms_for_model(options);
@@ -2714,9 +2718,12 @@ std::string structure::create_entity_for_branch(branch &branch)
 
 void structure::cleanup_empty_categories()
 {
+
 	using namespace literals;
 
 	auto &atomSite = m_db["atom_site"];
+	auto &pdbxPolySeqScheme = m_db["pdbx_poly_seq_scheme"];
+	auto &entityPolySeq = m_db["entity_poly_seq"];
 
 	// Remove chem_comp's for which there are no atoms at all
 	auto &chem_comp = m_db["chem_comp"];
@@ -2725,8 +2732,12 @@ void structure::cleanup_empty_categories()
 	for (auto chemComp : chem_comp)
 	{
 		std::string compID = chemComp["id"].as<std::string>();
-		if (atomSite.contains("label_comp_id"_key == compID or "auth_comp_id"_key == compID))
+		if (atomSite.contains("label_comp_id"_key == compID or "auth_comp_id"_key == compID) or
+			pdbxPolySeqScheme.contains("mon_id"_key == compID or "auth_mon_id"_key == compID or "pdb_mon_id"_key == compID) or
+			entityPolySeq.contains("mon_id"_key == compID))
+		{
 			continue;
+		}
 
 		obsoleteChemComps.push_back(chemComp);
 	}
@@ -2905,6 +2916,14 @@ static int compare_numbers(std::string_view a, std::string_view b)
 	return result;
 }
 
+int compare_cif_id(const std::string &a, const std::string &b)
+{
+	int d = a.length() - b.length();
+	if (d == 0)
+		d = a.compare(b);
+	return d;
+}
+
 void structure::reorder_atoms()
 {
 	auto &atom_site = m_db["atom_site"];
@@ -2916,7 +2935,7 @@ void structure::reorder_atoms()
 			// First by model number
 			d = a.get<int>("pdbx_PDB_model_num") - b.get<int>("pdbx_PDB_model_num");
 			if (d == 0)
-				d = a.get<std::string>("label_asym_id").compare(b.get<std::string>("label_asym_id"));
+				d = compare_cif_id(a.get<std::string>("label_asym_id"), b.get<std::string>("label_asym_id"));
 			if (d == 0)
 			{
 				auto na = a.get<std::optional<int>>("label_seq_id");

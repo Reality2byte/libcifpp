@@ -39,6 +39,8 @@
 namespace cif
 {
 
+class validator;
+
 // --------------------------------------------------------------------
 
 /** Exception that is thrown when the mmCIF file contains a parsing error */
@@ -307,6 +309,14 @@ class sac_parser
 class parser : public sac_parser
 {
   public:
+	/// \brief constructor, generates data into @a file from @a is using validator @a v
+	parser(std::istream &is, file &file, const validator *v)
+		: sac_parser(is)
+		, m_file(file)
+		, m_validator(v)
+	{
+	}
+
 	/// \brief constructor, generates data into @a file from @a is
 	parser(std::istream &is, file &file)
 		: sac_parser(is)
@@ -327,6 +337,7 @@ class parser : public sac_parser
 	file &m_file;
 	datablock *m_datablock = nullptr;
 	category *m_category = nullptr;
+	const validator *m_validator = nullptr;
 	row_handle m_row;
 
 	/** @endcond */

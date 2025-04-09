@@ -100,10 +100,35 @@ void checkEntities(datablock &db)
 
 	for (auto entity : db["entity"].find("formula_weight"_key == null or "formula_weight"_key == 0))
 	{
-		const auto &[entity_id, type] = entity.get<std::string, std::string>("id", "type");
+		auto &&[entity_id, type] = entity.get<std::string, std::string>("id", "type");
 
 		float formula_weight = 0;
 
+		if (type.empty())	// yes, that happens
+		{
+			const auto comp_id = db["atom_site"].find_first<std::string>("label_entity_id"_key == entity_id, "label_comp_id");
+			auto compound = cf.create(comp_id);
+			if (compound != nullptr)
+			{
+				if (compound->is_base() or compound->is_peptide())
+					type = "polymer";
+				else if (compound->is_water())
+					type = "water";
+				else
+				{
+					if (db["pdbx_entity_branch_link"].contains("entity_id"_key == entity_id))
+						type = "branched";
+					else
+						type = "non-polymer";
+				}
+			}
+
+			if (type.empty())
+				throw std::runtime_error("Entity without type and cannot determine what it should be");
+			
+			entity["type"] = type;
+		}
+		
 		if (type == "polymer")
 		{
 			int n = 0;
@@ -777,7 +802,7 @@ void createEntityPoly(datablock &db)
 			auto c = cf.create(comp_id);
 
 			std::string letter;
-			char letter_can;
+			char letter_can{};
 
 			// TODO: Perhaps we should improve this...
 			if (type != "other")
@@ -1012,6 +1037,10 @@ void comparePolySeqSchemes(datablock &db)
 	auto &ndb_poly_seq_scheme = db["ndb_poly_seq_scheme"];
 	auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
 
+	// Don't bother if ndb_poly_seq_scheme is empty
+	if (ndb_poly_seq_scheme.empty())
+		return;
+
 	// Since often ndb_poly_seq_scheme only contains an id and mon_id item
 	// we assume that it should match the accompanying pdbx_poly_seq
 
@@ -1161,7 +1190,20 @@ void createPdbxNonpolyScheme(datablock &db)
 	}
 }
 
-bool reconstruct_pdbx(file &file, std::string_view dictionary)
+bool reconstruct_pdbx(file &file)
+{
+	if (file.empty())
+		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
+
+	auto &db = file.front();
+
+	if (auto ac = db.get("audit_conform"); ac != nullptr)
+		return reconstruct_pdbx(file, validator_factory::instance().get(*ac));
+	else
+		return reconstruct_pdbx(file, validator_factory::instance().get("mmcif_pdbx.dic"));
+}
+
+bool reconstruct_pdbx(file &file, const validator &validator)
 {
 	if (file.empty())
 		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
@@ -1174,8 +1216,6 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
 		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
-
-	auto &validator = validator_factory::instance()[dictionary];
 
 	std::string entry_id;
 
@@ -1427,7 +1467,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	db["chem_comp"].reorder_by_index();
 
-	file.load_dictionary(dictionary);
+	db.set_validator(&validator);
 
 	if (db.get("atom_site_anisotrop"))
 		checkAtomAnisotropRecords(db);
@@ -1456,7 +1496,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 	for (auto &cat : db)
 		valid = valid and (cat.get_cat_validator() == nullptr or cat.is_valid());
 
-	return valid and is_valid_pdbx_file(file, dictionary);
+	return valid and is_valid_pdbx_file(file, validator);
 }
 
 } // namespace cif::pdb

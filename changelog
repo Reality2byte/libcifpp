@@ -1,4 +1,16 @@
+Version 8.0.1
+- Fix cif::mm::structure::cleanup_empty_categories, removed too much
+- Add default value for B_iso_or_equiv in residue::create_new_atom
+
+Version 8.0.0
+- A dictionary is for a datablock and a file can have
+  datablocks with differing dictionaries.
+
 Version 7.0.10
+- Deal with missing _entity.type in reconstructing mmCIF files
+- Replace code creating quaternions from rotation matrices
+  that might sometimes give incorrect results. Or at least,
+  the test code failed on this particular kind of code. Sometimes.
 - Fix reconstruction to build pdbx_nonpoly_scheme
 
 Version 7.0.9

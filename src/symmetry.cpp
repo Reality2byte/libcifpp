@@ -32,7 +32,7 @@
 
 #include "symop_table_data.hpp"
 
-#include <Eigen/Eigenvalues>
+#include <Eigen/Eigen>
 
 namespace cif
 {
@@ -103,9 +103,9 @@ sym_op::sym_op(std::string_view s)
 	auto b = s.data();
 	auto e = b + s.length();
 
-	int rnri = 256;	// default to unexisting number
+	int rnri = 256; // default to unexisting number
 	auto r = std::from_chars(b, e, rnri);
-	
+
 	m_nr = static_cast<uint8_t>(rnri);
 	m_ta = r.ptr[1] - '0';
 	m_tb = r.ptr[2] - '0';
@@ -121,7 +121,7 @@ std::string sym_op::string() const
 	auto r = std::to_chars(b, b + sizeof(b), m_nr);
 	if ((bool)r.ec or r.ptr > b + 4)
 		throw std::runtime_error("Could not write out symmetry operation to string");
-	
+
 	*r.ptr++ = '_';
 	*r.ptr++ = '0' + m_ta;
 	*r.ptr++ = '0' + m_tb;
@@ -163,41 +163,16 @@ transformation::transformation(const matrix3x3<float> &r, const cif::point &t)
 
 void transformation::try_create_quaternion()
 {
-	float Qxx = m_rotation(0, 0);
-	float Qxy = m_rotation(0, 1);
-	float Qxz = m_rotation(0, 2);
-	float Qyx = m_rotation(1, 0);
-	float Qyy = m_rotation(1, 1);
-	float Qyz = m_rotation(1, 2);
-	float Qzx = m_rotation(2, 0);
-	float Qzy = m_rotation(2, 1);
-	float Qzz = m_rotation(2, 2);
+	Eigen::Matrix3f rot;
 
-	Eigen::Matrix4f em;
+	rot << m_rotation(0, 0), m_rotation(0, 1), m_rotation(0, 2),
+		m_rotation(1, 0), m_rotation(1, 1), m_rotation(1, 2),
+		m_rotation(2, 0), m_rotation(2, 1), m_rotation(2, 2);
 
-	em << Qxx - Qyy - Qzz, Qyx + Qxy, Qzx + Qxz, Qzy - Qyz,
-			Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
-			Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
-			Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz;
-
-	Eigen::EigenSolver<Eigen::Matrix4f> es(em / 3);
-
-	auto ev = es.eigenvalues();
-
-	for (std::size_t j = 0; j < 4; ++j)
+	if (rot * rot.transpose() == Eigen::Matrix3f::Identity() and rot.determinant() == 1)
 	{
-		if (std::abs(ev[j].real() - 1) > 0.01)
-			continue;
-		
-		auto col = es.eigenvectors().col(j);
-
-		m_q = normalize(cif::quaternion{
-			static_cast<float>(col(3).real()),
-			static_cast<float>(col(0).real()),
-			static_cast<float>(col(1).real()),
-			static_cast<float>(col(2).real()) });
-
-		break;
+		Eigen::Quaternionf qe(rot);
+		m_q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
 	}
 }
 
@@ -297,7 +272,7 @@ point spacegroup::operator()(const point &pt, const cell &c, sym_op symop) const
 {
 	if (symop.m_nr < 1 or symop.m_nr > size())
 		throw std::out_of_range("symmetry operator number out of range");
-	
+
 	transformation t = at(symop.m_nr - 1);
 
 	t.m_translation.m_x += symop.m_ta - 5;
@@ -316,7 +291,7 @@ point spacegroup::inverse(const point &pt, const cell &c, sym_op symop) const
 {
 	if (symop.m_nr < 1 or symop.m_nr > size())
 		throw std::out_of_range("symmetry operator number out of range");
-	
+
 	transformation t = at(symop.m_nr - 1);
 
 	t.m_translation.m_x += symop.m_ta - 5;
@@ -450,13 +425,13 @@ int get_space_group_number(const datablock &db)
 
 	if (_symmetry.size() != 1)
 		throw std::runtime_error("Could not find a unique symmetry in this mmCIF file");
-	
+
 	return _symmetry.front().get<int>("Int_Tables_number");
 }
 
 // --------------------------------------------------------------------
 
-std::tuple<float,point,sym_op> crystal::closest_symmetry_copy(point a, point b) const
+std::tuple<float, point, sym_op> crystal::closest_symmetry_copy(point a, point b) const
 {
 	if (m_cell.get_a() == 0 or m_cell.get_b() == 0 or m_cell.get_c() == 0)
 		throw std::runtime_error("Invalid cell, contains a dimension that is zero");
@@ -491,7 +466,7 @@ std::tuple<float,point,sym_op> crystal::closest_symmetry_copy(point a, point b) 
 		while (fsb.m_x + 0.5f < fa.m_x)
 		{
 			fsb.m_x += 1;
-			s.m_ta += 1;			
+			s.m_ta += 1;
 		}
 
 		while (fsb.m_y - 0.5f > fa.m_y)
@@ -503,7 +478,7 @@ std::tuple<float,point,sym_op> crystal::closest_symmetry_copy(point a, point b) 
 		while (fsb.m_y + 0.5f < fa.m_y)
 		{
 			fsb.m_y += 1;
-			s.m_tb += 1;			
+			s.m_tb += 1;
 		}
 
 		while (fsb.m_z - 0.5f > fa.m_z)
@@ -515,7 +490,7 @@ std::tuple<float,point,sym_op> crystal::closest_symmetry_copy(point a, point b) 
 		while (fsb.m_z + 0.5f < fa.m_z)
 		{
 			fsb.m_z += 1;
-			s.m_tc += 1;			
+			s.m_tc += 1;
 		}
 
 		auto p = orthogonal(fsb, m_cell);

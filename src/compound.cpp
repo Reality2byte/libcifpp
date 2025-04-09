@@ -299,35 +299,12 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 		std::shared_lock lock(mMutex);
 
 		compound *result = nullptr;
-
-		// walk the list, see if any of the implementations has the compound already
+		
 		for (auto impl = shared_from_this(); impl; impl = impl->m_next)
 		{
-			for (auto cmp : impl->m_compounds)
-			{
-				if (iequals(cmp->id(), id))
-				{
-					result = cmp;
-					break;
-				}
-			}
-
-			if (result)
+			result = impl->create(id);
+			if (result != nullptr)
 				break;
-		}
-
-		if (result == nullptr and
-			find_if(m_missing.begin(), m_missing.end(), [&id](const std::string &m_id) { return cif::iequals(id, m_id); }) == m_missing.end())
-		{
-			for (auto impl = shared_from_this(); impl; impl = impl->m_next)
-			{
-				result = impl->create(id);
-				if (result != nullptr)
-					break;
-			}
-
-			if (result == nullptr)
-				m_missing.emplace_back(id);
 		}
 
 		return result;
@@ -360,7 +337,7 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 	cif::parser::datablock_index m_index;
 
 	std::vector<compound *> m_compounds;
-	std::vector<std::string> m_missing;
+	cif::iset m_missing;
 	std::shared_ptr<compound_factory_impl> m_next;
 };
 
@@ -381,6 +358,14 @@ compound_factory_impl::compound_factory_impl(const fs::path &file, std::shared_p
 
 compound *compound_factory_impl::create(const std::string &id)
 {
+	// shortcut
+
+	if (m_missing.contains(id))
+		return nullptr;
+
+	if (auto i = find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c) { return c->id() == id; }); i != m_compounds.end())
+		return *i;
+
 	compound *result = nullptr;
 
 	std::unique_ptr<std::istream> ccd;
@@ -449,6 +434,9 @@ compound *compound_factory_impl::create(const std::string &id)
 		}
 	}
 
+	if (result == nullptr)
+		m_missing.insert(id);
+
 	return result;
 }
 
@@ -461,20 +449,6 @@ class local_compound_factory_impl : public compound_factory_impl
 		: compound_factory_impl(next)
 		, m_local_file(file)
 	{
-		// const std::regex peptideRx("(?:[lmp]-)?peptide", std::regex::icase);
-
-		// for (const auto &[id, name, threeLetterCode, group] :
-		// 	file["comp_list"]["chem_comp"].rows<std::string, std::string, std::string, std::string>("id", "name", "three_letter_code", "group"))
-		// {
-		// 	auto &rdb = m_local_file["comp_" + id];
-		// 	if (rdb.empty())
-		// 	{
-		// 		// std::cerr << "Missing data in restraint file for id " + id + '\n';
-		// 		continue;
-		// 	}
-
-		// 	construct_compound(rdb, id, name, threeLetterCode, group);
-		// }
 	}
 
 	compound *create(const std::string &id) override;
@@ -488,6 +462,12 @@ class local_compound_factory_impl : public compound_factory_impl
 
 compound *local_compound_factory_impl::create(const std::string &id)
 {
+	if (m_missing.contains(id))
+		return nullptr;
+
+	if (auto i = find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c) { return c->id() == id; }); i != m_compounds.end())
+		return *i;
+
 	compound *result = nullptr;
 
 	for (auto &db : m_local_file)
@@ -514,6 +494,9 @@ compound *local_compound_factory_impl::create(const std::string &id)
 		}
 	}
 
+	if (result == nullptr)
+		m_missing.insert(id);
+
 	return result;
 }
 
@@ -526,9 +509,13 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 	int formal_charge = 0;
 	std::map<std::string,std::size_t> formula_data;
 
-	for (std::size_t ord = 1; const auto &[atom_id, type_symbol, type, charge, x, y, z] :
-		rdb["chem_comp_atom"].rows<std::string, std::string, std::string, int, float, float, float>(
-			"atom_id", "type_symbol", "type", "charge", "x", "y", "z"))
+	for (std::size_t ord = 1; const auto &[atom_id, type_symbol, type, charge, x, y, z, xi, yi, zi] :
+		rdb["chem_comp_atom"].rows<std::string, std::string, std::string, int,
+			std::optional<float>, std::optional<float>, std::optional<float>,
+			std::optional<float>, std::optional<float>, std::optional<float>>(
+			"atom_id", "type_symbol", "type", "charge",
+			"model_Cartn_x", "model_Cartn_y", "model_Cartn_z",
+			"pdbx_model_Cartn_x_ideal", "pdbx_model_Cartn_y_ideal", "pdbx_model_Cartn_z_ideal"))
 	{
 		auto atom = cif::atom_type_traits(type_symbol);
 		formula_weight += atom.weight();
@@ -540,9 +527,9 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 			{ "atom_id", atom_id },
 			{ "type_symbol", type_symbol },
 			{ "charge", charge },
-			{ "model_Cartn_x",  x, 3 },
-			{ "model_Cartn_y",  y, 3 },
-			{ "model_Cartn_z",  z, 3 },
+			{ "model_Cartn_x",  x.has_value() ? x : xi, 3 },
+			{ "model_Cartn_y",  y.has_value() ? y : yi, 3 },
+			{ "model_Cartn_z",  z.has_value() ? z : zi, 3 },
 			{ "pdbx_ordinal", ord++ }
 		});
 

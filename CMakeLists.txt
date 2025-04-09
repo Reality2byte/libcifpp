@@ -27,7 +27,7 @@ cmake_minimum_required(VERSION 3.23)
 # set the project name
 project(
 	libcifpp
-	VERSION 7.0.10
+	VERSION 8.0.0
 	LANGUAGES CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -41,6 +41,7 @@ include(CheckCXXSourceCompiles)
 include(GenerateExportHeader)
 include(CTest)
 include(FetchContent)
+include(ExternalProject)
 
 # FindBoost, take care of it now.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
@@ -236,19 +237,14 @@ if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
 	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
 		INTERFACE_INCLUDE_DIRECTORIES)
 else()
-	# Create a private copy of eigen3 and populate it only, no need to build
-	FetchContent_Declare(
-		my-eigen3
+	# Use ExternalProject since FetchContent always tries to install the result...
+	ExternalProject_Add(my-eigen3
 		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-		GIT_TAG 3.4.0)
-
-	FetchContent_GetProperties(my-eigen3)
-
-	if(NOT my-eigen3_POPULATED)
-		FetchContent_Populate(my-eigen3)
-	endif()
-
-	set(EIGEN_INCLUDE_DIR ${my-eigen3_SOURCE_DIR})
+		GIT_TAG 3.4.0
+		INSTALL_COMMAND "")
+	
+	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
+	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
 
 # Create a revision file, containing the current git version info
@@ -336,6 +332,10 @@ set(project_headers
 
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
+
+if(TARGET my-eigen3)
+	add_dependencies(cifpp my-eigen3)
+endif()
 
 target_sources(cifpp
 	PRIVATE ${project_sources}

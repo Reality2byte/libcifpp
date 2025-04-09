@@ -96,14 +96,10 @@ class dictionary_parser : public parser
 			link_items();
 
 		// store meta information
-		datablock::iterator info;
-		bool is_new;
-		std::tie(info, is_new) = m_datablock->emplace("dictionary");
-		if (not is_new and not info->empty())
+		if (auto dictionary = m_datablock->get("dictionary"); dictionary != nullptr and not dictionary->empty())
 		{
-			auto r = info->front();
-			m_validator.set_name(r["title"].as<std::string>());
-			m_validator.set_version(r["version"].as<std::string>());
+			const auto &[name, version] = dictionary->front().get<std::string,std::optional<std::string>>("title", "version");
+			m_validator.append_audit_conform(name, version);
 		}
 
 		m_datablock = savedDatablock;
@@ -252,7 +248,7 @@ class dictionary_parser : public parser
 
 				auto vi = find(ivs.begin(), ivs.end(), item_validator{ item_name });
 				if (vi == ivs.end())
-					ivs.push_back(item_validator{ item_name, iequals(mandatory, "yes"), tv, ess, defaultValue, nullptr, std::move(aliases) });
+					ivs.push_back(item_validator{ item_name, iequals(mandatory, "yes"), tv, ess, defaultValue, cat_name, std::move(aliases) });
 				else
 				{
 					// need to update the itemValidator?
@@ -350,7 +346,7 @@ class dictionary_parser : public parser
 			if (piv == nullptr)
 				error("in pdbx_item_linked_group_list, item '" + parent + "' is not specified");
 
-			key_type key{ piv->m_category->m_name, civ->m_category->m_name, link_group_id };
+			key_type key{ piv->m_category, civ->m_category, link_group_id };
 			if (not linkIndex.count(key))
 			{
 				linkIndex[key] = linkKeys.size();
@@ -378,7 +374,7 @@ class dictionary_parser : public parser
 				if (piv == nullptr)
 					error("in pdbx_item_linked_group_list, item '" + parent + "' is not specified");
 
-				key_type key{ piv->m_category->m_name, civ->m_category->m_name, 0 };
+				key_type key{ piv->m_category, civ->m_category, 0 };
 				if (not linkIndex.count(key))
 				{
 					linkIndex[key] = linkKeys.size();
@@ -477,18 +473,7 @@ class dictionary_parser : public parser
 
 // --------------------------------------------------------------------
 
-validator parse_dictionary(std::string_view name, std::istream &is)
-{
-	validator result(name);
-
-	file f;
-	dictionary_parser p(result, is, f);
-	p.load_dictionary();
-
-	return result;
-}
-
-void extend_dictionary(validator &v, std::istream &is)
+void parse_dictionary(validator &v, std::istream &is)
 {
 	file f;
 	dictionary_parser p(v, is, f);

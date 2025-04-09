@@ -25,6 +25,7 @@
  */
 
 #include "cif++/datablock.hpp"
+#include "cif++/validate.hpp"
 
 namespace cif
 {
@@ -36,6 +37,12 @@ datablock::datablock(const datablock &db)
 {
 	for (auto &cat : *this)
 		cat.update_links(*this);
+}
+
+void datablock::load_dictionary()
+{
+	if (auto *audit_conform = get("audit_conform"); audit_conform and not audit_conform->empty())
+		set_validator(&validator_factory::instance().get(*audit_conform));
 }
 
 void datablock::set_validator(const validator *v)
@@ -62,7 +69,7 @@ const validator *datablock::get_validator() const
 bool datablock::is_valid() const
 {
 	if (m_validator == nullptr)
-		throw std::runtime_error("Validator not specified");
+		throw std::runtime_error("Validator not specified for datablock data_" + name());
 
 	bool result = true;
 	for (auto &cat : *this)
@@ -74,33 +81,29 @@ bool datablock::is_valid() const
 bool datablock::is_valid()
 {
 	if (m_validator == nullptr)
-		throw std::runtime_error("Validator not specified");
+		throw std::runtime_error("Validator not specified for datablock data_" + name());
 
 	bool result = true;
 	for (auto &cat : *this)
 		result = cat.is_valid() and result;
-	
+
 	// Add or remove the audit_conform block here.
 	if (result)
 	{
 		// If the dictionary declares an audit_conform category, put it in,
 		// but only if it does not exist already!
 
-		if (m_validator->get_validator_for_category("audit_conform") != nullptr)
+		if (auto audit_conform = get("audit_conform");
+			audit_conform != nullptr and m_validator->get_validator_for_category("audit_conform") != nullptr)
 		{
-			auto &audit_conform = operator[]("audit_conform");
-
-			audit_conform.clear();
-			audit_conform.emplace({
-				// clang-format off
-				{ "dict_name", m_validator->name() },
-				{ "dict_version", m_validator->version() }
-				// clang-format on
-			});
+			audit_conform->clear();
+			m_validator->fill_audit_conform(*audit_conform);
 		}
 	}
 	else
-		erase(std::find_if(begin(), end(), [](category &cat) { return cat.name() == "audit_conform"; }), end());
+		erase(std::find_if(begin(), end(), [](category &cat)
+				  { return cat.name() == "audit_conform"; }),
+			end());
 
 	return result;
 }
@@ -174,7 +177,7 @@ std::tuple<datablock::iterator, bool> datablock::emplace(std::string_view name)
 
 	if (is_new)
 	{
-		i = insert(end(), {name});
+		i = insert(end(), { name });
 		i->set_validator(m_validator, *this);
 	}
 

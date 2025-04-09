@@ -63,9 +63,9 @@ std::string get_version_nr()
 
 // --------------------------------------------------------------------
 
-#ifdef _WIN32
+#if defined(_WIN32) or defined(__MINGW32__)
 }
-#include <Windows.h>
+#include <windows.h>
 #include <libloaderapi.h>
 #include <wincon.h>
 

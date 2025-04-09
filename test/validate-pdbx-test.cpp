@@ -290,3 +290,19 @@ TEST_CASE("extended-dictionary-1")
 	auto f = cif::pdb::read(gTestDir / "1cbs-dssp.cif");
 	CHECK(f.is_valid());
 }
+
+TEST_CASE("brak")
+{
+	auto f = cif::pdb::read(gTestDir / "brak.pdb");
+	CHECK(f.is_valid());
+}
+
+TEST_CASE("extended-dictionary-1")
+{
+	cif::add_file_resource("dssp-extension.dic", gTestDir / "dssp-extension.dic");
+
+	cif::VERBOSE = 2;
+
+	auto f = cif::pdb::read(gTestDir / "1cbs-dssp.cif");
+	CHECK(f.is_valid());
+}

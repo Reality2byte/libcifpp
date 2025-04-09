@@ -1962,7 +1962,7 @@ void PDBFileParser::ParseRemarks()
 			switch (remarkNr)
 			{
 				case 1:
-					while (mRec->is("REMARK   1"))
+					while (mRec->is("REMARK   1") or mRec->is("REMARK 001"))
 					{
 						if (mRec->mVlen > 15 and vS(12, 20) == "REFERENCE")
 						{

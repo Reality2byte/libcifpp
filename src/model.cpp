@@ -376,6 +376,7 @@ atom residue::create_new_atom(atom_type inType, const std::string &inAtomID, poi
 		{ "auth_comp_id", m_compound_id },
 		{ "auth_seq_id", m_auth_seq_id },
 		{ "occupancy", 1.0f, 2 },
+		{ "B_iso_or_equiv", 20.0f },
 		{ "pdbx_PDB_model_num", m_structure->get_model_nr() },
 	});
 
@@ -2915,6 +2916,14 @@ static int compare_numbers(std::string_view a, std::string_view b)
 	return result;
 }
 
+int compare_cif_id(const std::string &a, const std::string &b)
+{
+	int d = a.length() - b.length();
+	if (d == 0)
+		d = a.compare(b);
+	return d;
+}
+
 void structure::reorder_atoms()
 {
 	auto &atom_site = m_db["atom_site"];
@@ -2926,7 +2935,7 @@ void structure::reorder_atoms()
 			// First by model number
 			d = a.get<int>("pdbx_PDB_model_num") - b.get<int>("pdbx_PDB_model_num");
 			if (d == 0)
-				d = a.get<std::string>("label_asym_id").compare(b.get<std::string>("label_asym_id"));
+				d = compare_cif_id(a.get<std::string>("label_asym_id"), b.get<std::string>("label_asym_id"));
 			if (d == 0)
 			{
 				auto na = a.get<std::optional<int>>("label_seq_id");

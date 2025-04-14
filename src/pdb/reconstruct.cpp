@@ -1119,7 +1119,7 @@ void createPdbxEntityNonpoly(datablock &db)
 
 	for (const auto &[entity_id, type] : entity.find<std::string, std::string>("type"_key == "water" or "type"_key == "non-polymer", "id", "type"))
 	{
-		for (auto comp_id : atom_site.find<std::string>("label_entity_id"_key == entity_id, "label_comp_id"))
+		for (auto &&[comp_id, auth_seq_id] : atom_site.find<std::string, std::optional<int>>("label_entity_id"_key == entity_id, "label_comp_id", "auth_seq_id"))
 		{
 			if (auto test_comp_id = pdbx_entity_nonpoly.find_first<std::optional<std::string>>("entity_id"_key == entity_id, "comp_id"); test_comp_id.has_value())
 			{
@@ -1137,6 +1137,9 @@ void createPdbxEntityNonpoly(datablock &db)
 				});
 			else
 			{
+				if (auth_seq_id.has_value())
+					throw std::runtime_error("This file contains an atom of an non-polymer entity that has an auth_seq_id. This is an error.");
+
 				auto c = cif::compound_factory::instance().create(comp_id);
 
 				std::string name = c ? c->name() : ".";

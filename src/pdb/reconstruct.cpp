@@ -104,7 +104,7 @@ void checkEntities(datablock &db)
 
 		float formula_weight = 0;
 
-		if (type.empty())	// yes, that happens
+		if (type.empty()) // yes, that happens
 		{
 			const auto comp_id = db["atom_site"].find_first<std::string>("label_entity_id"_key == entity_id, "label_comp_id");
 			auto compound = cf.create(comp_id);
@@ -125,10 +125,10 @@ void checkEntities(datablock &db)
 
 			if (type.empty())
 				throw std::runtime_error("Entity without type and cannot determine what it should be");
-			
+
 			entity["type"] = type;
 		}
-		
+
 		if (type == "polymer")
 		{
 			int n = 0;
@@ -205,11 +205,11 @@ void createEntityIDs(datablock &db)
 	std::vector<residue_key_type> waters;
 
 	for (residue_key_type k : atom_site.rows<std::optional<std::string>,
-							  std::optional<int>,
-							  std::optional<std::string>,
-							  std::optional<std::string>,
-							  std::optional<int>,
-							  std::optional<std::string>>(
+			 std::optional<int>,
+			 std::optional<std::string>,
+			 std::optional<std::string>,
+			 std::optional<int>,
+			 std::optional<std::string>>(
 			 "auth_asym_id", "auth_seq_id", "auth_comp_id",
 			 "label_asym_id", "label_seq_id", "label_comp_id"))
 	{
@@ -491,7 +491,7 @@ void checkAtomRecords(datablock &db)
 		auto chem_comp_entry = chem_comp.find_first("id"_key == comp_id);
 
 		std::optional<bool> non_std;
-		if  (cf.is_monomer(comp_id))
+		if (cf.is_monomer(comp_id))
 			non_std = cf.is_std_monomer(comp_id);
 
 		if (not chem_comp_entry)
@@ -1119,7 +1119,7 @@ void createPdbxEntityNonpoly(datablock &db)
 
 	for (const auto &[entity_id, type] : entity.find<std::string, std::string>("type"_key == "water" or "type"_key == "non-polymer", "id", "type"))
 	{
-		for (auto &&[comp_id, auth_seq_id] : atom_site.find<std::string, std::optional<int>>("label_entity_id"_key == entity_id, "label_comp_id", "auth_seq_id"))
+		for (auto comp_id : atom_site.find<std::string>("label_entity_id"_key == entity_id, "label_comp_id"))
 		{
 			if (auto test_comp_id = pdbx_entity_nonpoly.find_first<std::optional<std::string>>("entity_id"_key == entity_id, "comp_id"); test_comp_id.has_value())
 			{
@@ -1137,9 +1137,6 @@ void createPdbxEntityNonpoly(datablock &db)
 				});
 			else
 			{
-				if (auth_seq_id.has_value())
-					throw std::runtime_error("This file contains an atom of an non-polymer entity that has an auth_seq_id. This is an error.");
-
 				auto c = cif::compound_factory::instance().create(comp_id);
 
 				std::string name = c ? c->name() : ".";
@@ -1189,6 +1186,57 @@ void createPdbxNonpolyScheme(datablock &db)
 				{ "pdb_ins_code", row.get<std::string>("pdbx_PDB_ins_code") }
 
 			});
+		}
+	}
+}
+
+void createPdbxBranchScheme(datablock &db)
+{
+	using namespace literals;
+
+	createPdbxEntityNonpoly(db);
+
+	auto &entity = db["entity"];
+	auto &pdbx_branch_scheme = db["pdbx_branch_scheme"];
+	auto &pdbx_entity_branch_list = db["pdbx_entity_branch_list"];
+	auto &atom_site = db["atom_site"];
+
+	for (const auto entity_id : entity.find<std::string>("type"_key == "branched", "id"))
+	{
+		for (const auto &[comp_id, asym_id, auth_seq_id] : atom_site.find<std::string, std::string, std::optional<int>>("label_entity_id"_key == entity_id, "label_comp_id", "label_asym_id", "auth_seq_id"))
+		{
+			if (not auth_seq_id.has_value())
+				throw std::runtime_error("Missing auth_seq_id on sugar atom");
+
+			int num = *auth_seq_id;
+
+			if (not pdbx_entity_branch_list.contains("entity_id"_key == entity_id and "num"_key == num))
+			{
+				pdbx_entity_branch_list.emplace({
+					// clang-format off
+
+					{ "entity_id", entity_id },
+					{ "comp_id", comp_id },
+					{ "num", num },
+
+					// clang-format on
+				});
+			}
+
+			if (not pdbx_branch_scheme.contains("entity_id"_key == entity_id and "asym_id"_key == asym_id and "num"_key == num))
+			{
+				pdbx_branch_scheme.emplace({
+					// clang-format off
+					{ "asym_id", asym_id },
+					{ "entity_id", entity_id },
+					{ "mon_id", comp_id },
+					{ "num", num },
+					{ "pdb_asym_id", asym_id },
+					{ "pdb_mon_id", comp_id },
+					{ "pdb_seq_num", num }
+					// clang-format on
+				});
+			}
 		}
 	}
 }
@@ -1483,9 +1531,6 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 	if (auto cat = db.get("entity"); cat == nullptr or cat->empty())
 		createEntity(db);
 
-	// fill in missing formula_weight, e.g.
-	checkEntities(db);
-
 	if (auto cat = db.get("pdbx_poly_seq_scheme"); cat == nullptr or cat->empty())
 		createPdbxPolySeqScheme(db);
 
@@ -1493,6 +1538,12 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 		comparePolySeqSchemes(db);
 	
 	createPdbxNonpolyScheme(db);
+
+	// Create a minimal set of branch records
+	createPdbxBranchScheme(db);
+
+	// fill in missing formula_weight, e.g.
+	checkEntities(db);
 
 	// skip unknown categories for now
 	bool valid = true;

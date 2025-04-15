@@ -3333,16 +3333,10 @@ void PDBFileParser::ParseRemark350()
 						}
 
 						std::string type = mat == std::vector<double>{ 1, 0, 0, 0, 1, 0, 0, 0, 1 } and vec == std::vector<double>{ 0, 0, 0 } ? "identity operation" : "crystal symmetry operation";
-
-						// if (type == "identity operation")
-						// {
-
-						// }
-						// else
-						try
-						{
-							// clang-format off
-							getCategory("pdbx_struct_oper_list")->emplace({
+					
+						auto pdbx_struct_oper_list = getCategory("pdbx_struct_oper_list");
+						if (not pdbx_struct_oper_list->contains(cif::key("id") == operID))
+							getCategory("pdbx_struct_oper_list")->emplace({ // clang-format off
 								{ "id", operID },
 								{ "type", type },
 								// { "name", "" },
@@ -3360,12 +3354,7 @@ void PDBFileParser::ParseRemark350()
 								{ "matrix[3][3]", cif::format("%12.10f", mat[8]).str() },
 								{ "vector[3]", cif::format("%12.10f", vec[2]).str() }
 							});
-							// clang-format on
-						}
-						catch (duplicate_key_error &ex)
-						{
-							// so what?
-						}
+																			// clang-format on
 
 						mat.clear();
 						vec.clear();
@@ -4300,6 +4289,8 @@ void PDBFileParser::ConstructEntities()
 			type = "polypeptide(L)";
 		else if (mightBeDNA and not mightBePolyPeptide)
 			type = "polyribonucleotide";
+		else
+			type = "other";
 
 		// clang-format off
 		getCategory("entity_poly")->emplace({
@@ -4505,7 +4496,7 @@ void PDBFileParser::ConstructEntities()
 	int modResID = 1;
 	std::set<std::string> modResSet;
 	for (auto rec = FindRecord("MODRES"); rec != nullptr and rec->is("MODRES");
-		 rec = rec->mNext)                     //	 1 -  6        Record name   "MODRES"
+		rec = rec->mNext)                      //	 1 -  6        Record name   "MODRES"
 	{                                          //	 8 - 11        IDcode        idCode      ID code of this datablock.
 		std::string resName = rec->vS(13, 15); //	13 - 15        Residue name  resName     Residue name used in this datablock.
 		char chainID = rec->vC(17);            //	17             Character     chainID     Chain identifier.
@@ -5627,7 +5618,7 @@ void PDBFileParser::ParseCoordinateTransformation()
 			igiven = vC(60) == '1';   //	60             Integer       iGiven        1 if coordinates for the  representations
 			                          //	                                           which  are approximately related by the
 			GetNextRecord();          //	                                           transformations  of the molecule are
-		}                             //	                                           contained in the datablock. Otherwise, blank.
+		} //	                                           contained in the datablock. Otherwise, blank.
 
 		// clang-format off
 		getCategory("struct_ncs_oper")->emplace({

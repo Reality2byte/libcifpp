@@ -2,6 +2,7 @@ Version 8.0.1
 - Fix cif::mm::structure::cleanup_empty_categories, removed too much
 - Add default value for B_iso_or_equiv in residue::create_new_atom
 - Reconstruct some branch records in bare pdbx files
+- Fix parsing PDB files (bug due to missing validator in dest. cat.)
 
 Version 8.0.0
 - A dictionary is for a datablock and a file can have

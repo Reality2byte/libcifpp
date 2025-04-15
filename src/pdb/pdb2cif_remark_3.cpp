@@ -1478,6 +1478,8 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 
 		best.parser->fixup();
 
+		auto &validator = cif::validator_factory::instance().get("mmcif_pdbx.dic");
+
 		for (auto &cat1 : best.parser->mDb)
 		{
 			if (cat1.empty())
@@ -1496,8 +1498,15 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 					auto r1 = cat1.front();
 					auto r2 = cat2.front();
 
-					for (auto item : cat1.key_items())
-						r2[item] = r1[item].text();
+					auto cv = cat1.get_cat_validator();
+					if (cv == nullptr)
+						cv = validator.get_validator_for_category(cat1.name());
+					
+					if (cv == nullptr)
+						continue;
+
+					for (auto &iv : cv->m_item_validators)
+						r2[iv.m_item_name] = r1[iv.m_item_name].text();
 				}
 			}
 			else

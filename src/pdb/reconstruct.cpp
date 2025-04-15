@@ -776,6 +776,7 @@ void createEntity(datablock &db)
 void createEntityPoly(datablock &db)
 {
 	using namespace literals;
+	using namespace std::literals;
 
 	auto &cf = compound_factory::instance();
 
@@ -914,7 +915,7 @@ void createEntityPoly(datablock &db)
 
 		entity_poly.emplace({ //
 			{ "entity_id", entity_id },
-			{ "type", type },
+			{ "type", type.empty() ? "other"s : type },
 			{ "nstd_linkage", non_std_linkage },
 			{ "nstd_monomer", non_std_monomer },
 			{ "pdbx_seq_one_letter_code", entity_seq },

@@ -34,7 +34,7 @@
 #include <numeric>
 
 #if __cpp_lib_format
-#include <format>
+# include <format>
 #endif
 
 /** @file model.hpp
@@ -540,6 +540,9 @@ class residue
 	/// \brief Return the atom with atom_id @a atomID
 	atom get_atom_by_atom_id(const std::string &atomID) const;
 
+	/// \brief Return the atom with atom_id @a atomID and alternate_id @a altID
+	atom get_atom_by_atom_id(const std::string &atomID, const std::string &altID) const;
+
 	/// \brief Return the list of atoms having ID \a atomID
 	///
 	/// This includes all alternate atoms with this ID
@@ -621,6 +624,9 @@ class monomer : public residue
 
 	bool is_first_in_chain() const; ///< Return if this residue is the first residue in the chain
 	bool is_last_in_chain() const;  ///< Return if this residue is the last residue in the chain
+
+	const monomer &prev() const; // Return previous monomer in polymer
+	const monomer &next() const; // Return next monomer in polymer
 
 	// convenience
 	bool has_alpha() const; ///< Return if a alpha value can be calculated (depends on location in chain)
@@ -992,18 +998,18 @@ class structure
 	/**
 	 * @brief Change residue @a res to a new compound ID optionally
 	 * remapping atoms.
-	 * 
+	 *
 	 * A new chem_comp entry as well as an entity is created if needed and
 	 * if the list of @a remappedAtoms is not empty it is used to remap.
-	 * 
+	 *
 	 * The array in @a remappedAtoms contains tuples of strings, both
 	 * strings contain an atom_id. The first is the one in the current
 	 * residue and the second is the atom_id that should be used instead.
 	 * If the second string is empty, the atom is removed from the residue.
-	 * 
-	 * @param res 
-	 * @param newcompound 
-	 * @param remappedAtoms 
+	 *
+	 * @param res
+	 * @param newcompound
+	 * @param remappedAtoms
 	 */
 	void change_residue(residue &res, const std::string &newcompound,
 		const std::vector<std::tuple<std::string, std::string>> &remappedAtoms);

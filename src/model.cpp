@@ -451,6 +451,28 @@ atom residue::get_atom_by_atom_id(const std::string &atom_id) const
 	return result;
 }
 
+atom residue::get_atom_by_atom_id(const std::string &atomID, const std::string &altID) const
+{
+	if (altID.empty())
+		return get_atom_by_atom_id(atomID);
+
+	atom result;
+
+	for (auto &a : m_atoms)
+	{
+		if (auto a_alt_id = a.get_label_alt_id(); a.get_label_atom_id() == atomID and (a_alt_id.empty() or a_alt_id == altID))
+		{
+			result = a;
+			break;
+		}
+	}
+
+	if (not result and VERBOSE > 1)
+		std::cerr << "atom with atom_id " << atomID << " and alt_id " << altID << " not found in residue " << m_asym_id << ':' << m_seq_id << '\n';
+
+	return result;
+}
+
 // residue is a single entity if the atoms for the asym with m_asym_id is equal
 // to the number of atoms in this residue...  hope this is correct....
 bool residue::is_entity() const
@@ -563,6 +585,16 @@ bool monomer::is_last_in_chain() const
 	return m_index + 1 == m_polymer->size();
 }
 
+const monomer &monomer::prev() const
+{
+	return m_polymer->at(m_index - 1);
+}
+
+const monomer &monomer::next() const
+{
+	return m_polymer->at(m_index + 1);
+}
+
 bool monomer::has_alpha() const
 {
 	return m_index >= 1 and m_index + 2 < m_polymer->size();
@@ -579,7 +611,7 @@ float monomer::phi() const
 
 	if (m_index > 0)
 	{
-		auto &prev = m_polymer->operator[](m_index - 1);
+		auto &prev = m_polymer->at(m_index - 1);
 		if (prev.m_seq_id + 1 == m_seq_id)
 		{
 			auto a1 = prev.C();
@@ -601,7 +633,7 @@ float monomer::psi() const
 
 	if (m_index + 1 < m_polymer->size())
 	{
-		auto &next = m_polymer->operator[](m_index + 1);
+		auto &next = m_polymer->at(m_index + 1);
 		if (m_seq_id + 1 == next.m_seq_id)
 		{
 			auto a1 = N();
@@ -625,9 +657,9 @@ float monomer::alpha() const
 	{
 		if (m_index >= 1 and m_index + 2 < m_polymer->size())
 		{
-			auto &prev = m_polymer->operator[](m_index - 1);
-			auto &next = m_polymer->operator[](m_index + 1);
-			auto &nextNext = m_polymer->operator[](m_index + 2);
+			auto &prev = m_polymer->at(m_index - 1);
+			auto &next = m_polymer->at(m_index + 1);
+			auto &nextNext = m_polymer->at(m_index + 2);
 
 			result = static_cast<float>(dihedral_angle(prev.CAlpha().get_location(), CAlpha().get_location(), next.CAlpha().get_location(), nextNext.CAlpha().get_location()));
 		}
@@ -649,8 +681,8 @@ float monomer::kappa() const
 	{
 		if (m_index >= 2 and m_index + 2 < m_polymer->size())
 		{
-			auto &prevPrev = m_polymer->operator[](m_index - 2);
-			auto &nextNext = m_polymer->operator[](m_index + 2);
+			auto &prevPrev = m_polymer->at(m_index - 2);
+			auto &nextNext = m_polymer->at(m_index + 2);
 
 			if (prevPrev.m_seq_id + 4 == nextNext.m_seq_id)
 			{
@@ -678,7 +710,7 @@ float monomer::tco() const
 	{
 		if (m_index > 0)
 		{
-			auto &prev = m_polymer->operator[](m_index - 1);
+			auto &prev = m_polymer->at(m_index - 1);
 			if (prev.m_seq_id + 1 == m_seq_id)
 				result = static_cast<float>(cosinus_angle(C().get_location(), O().get_location(), prev.C().get_location(), prev.O().get_location()));
 		}
@@ -700,7 +732,7 @@ float monomer::omega() const
 	try
 	{
 		if (not is_last_in_chain())
-			result = omega(*this, m_polymer->operator[](m_index + 1));
+			result = omega(*this, m_polymer->at(m_index + 1));
 	}
 	catch (const std::exception &ex)
 	{
@@ -796,7 +828,7 @@ bool monomer::is_cis() const
 
 	if (m_index + 1 < m_polymer->size())
 	{
-		auto &next = m_polymer->operator[](m_index + 1);
+		auto &next = m_polymer->at(m_index + 1);
 
 		result = monomer::is_cis(*this, next);
 	}

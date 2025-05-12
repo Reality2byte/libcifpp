@@ -136,10 +136,10 @@ void checkEntities(datablock &db)
 			for (std::string comp_id : db["pdbx_poly_seq_scheme"].find<std::string>("entity_id"_key == entity_id, "mon_id"))
 			{
 				auto compound = cf.create(comp_id);
-				assert(compound);
-				if (not compound)
-					throw std::runtime_error("missing information for compound " + comp_id);
-				formula_weight += compound->formula_weight();
+				if (compound)
+					formula_weight += compound->formula_weight();
+				else if (cif::VERBOSE > 0)
+					std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
 
@@ -154,10 +154,10 @@ void checkEntities(datablock &db)
 			for (std::string comp_id : db["pdbx_entity_branch_list"].find<std::string>("entity_id"_key == entity_id, "comp_id"))
 			{
 				auto compound = cf.create(comp_id);
-				assert(compound);
-				if (not compound)
-					throw std::runtime_error("missing information for compound " + comp_id);
-				formula_weight += compound->formula_weight();
+				if (compound)
+					formula_weight += compound->formula_weight();
+				else if (cif::VERBOSE > 0)
+					std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
 

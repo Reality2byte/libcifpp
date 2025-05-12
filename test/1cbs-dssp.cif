@@ -723,6 +723,7 @@ _dssp_statistics.nr_of_chains                    1
 _dssp_statistics.nr_of_ss_bridges_total          0 
 _dssp_statistics.nr_of_ss_bridges_intra_chain    0 
 _dssp_statistics.nr_of_ss_bridges_inter_chain    0 
+_dssp_statistics.accessible_surface_of_protein   ?
 # 
 _diffrn_radiation_wavelength.id           1  
 _diffrn_radiation_wavelength.wavelength    . 

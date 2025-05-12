@@ -3333,7 +3333,7 @@ void PDBFileParser::ParseRemark350()
 						}
 
 						std::string type = mat == std::vector<double>{ 1, 0, 0, 0, 1, 0, 0, 0, 1 } and vec == std::vector<double>{ 0, 0, 0 } ? "identity operation" : "crystal symmetry operation";
-					
+
 						auto pdbx_struct_oper_list = getCategory("pdbx_struct_oper_list");
 						if (not pdbx_struct_oper_list->contains(cif::key("id") == operID))
 							getCategory("pdbx_struct_oper_list")->emplace({ // clang-format off
@@ -6404,7 +6404,10 @@ file read(std::istream &is)
 		// apart from the letter 'd', the test has changed into the following:
 
 		if (std::isalpha(ch) and std::toupper(ch) != 'D')
+		{
 			read_pdb_file(is, result);
+			reconstruct_pdbx(result);
+		}
 		else
 		{
 			try
@@ -6415,11 +6418,18 @@ file read(std::istream &is)
 			{
 				std::throw_with_nested(std::runtime_error("Since the file did not start with a valid PDB HEADER line mmCIF was assumed, but that failed."));
 			}
-		}
 
-		// Since we're using the cif::pdb way of reading the file, the data may need
-		// reconstruction
-		reconstruct_pdbx(result);
+			// Try to see if we can create an mm::structure out of this data.
+			// If that fails, we need to reconstruct a PDBx file out of it.
+			try
+			{
+				cif::mm::structure s(result);
+			}
+			catch (const std::exception &e)
+			{
+				reconstruct_pdbx(result);
+			}
+		}
 	}
 
 	// Must be a PDB like file, right?

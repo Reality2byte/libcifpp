@@ -24,6 +24,11 @@
 
 cmake_minimum_required(VERSION 3.23)
 
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
 # set the project name
 project(
 	libcifpp
@@ -63,25 +68,23 @@ elseif(MSVC)
 endif()
 
 # Build documentation?
-option(BUILD_DOCUMENTATION "Build the documentation" OFF)
+set(BUILD_DOCUMENTATION OFF CACHE BOOL "Build the documentation")
 
 # Optionally build a version to be installed inside CCP4
-option(BUILD_FOR_CCP4 "Build a version to be installed in CCP4")
+set(BUILD_FOR_CCP4 OFF CACHE BOOL "Build a version to be installed in CCP4")
 
 # Building shared libraries?
 if(NOT(BUILD_FOR_CCP4 AND WIN32))
-	option(BUILD_SHARED_LIBS "Build a shared library instead of a static one" OFF)
+	set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build a shared library instead of a static one")
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_FOR_CCP4)
 	# Lots of code depend on the availability of the components.cif file
-	option(CIFPP_DOWNLOAD_CCD
-		"Download the CCD file components.cif during installation" ON)
+	set(CIFPP_DOWNLOAD_CCD ON CACHE BOOL "Download the CCD file components.cif during installation")
 
 	# An optional cron script can be installed to keep the data files up-to-date
 	if(UNIX AND NOT APPLE)
-		option(CIFPP_INSTALL_UPDATE_SCRIPT
-			"Install the script to update CCD and dictionary files" ON)
+		set(CIFPP_INSTALL_UPDATE_SCRIPT ON CACHE BOOL "Install the script to update CCD and dictionary files")
 	endif()
 else()
 	unset(CIFPP_DOWNLOAD_CCD)
@@ -91,8 +94,7 @@ endif()
 # When CCP4 is sourced in the environment, we can recreate the symmetry
 # operations table
 if(EXISTS "$ENV{CCP4}/lib/data/syminfo.lib")
-	option(CIFPP_RECREATE_SYMOP_DATA
-		"Recreate SymOp data table in case it is out of date" ON)
+	set(CIFPP_RECREATE_SYMOP_DATA ON CACHE BOOL "Recreate SymOp data table in case it is out of date")
 endif()
 
 # CCP4 build
@@ -242,7 +244,7 @@ else()
 		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
 		GIT_TAG 3.4.0
 		INSTALL_COMMAND "")
-	
+
 	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()

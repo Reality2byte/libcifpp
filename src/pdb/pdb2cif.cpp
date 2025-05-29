@@ -6419,10 +6419,7 @@ file read(std::istream &is)
 				std::throw_with_nested(std::runtime_error("Since the file did not start with a valid PDB HEADER line mmCIF was assumed, but that failed."));
 			}
 
-			// Try to see if we can create an mm::structure out of this data.
-			// If that fails, we need to reconstruct a PDBx file out of it.
-
-			if (not (result.empty() or result.front().empty()))
+			if (not(result.empty() or result.front().empty()))
 			{
 				if (auto &db = result.front(); db.get("audit_conform") == nullptr)
 					reconstruct_pdbx(result);
@@ -6430,6 +6427,9 @@ file read(std::istream &is)
 				{
 					try
 					{
+						// Try to see if we can create an mm::structure out of this data.
+						// If that fails, we need to reconstruct a PDBx file out of it.
+
 						cif::mm::structure s(result);
 					}
 					catch (const std::exception &e)

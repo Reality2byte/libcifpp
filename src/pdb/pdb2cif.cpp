@@ -6421,13 +6421,22 @@ file read(std::istream &is)
 
 			// Try to see if we can create an mm::structure out of this data.
 			// If that fails, we need to reconstruct a PDBx file out of it.
-			try
+
+			if (not (result.empty() or result.front().empty()))
 			{
-				cif::mm::structure s(result);
-			}
-			catch (const std::exception &e)
-			{
-				reconstruct_pdbx(result);
+				if (auto &db = result.front(); db.get("audit_conform") == nullptr)
+					reconstruct_pdbx(result);
+				else
+				{
+					try
+					{
+						cif::mm::structure s(result);
+					}
+					catch (const std::exception &e)
+					{
+						reconstruct_pdbx(result);
+					}
+				}
 			}
 		}
 	}

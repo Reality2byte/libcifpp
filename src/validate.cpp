@@ -552,6 +552,9 @@ const validator &validator_factory::get(const category &audit_conform)
 validator validator_factory::construct_validator(std::string_view name, std::optional<std::string> version)
 {
 	auto data = load_resource(name);
+	if (not data and name == "mmcif_pdbx_v50")
+		data = load_resource("mmcif_pdbx.dic");
+
 	if (not data)
 		throw std::runtime_error("Could not load dictionary " + std::string{ name });
 

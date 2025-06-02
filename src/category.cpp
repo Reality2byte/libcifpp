@@ -925,7 +925,11 @@ void category::strip()
 	}
 
 	for (auto item : to_be_removed)
+	{
+		if (cif::VERBOSE > 0)
+			std::clog << "Dropping item " << m_name << '.' << item << '\n';
 		remove_item(item);
+	}
 }
 
 // --------------------------------------------------------------------

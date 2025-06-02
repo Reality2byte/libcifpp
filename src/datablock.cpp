@@ -96,7 +96,16 @@ bool datablock::strip()
 	bool result = true;
 
 	// remove all categories that have no validator
-	erase(std::remove_if(begin(), end(), [](category &c) { return c.get_validator() == nullptr; }), end());
+	erase(std::remove_if(begin(), end(), [](category &c) {
+		bool result = false;
+		if (c.get_cat_validator() == nullptr)
+		{
+			if (cif::VERBOSE > 0)
+				std::clog << "Dropping category " << c.name() << '\n';
+			result = true;
+		}
+		return result;
+	}), end());
 
 	// then strip the remaining categories
 	for (auto &cat : *this)

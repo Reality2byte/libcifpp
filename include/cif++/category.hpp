@@ -223,6 +223,11 @@ class category
 	/// @return Returns true is all validations pass
 	bool validate_links() const;
 
+	/**
+	 * @brief Strip removes items from this category that are invalid according to the assigned validator
+	 */
+	void strip();
+
 	/// @brief Equality operator, returns true if @a rhs is equal to this
 	/// @param rhs The object to compare with
 	/// @return True if the data contained is equal

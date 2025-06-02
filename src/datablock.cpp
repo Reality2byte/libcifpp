@@ -78,17 +78,32 @@ bool datablock::is_valid() const
 	return result;
 }
 
-bool datablock::is_valid()
+bool datablock::validate_links() const
 {
-	if (m_validator == nullptr)
-		throw std::runtime_error("Validator not specified for datablock data_" + name());
-
 	bool result = true;
+
 	for (auto &cat : *this)
-		result = cat.is_valid() and result;
+		const_cast<category &>(cat).update_links(*this);
+
+	for (auto &cat : *this)
+		result = cat.validate_links() and result;
+
+	return result;
+}
+
+bool datablock::strip()
+{
+	bool result = true;
+
+	// remove all categories that have no validator
+	erase(std::remove_if(begin(), end(), [](category &c) { return c.get_validator() == nullptr; }), end());
+
+	// then strip the remaining categories
+	for (auto &cat : *this)
+		cat.strip();
 
 	// Add or remove the audit_conform block here.
-	if (result)
+	if (is_valid())
 	{
 		// If the dictionary declares an audit_conform category, put it in,
 		// but only if it does not exist already!
@@ -101,22 +116,7 @@ bool datablock::is_valid()
 		}
 	}
 	else
-		erase(std::find_if(begin(), end(), [](category &cat)
-				  { return cat.name() == "audit_conform"; }),
-			end());
-
-	return result;
-}
-
-bool datablock::validate_links() const
-{
-	bool result = true;
-
-	for (auto &cat : *this)
-		const_cast<category &>(cat).update_links(*this);
-
-	for (auto &cat : *this)
-		result = cat.validate_links() and result;
+		result = false;
 
 	return result;
 }

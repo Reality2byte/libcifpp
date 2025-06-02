@@ -914,6 +914,20 @@ bool category::validate_links() const
 	return result;
 }
 
+void category::strip()
+{
+	std::vector<std::string> to_be_removed;
+
+	for (auto &item : m_items)
+	{
+		if (item.m_validator == nullptr)
+			to_be_removed.push_back(item.m_name);
+	}
+
+	for (auto item : to_be_removed)
+		remove_item(item);
+}
+
 // --------------------------------------------------------------------
 
 row_handle category::operator[](const key_type &key)

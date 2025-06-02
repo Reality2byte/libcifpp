@@ -183,6 +183,15 @@ class datablock : public std::list<category>
 	 */
 	const category *get(std::string_view name) const;
 
+
+	/**
+	 * @brief Return true if this datablock contains a non-empty category
+	 */
+	bool contains(std::string_view name) const
+	{
+		return get(name) != nullptr;
+	}
+
 	/**
 	 * @brief Tries to find a category with name @a name and will create a
 	 * new one if it is not found. The result is a tuple of an iterator

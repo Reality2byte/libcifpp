@@ -106,8 +106,6 @@ class atom
 
 		atom_impl(const atom_impl &i) = default;
 
-		void prefetch();
-
 		int compare(const atom_impl &b) const;
 
 		// bool getAnisoU(float anisou[6]) const;

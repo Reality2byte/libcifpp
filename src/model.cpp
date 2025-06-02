@@ -102,18 +102,18 @@ void atom::atom_impl::set_property(const std::string_view name, const std::strin
 	r.assign(name, value, true, true);
 }
 
-// int atom::atom_impl::compare(const atom_impl &b) const
-// {
-// 	int d = m_asym_id.compare(b.m_asym_id);
-// 	if (d == 0)
-// 		d = m_seq_id - b.m_seq_id;
-// 	if (d == 0)
-// 		d = m_auth_seq_id.compare(b.m_auth_seq_id);
-// 	if (d == 0)
-// 		d = mAtom_id.compare(b.mAtom_id);
+int atom::atom_impl::compare(const atom_impl &b) const
+{
+	int d = get_property("label_asym_id").compare(b.get_property("label_asym_id"));
+	if (d == 0)
+		d = get_property_int("label_seq_id") - b.get_property_int("label_seq_id");
+	if (d == 0)
+		d = get_property_int("auth_seq_id") - b.get_property_int("auth_seq_id");
+	if (d == 0)
+		d = get_property("label_atom_id").compare(b.get_property("label_atom_id"));
 
-// 	return d;
-// }
+	return d;
+}
 
 // bool atom::atom_impl::getAnisoU(float anisou[6]) const
 // {

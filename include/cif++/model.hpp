@@ -343,7 +343,7 @@ class atom
 	std::string get_auth_asym_id() const { return get_property("auth_asym_id"); }      ///< Return the auth_asym_id property
 	std::string get_auth_seq_id() const { return get_property("auth_seq_id"); }        ///< Return the auth_seq_id property
 	std::string get_auth_atom_id() const { return get_property("auth_atom_id"); }      ///< Return the auth_atom_id property
-	std::string get_auth_alt_id() const { return get_property("auth_alt_id"); }        ///< Return the auth_alt_id property
+	std::string get_auth_alt_id() const { return get_property("pdbx_auth_alt_id"); }   ///< Return the auth_alt_id property
 	std::string get_auth_comp_id() const { return get_property("auth_comp_id"); }      ///< Return the auth_comp_id property
 	std::string get_pdb_ins_code() const { return get_property("pdbx_PDB_ins_code"); } ///< Return the pdb_ins_code property
 

@@ -1272,10 +1272,7 @@ void structure::load_data()
 	for (auto &poly : m_polymers)
 	{
 		for (auto &res : poly)
-		{
 			resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num() }] = &res;
-			std::cout << res.get_asym_id() << ", " << res.get_seq_id() << ", " << res.get_pdb_seq_num() << "\n";
-		}
 	}
 
 	for (auto &res : m_non_polymers)

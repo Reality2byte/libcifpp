@@ -1,4 +1,7 @@
-Version 8.0.2
+Version 9.0.0
+- Rename fields of cif::mm::polymer to match the naming
+  in mmcif_pdbx.dic. Also, related, fix building mm::structure
+  using the correct mapping between atom_site and residues.
 - _atom_site.auth_alt_id does not exist, it should be
   _atom_site.pdbx_auth_alt_id of course.
 

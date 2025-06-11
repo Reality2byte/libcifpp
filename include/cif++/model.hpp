@@ -476,11 +476,11 @@ class residue
 		const std::string &authAsymID, const std::string &authSeqID,
 		const std::string &pdbInsCode)
 		: m_structure(&structure)
-		, m_compound_id(compoundID)
+		, m_mon_id(compoundID)
 		, m_asym_id(asymID)
 		, m_seq_id(seqID)
-		, m_auth_asym_id(authAsymID)
-		, m_auth_seq_id(authSeqID)
+		, m_pdb_strand_id(authAsymID)
+		, m_pdb_seq_num(authSeqID)
 		, m_pdb_ins_code(pdbInsCode)
 	{
 	}
@@ -507,12 +507,12 @@ class residue
 	const std::string &get_asym_id() const { return m_asym_id; } ///< Return the asym_id
 	int get_seq_id() const { return m_seq_id; }                  ///< Return the seq_id
 
-	const std::string get_auth_asym_id() const { return m_auth_asym_id; } ///< Return the auth_asym_id
-	const std::string get_auth_seq_id() const { return m_auth_seq_id; }   ///< Return the auth_seq_id
+	const std::string get_pdb_strand_id() const { return m_pdb_strand_id; } ///< Return the pdb_strand_id
+	const std::string get_pdb_seq_num() const { return m_pdb_seq_num; }   ///< Return the pdb_seq_num
 	std::string get_pdb_ins_code() const { return m_pdb_ins_code; }       ///< Return the pdb_ins_code
 
-	const std::string &get_compound_id() const { return m_compound_id; } ///< Return the compound_id
-	void set_compound_id(const std::string &id) { m_compound_id = id; }  ///< Set the compound_id to @a id
+	const std::string &get_mon_id() const { return m_mon_id; } ///< Return the compound_id
+	void set_mon_id(const std::string &id) { m_mon_id = id; }  ///< Set the compound_id to @a id
 
 	/** Return the structure this residue belongs to */
 	structure *get_structure() const { return m_structure; }
@@ -551,7 +551,7 @@ class residue
 	bool is_entity() const;
 
 	/// \brief Is this residue a water molecule?
-	bool is_water() const { return m_compound_id == "HOH"; }
+	bool is_water() const { return m_mon_id == "HOH"; }
 
 	/// \brief Return true if this residue has alternate atoms
 	bool has_alternate_atoms() const;
@@ -577,8 +577,8 @@ class residue
 		return this == &rhs or (m_structure == rhs.m_structure and
 								   m_seq_id == rhs.m_seq_id and
 								   m_asym_id == rhs.m_asym_id and
-								   m_compound_id == rhs.m_compound_id and
-								   m_auth_seq_id == rhs.m_auth_seq_id);
+								   m_mon_id == rhs.m_mon_id and
+								   m_pdb_seq_num == rhs.m_pdb_seq_num);
 	}
 
 	/// @brief Create a new atom and add it to the list
@@ -590,9 +590,9 @@ class residue
 	residue() {}
 
 	structure *m_structure = nullptr;
-	std::string m_compound_id, m_asym_id;
+	std::string m_mon_id, m_asym_id;
 	int m_seq_id = 0;
-	std::string m_auth_asym_id, m_auth_seq_id, m_pdb_ins_code;
+	std::string m_pdb_strand_id, m_pdb_seq_num, m_pdb_ins_code;
 	std::vector<atom> m_atoms;
 	/** @endcond */
 };
@@ -713,14 +713,14 @@ class polymer : public std::vector<monomer>
 	structure *get_structure() const { return m_structure; } ///< Return the structure
 
 	std::string get_asym_id() const { return m_asym_id; }           ///< Return the asym_id
-	std::string get_auth_asym_id() const { return m_auth_asym_id; } ///< Return the PDB chain ID, actually
+	std::string get_pdb_strand_id() const { return m_pdb_strand_id; } ///< Return the PDB chain ID, actually
 	std::string get_entity_id() const { return m_entity_id; }       ///< Return the entity_id
 
   private:
 	structure *m_structure;
 	std::string m_entity_id;
 	std::string m_asym_id;
-	std::string m_auth_asym_id;
+	std::string m_pdb_strand_id;
 };
 
 // --------------------------------------------------------------------
@@ -758,7 +758,7 @@ class sugar : public residue
 	int num() const
 	{
 		int result;
-		auto r = std::from_chars(m_auth_seq_id.data(), m_auth_seq_id.data() + m_auth_seq_id.length(), result);
+		auto r = std::from_chars(m_pdb_seq_num.data(), m_pdb_seq_num.data() + m_pdb_seq_num.length(), result);
 		if ((bool)r.ec)
 			throw std::runtime_error("The auth_seq_id should be a number for a sugar");
 		return result;

@@ -476,7 +476,7 @@ class residue
 		const std::string &authAsymID, const std::string &authSeqID,
 		const std::string &pdbInsCode)
 		: m_structure(&structure)
-		, m_mon_id(compoundID)
+		, m_compound_id(compoundID)
 		, m_asym_id(asymID)
 		, m_seq_id(seqID)
 		, m_pdb_strand_id(authAsymID)
@@ -511,8 +511,8 @@ class residue
 	const std::string get_pdb_seq_num() const { return m_pdb_seq_num; }   ///< Return the pdb_seq_num
 	std::string get_pdb_ins_code() const { return m_pdb_ins_code; }       ///< Return the pdb_ins_code
 
-	const std::string &get_mon_id() const { return m_mon_id; } ///< Return the compound_id
-	void set_mon_id(const std::string &id) { m_mon_id = id; }  ///< Set the compound_id to @a id
+	const std::string &get_compound_id() const { return m_compound_id; } ///< Return the compound_id
+	void set_compound_id(const std::string &id) { m_compound_id = id; }  ///< Set the compound_id to @a id
 
 	/** Return the structure this residue belongs to */
 	structure *get_structure() const { return m_structure; }
@@ -551,7 +551,7 @@ class residue
 	bool is_entity() const;
 
 	/// \brief Is this residue a water molecule?
-	bool is_water() const { return m_mon_id == "HOH"; }
+	bool is_water() const { return m_compound_id == "HOH"; }
 
 	/// \brief Return true if this residue has alternate atoms
 	bool has_alternate_atoms() const;
@@ -577,7 +577,7 @@ class residue
 		return this == &rhs or (m_structure == rhs.m_structure and
 								   m_seq_id == rhs.m_seq_id and
 								   m_asym_id == rhs.m_asym_id and
-								   m_mon_id == rhs.m_mon_id and
+								   m_compound_id == rhs.m_compound_id and
 								   m_pdb_seq_num == rhs.m_pdb_seq_num);
 	}
 
@@ -590,7 +590,7 @@ class residue
 	residue() {}
 
 	structure *m_structure = nullptr;
-	std::string m_mon_id, m_asym_id;
+	std::string m_compound_id, m_asym_id;
 	int m_seq_id = 0;
 	std::string m_pdb_strand_id, m_pdb_seq_num, m_pdb_ins_code;
 	std::vector<atom> m_atoms;

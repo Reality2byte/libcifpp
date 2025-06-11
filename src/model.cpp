@@ -177,7 +177,7 @@ residue::residue(structure &structure, const std::vector<atom> &atoms)
 
 	auto &a = atoms.front();
 
-	m_mon_id = a.get_label_comp_id();
+	m_compound_id = a.get_label_comp_id();
 	m_asym_id = a.get_label_asym_id();
 	m_seq_id = a.get_label_seq_id();
 	m_pdb_strand_id = a.get_auth_asym_id();
@@ -230,11 +230,11 @@ atom residue::create_new_atom(atom_type inType, const std::string &inAtomID, poi
 		{ "label_atom_id", inAtomID },
 		{ "label_asym_id", m_asym_id },
 		{ "label_alt_id", "." },
-		{ "label_comp_id", m_mon_id },
+		{ "label_comp_id", m_compound_id },
 		{ "label_seq_id", m_seq_id },
 		{ "auth_asym_id", m_pdb_strand_id },
 		{ "auth_atom_id", inAtomID },
-		{ "auth_comp_id", m_mon_id },
+		{ "auth_comp_id", m_compound_id },
 		{ "auth_seq_id", m_pdb_seq_num },
 		{ "occupancy", 1.0f, 2 },
 		{ "B_iso_or_equiv", 20.0f },
@@ -400,7 +400,7 @@ std::vector<atom> residue::get_atoms_by_id(const std::string &atom_id) const
 
 std::ostream &operator<<(std::ostream &os, const residue &res)
 {
-	os << res.get_mon_id() << ' ' << res.get_asym_id() << ':' << res.get_seq_id();
+	os << res.get_compound_id() << ' ' << res.get_asym_id() << ':' << res.get_seq_id();
 
 	if (res.get_pdb_strand_id() != res.get_asym_id() or res.get_pdb_seq_num() != std::to_string(res.get_seq_id()))
 		os << " [" << res.get_pdb_strand_id() << ':' << res.get_pdb_seq_num() << ']';
@@ -631,7 +631,7 @@ std::size_t monomer::nr_of_chis() const
 {
 	std::size_t result = 0;
 
-	auto i = kChiAtomsMap.find(m_mon_id);
+	auto i = kChiAtomsMap.find(m_compound_id);
 	if (i != kChiAtomsMap.end())
 		result = i->second.size();
 
@@ -644,7 +644,7 @@ float monomer::chi(std::size_t nr) const
 
 	try
 	{
-		auto i = kChiAtomsMap.find(m_mon_id);
+		auto i = kChiAtomsMap.find(m_compound_id);
 		if (i != kChiAtomsMap.end() and nr < i->second.size())
 		{
 			std::vector<std::string> atoms{ "N", "CA", "CB" };
@@ -654,9 +654,9 @@ float monomer::chi(std::size_t nr) const
 			// in case we have a positive chiral volume we need to swap atoms
 			if (chiral_volume() > 0)
 			{
-				if (m_mon_id == "LEU")
+				if (m_compound_id == "LEU")
 					atoms.back() = "CD2";
-				if (m_mon_id == "VAL")
+				if (m_compound_id == "VAL")
 					atoms.back() = "CG2";
 			}
 
@@ -739,7 +739,7 @@ float monomer::chiral_volume() const
 {
 	float result = 0;
 
-	if (m_mon_id == "LEU")
+	if (m_compound_id == "LEU")
 	{
 		auto centre = get_atom_by_atom_id("CG");
 		auto atom1 = get_atom_by_atom_id("CB");
@@ -749,7 +749,7 @@ float monomer::chiral_volume() const
 		result = dot_product(atom1.get_location() - centre.get_location(),
 			cross_product(atom2.get_location() - centre.get_location(), atom3.get_location() - centre.get_location()));
 	}
-	else if (m_mon_id == "VAL")
+	else if (m_compound_id == "VAL")
 	{
 		auto centre = get_atom_by_atom_id("CB");
 		auto atom1 = get_atom_by_atom_id("CA");
@@ -956,25 +956,25 @@ std::string sugar::name() const
 {
 	std::string result;
 
-	if (m_mon_id == "MAN")
+	if (m_compound_id == "MAN")
 		result += "alpha-D-mannopyranose";
-	else if (m_mon_id == "BMA")
+	else if (m_compound_id == "BMA")
 		result += "beta-D-mannopyranose";
-	else if (m_mon_id == "NAG")
+	else if (m_compound_id == "NAG")
 		result += "2-acetamido-2-deoxy-beta-D-glucopyranose";
-	else if (m_mon_id == "NDG")
+	else if (m_compound_id == "NDG")
 		result += "2-acetamido-2-deoxy-alpha-D-glucopyranose";
-	else if (m_mon_id == "FUC")
+	else if (m_compound_id == "FUC")
 		result += "alpha-L-fucopyranose";
-	else if (m_mon_id == "FUL")
+	else if (m_compound_id == "FUL")
 		result += "beta-L-fucopyranose";
 	else
 	{
-		auto compound = compound_factory::instance().create(m_mon_id);
+		auto compound = compound_factory::instance().create(m_compound_id);
 		if (compound)
 			result += compound->name();
 		else
-			result += m_mon_id;
+			result += m_compound_id;
 	}
 
 	return result;
@@ -991,11 +991,11 @@ cif::mm::atom sugar::add_atom(row_initializer atom_info)
 	atom_info.set_value({ "id", atom_id });
 	atom_info.set_value({ "label_entity_id", m_branch->get_entity_id() });
 	atom_info.set_value({ "label_asym_id", m_branch->get_asym_id() });
-	atom_info.set_value({ "label_comp_id", m_mon_id });
+	atom_info.set_value({ "label_comp_id", m_compound_id });
 	atom_info.set_value({ "label_seq_id", "." });
 	atom_info.set_value({ "label_alt_id", "." });
 	atom_info.set_value({ "auth_asym_id", m_branch->get_asym_id() });
-	atom_info.set_value({ "auth_comp_id", m_mon_id });
+	atom_info.set_value({ "auth_comp_id", m_compound_id });
 	atom_info.set_value({ "auth_seq_id", m_pdb_seq_num });
 	atom_info.set_value({ "occupancy", 1.0, 2 });
 	atom_info.set_value({ "B_iso_or_equiv", 30.0, 2 });
@@ -1109,14 +1109,14 @@ sugar &branch::construct_sugar(const std::string &compound_id)
 	db["pdbx_branch_scheme"].emplace({ { "asym_id", result.get_asym_id() },
 		{ "entity_id", result.get_entity_id() },
 		{ "num", result.num() },
-		{ "mon_id", result.get_mon_id() },
+		{ "mon_id", result.get_compound_id() },
 
 		{ "pdb_asym_id", result.get_asym_id() },
 		{ "pdb_seq_num", result.get_pdb_seq_num() },
-		{ "pdb_mon_id", result.get_mon_id() },
+		{ "pdb_mon_id", result.get_compound_id() },
 
 		{ "auth_asym_id", result.get_pdb_strand_id() },
-		{ "auth_mon_id", result.get_mon_id() },
+		{ "auth_mon_id", result.get_compound_id() },
 		{ "auth_seq_num", result.get_pdb_seq_num() },
 
 		{ "hetero", "n" } });
@@ -1144,7 +1144,7 @@ sugar &branch::construct_sugar(const std::string &compound_id, const std::string
 		{ "atom_id_1", atom_id },
 		{ "leaving_atom_id_1", "O1" }, /// TODO: Need to fix this!
 		{ "entity_branch_list_num_2", linked.num() },
-		{ "comp_id_2", linked.get_mon_id() },
+		{ "comp_id_2", linked.get_compound_id() },
 		{ "atom_id_2", linked_atom_id },
 		{ "leaving_atom_id_2", "." },
 		{ "value_order", "sing" } });
@@ -1178,7 +1178,7 @@ float branch::weight() const
 {
 	return std::accumulate(begin(), end(), 0.f, [](float sum, const sugar &s)
 		{
-		auto compound = compound_factory::instance().create(s.get_mon_id());
+		auto compound = compound_factory::instance().create(s.get_compound_id());
 		if (compound)
 			sum += compound->formula_weight();
 		return sum; });
@@ -1287,7 +1287,7 @@ void structure::load_data()
 		for (auto &sugar : branch)
 		{
 			resMap[{ sugar.get_asym_id(), sugar.get_seq_id(), sugar.get_pdb_seq_num() }] = &sugar;
-			sugars.insert(sugar.get_mon_id());
+			sugars.insert(sugar.get_compound_id());
 		}
 	}
 
@@ -1555,7 +1555,7 @@ residue &structure::get_residue(const std::string &asym_id, const std::string &c
 	{
 		for (auto &res : m_non_polymers)
 		{
-			if (res.get_asym_id() == asym_id and res.get_pdb_seq_num() == authSeqID and res.get_mon_id() == compID)
+			if (res.get_asym_id() == asym_id and res.get_pdb_seq_num() == authSeqID and res.get_compound_id() == compID)
 				return res;
 		}
 	}
@@ -1567,7 +1567,7 @@ residue &structure::get_residue(const std::string &asym_id, const std::string &c
 
 		for (auto &res : poly)
 		{
-			if (res.get_seq_id() == seqID and res.get_mon_id() == compID)
+			if (res.get_seq_id() == seqID and res.get_compound_id() == compID)
 				return res;
 		}
 	}
@@ -1579,7 +1579,7 @@ residue &structure::get_residue(const std::string &asym_id, const std::string &c
 
 		for (auto &sugar : branch)
 		{
-			if (sugar.get_asym_id() == asym_id and sugar.get_pdb_seq_num() == authSeqID and sugar.get_mon_id() == compID)
+			if (sugar.get_asym_id() == asym_id and sugar.get_pdb_seq_num() == authSeqID and sugar.get_compound_id() == compID)
 				return sugar;
 		}
 	}
@@ -1881,7 +1881,7 @@ void structure::change_residue(residue &res, const std::string &newCompound,
 	else
 		insert_compound(newCompound, false);
 
-	res.set_mon_id(newCompound);
+	res.set_compound_id(newCompound);
 
 	auto &atomSites = m_db["atom_site"];
 	auto atoms = res.atoms();
@@ -2083,15 +2083,15 @@ void structure::remove_sugar(sugar &s)
 			pdbx_branch_scheme.emplace({ { "asym_id", asym_id },
 				{ "entity_id", entity_id },
 				{ "num", sugar.num() },
-				{ "mon_id", sugar.get_mon_id() },
+				{ "mon_id", sugar.get_compound_id() },
 
 				{ "pdb_asym_id", asym_id },
 				{ "pdb_seq_num", sugar.num() },
-				{ "pdb_mon_id", sugar.get_mon_id() },
+				{ "pdb_mon_id", sugar.get_compound_id() },
 
 				// TODO: need fix, collect from nag_atoms?
 				{ "auth_asym_id", asym_id },
-				{ "auth_mon_id", sugar.get_mon_id() },
+				{ "auth_mon_id", sugar.get_compound_id() },
 				{ "auth_seq_num", sugar.get_pdb_seq_num() },
 
 				{ "hetero", "n" } });
@@ -2536,7 +2536,7 @@ std::string structure::create_entity_for_branch(branch &branch)
 		for (auto &sugar : branch)
 		{
 			pdbx_entity_branch_list.emplace({ { "entity_id", entityID },
-				{ "comp_id", sugar.get_mon_id() },
+				{ "comp_id", sugar.get_compound_id() },
 				{ "num", sugar.num() },
 				{ "hetero", "n" } });
 		}
@@ -2555,11 +2555,11 @@ std::string structure::create_entity_for_branch(branch &branch)
 			pdbx_entity_branch_link.emplace({ { "link_id", pdbx_entity_branch_link.get_unique_id("") },
 				{ "entity_id", entityID },
 				{ "entity_branch_list_num_1", s1.get_pdb_seq_num() },
-				{ "comp_id_1", s1.get_mon_id() },
+				{ "comp_id_1", s1.get_compound_id() },
 				{ "atom_id_1", l1.get_label_atom_id() },
 				{ "leaving_atom_id_1", "O1" },
 				{ "entity_branch_list_num_2", s2.get_pdb_seq_num() },
-				{ "comp_id_2", s2.get_mon_id() },
+				{ "comp_id_2", s2.get_compound_id() },
 				{ "atom_id_2", l2.get_label_atom_id() },
 				{ "leaving_atom_id_2", "H" + l2.get_label_atom_id() },
 				{ "value_order", "sing" } });

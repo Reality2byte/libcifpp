@@ -119,19 +119,6 @@ class file : public std::list<datablock>
 	/** @endcond */
 
 	/**
-	 * @brief Set the validator object to @a v
-	 */
-	void set_validator(const validator *v);
-
-	/**
-	 * @brief Get the validator object
-	 */
-	const validator *get_validator() const
-	{
-		return m_validator;
-	}
-
-	/**
 	 * @brief Validate the content and return true if everything was valid.
 	 * 
 	 * Will throw an exception if there is no validator defined.
@@ -164,32 +151,6 @@ class file : public std::list<datablock>
 	 * @return false If all links were not valid
 	 */
 	bool validate_links() const;
-
-	/**
-	 * @brief Attempt to load a dictionary (validator) based on
-	 * the contents of the *audit_conform* category, if available.
-	 */
-	void load_dictionary();
-
-
-	/**
-	 * @brief Attempt to load the named dictionary @a name and
-	 * create a validator based on it.
-	 * 
-	 * The @a name can be the name of a single file, or even the
-	 * stem of that filename. So, e.g. mmcif_pdbx is valid.
-	 * 
-	 * Since libcifpp can use extensions to validators, you
-	 * can add them to the name. So if you would like to add
-	 * the dssp extensions you would have to write:
-	 * 
-	 * @code{cpp}
-	 * file.load_dictionary("mmcif_pdbx;dssp-extension");
-	 * @endcode
-	 * 
-	 * @param name The name of the dictionary to load
-	 */
-	void load_dictionary(std::string_view name);
 
 	/**
 	 * @brief Return true if a datablock with the name @a name is part of this file
@@ -243,6 +204,12 @@ class file : public std::list<datablock>
 	/** Load the data from @a is */
 	void load(std::istream &is);
 
+	/** Load the data from the file specified by @a p using validator @a v */
+	void load(const std::filesystem::path &p, const validator &v);
+
+	/** Load the data from @a is using validator @a v */
+	void load(std::istream &is, const validator &v);
+
 	/** Save the data to the file specified by @a p */
 	void save(const std::filesystem::path &p) const;
 
@@ -257,9 +224,6 @@ class file : public std::list<datablock>
 		f.save(os);
 		return os;
 	}
-
-  private:
-	const validator *m_validator = nullptr;
 };
 
 } // namespace cif

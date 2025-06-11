@@ -27,6 +27,7 @@
 #pragma once
 
 #include "cif++/file.hpp"
+#include "cif++/validate.hpp"
 
 #include <system_error>
 
@@ -106,13 +107,26 @@ inline void write(const std::filesystem::path &p, const file &f)
 /** \brief Reconstruct all missing categories for an assumed PDBx file.
  *
  * Some people believe that simply dumping some atom records is enough.
+ * 
+ * This version uses the audit_conform information and falls back to
+ * using mmcif_pdbx.dic if not specified.
  *
- * \param file The cif::file that hopefully contains some valid data
- * \param dictionary The mmcif dictionary to use
+ * \param pdbx_file The cif::file that hopefully contains some valid data
  * \result Returns true if the resulting file is valid
  */
 
-bool reconstruct_pdbx(file &pdbx_file, std::string_view dictionary = "mmcif_pdbx");
+ bool reconstruct_pdbx(file &pdbx_file);
+
+ /** \brief Reconstruct all missing categories for an assumed PDBx file.
+ *
+ * Some people believe that simply dumping some atom records is enough.
+ *
+ * \param pdbx_file The cif::file that hopefully contains some valid data
+ * \param v The validator to use
+ * \result Returns true if the resulting file is valid
+ */
+
+bool reconstruct_pdbx(file &pdbx_file, const validator &v);
 
 /** \brief This is an extension to cif::validator, use the logic in common
  * PDBx files to see if the file is internally consistent.
@@ -125,12 +139,13 @@ bool reconstruct_pdbx(file &pdbx_file, std::string_view dictionary = "mmcif_pdbx
  * 
  * This function throws a std::system_error in case of an error
  *
- * \param file The input file
- * \param dictionary The mmcif dictionary to use
+ * \param pdbx_file The input file
+ * \param v The validator to use
  * \result Returns true if the file was valid and consistent
  */
 
-bool is_valid_pdbx_file(const file &pdbx_file, std::string_view dictionary = "mmcif_pdbx");
+bool is_valid_pdbx_file(const file &pdbx_file,
+	const validator &v = validator_factory::instance().get("mmcif_pdbx.dic"));
 
 /** \brief This is an extension to cif::validator, use the logic in common
  * PDBx files to see if the file is internally consistent.
@@ -145,7 +160,6 @@ bool is_valid_pdbx_file(const file &pdbx_file, std::string_view dictionary = "mm
  * default mmcif_pdbx.dic dictionary.
  *
  * \param file The input file
- * \param ec The error_code in case something was wrong
  * \result Returns true if the file was valid and consistent
  */
 
@@ -161,12 +175,12 @@ bool is_valid_pdbx_file(const file &pdbx_file, std::error_code &ec);
  * Use the common \ref cif::VERBOSE flag to turn on diagnostic messages.
  * 
  * \param file The input file
- * \param dictionary The dictionary to use
+ * \param v The validator to use
  * \param ec The error_code in case something was wrong
  * \result Returns true if the file was valid and consistent
  */
 
-bool is_valid_pdbx_file(const file &pdbx_file, std::string_view dictionary,
+bool is_valid_pdbx_file(const file &pdbx_file, const validator &v,
 	std::error_code &ec);
 
 // --------------------------------------------------------------------

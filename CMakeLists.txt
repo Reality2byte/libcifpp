@@ -24,10 +24,15 @@
 
 cmake_minimum_required(VERSION 3.23)
 
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
+endif()
+
 # set the project name
 project(
 	libcifpp
-	VERSION 7.0.10
+	VERSION 9.0.0
 	LANGUAGES CXX)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -41,6 +46,7 @@ include(CheckCXXSourceCompiles)
 include(GenerateExportHeader)
 include(CTest)
 include(FetchContent)
+include(ExternalProject)
 
 # FindBoost, take care of it now.
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
@@ -62,25 +68,23 @@ elseif(MSVC)
 endif()
 
 # Build documentation?
-option(BUILD_DOCUMENTATION "Build the documentation" OFF)
+set(BUILD_DOCUMENTATION OFF CACHE BOOL "Build the documentation")
 
 # Optionally build a version to be installed inside CCP4
-option(BUILD_FOR_CCP4 "Build a version to be installed in CCP4")
+set(BUILD_FOR_CCP4 OFF CACHE BOOL "Build a version to be installed in CCP4")
 
 # Building shared libraries?
 if(NOT(BUILD_FOR_CCP4 AND WIN32))
-	option(BUILD_SHARED_LIBS "Build a shared library instead of a static one" OFF)
+	set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build a shared library instead of a static one")
 endif()
 
 if(PROJECT_IS_TOP_LEVEL AND NOT BUILD_FOR_CCP4)
 	# Lots of code depend on the availability of the components.cif file
-	option(CIFPP_DOWNLOAD_CCD
-		"Download the CCD file components.cif during installation" ON)
+	set(CIFPP_DOWNLOAD_CCD ON CACHE BOOL "Download the CCD file components.cif during installation")
 
 	# An optional cron script can be installed to keep the data files up-to-date
 	if(UNIX AND NOT APPLE)
-		option(CIFPP_INSTALL_UPDATE_SCRIPT
-			"Install the script to update CCD and dictionary files" ON)
+		set(CIFPP_INSTALL_UPDATE_SCRIPT ON CACHE BOOL "Install the script to update CCD and dictionary files")
 	endif()
 else()
 	unset(CIFPP_DOWNLOAD_CCD)
@@ -90,8 +94,7 @@ endif()
 # When CCP4 is sourced in the environment, we can recreate the symmetry
 # operations table
 if(EXISTS "$ENV{CCP4}/lib/data/syminfo.lib")
-	option(CIFPP_RECREATE_SYMOP_DATA
-		"Recreate SymOp data table in case it is out of date" ON)
+	set(CIFPP_RECREATE_SYMOP_DATA ON CACHE BOOL "Recreate SymOp data table in case it is out of date")
 endif()
 
 # CCP4 build
@@ -126,9 +129,6 @@ if(WIN32)
 	else() # Windows XP (5.1)
 		add_definitions(-D _WIN32_WINNT=0x0501)
 	endif()
-
-	# Man, this is 2024 we're living in...
-	add_definitions(-DNOMINMAX)
 
 	# We do not want to write an export file for all our symbols...
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
@@ -236,20 +236,17 @@ if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
 	get_target_property(EIGEN_INCLUDE_DIR Eigen3::Eigen
 		INTERFACE_INCLUDE_DIRECTORIES)
 else()
-	# Create a private copy of eigen3 and populate it only, no need to build
-	FetchContent_Declare(
-		my-eigen3
+	# Use ExternalProject since FetchContent always tries to install the result...
+	ExternalProject_Add(my-eigen3
 		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-		GIT_TAG 3.4.0)
+		GIT_TAG 3.4.0
+		INSTALL_COMMAND "")
 
-	FetchContent_GetProperties(my-eigen3)
-
-	if(NOT my-eigen3_POPULATED)
-		FetchContent_Populate(my-eigen3)
-	endif()
-
-	set(EIGEN_INCLUDE_DIR ${my-eigen3_SOURCE_DIR})
+	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
+	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
+
+message(STATUS "Eigen include dir is ${EIGEN_INCLUDE_DIR}")
 
 # Create a revision file, containing the current git version info
 include(VersionString)
@@ -336,6 +333,10 @@ set(project_headers
 
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
+
+if(TARGET my-eigen3)
+	add_dependencies(cifpp my-eigen3)
+endif()
 
 target_sources(cifpp
 	PRIVATE ${project_sources}

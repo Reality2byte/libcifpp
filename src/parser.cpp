@@ -837,6 +837,9 @@ void parser::produce_datablock(std::string_view name)
 
 	const auto &[iter, ignore] = m_file.emplace(name);
 	m_datablock = &(*iter);
+
+	if (m_validator)
+		m_datablock->set_validator(m_validator);
 }
 
 void parser::produce_category(std::string_view name)

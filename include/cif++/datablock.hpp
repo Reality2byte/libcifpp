@@ -29,6 +29,8 @@
 #include "cif++/category.hpp"
 #include "cif++/forward_decl.hpp"
 
+#include <list>
+
 /** \file datablock.hpp
  * Each valid mmCIF file contains at least one @ref cif::datablock.
  * A datablock has a name and can contain one or more @ref cif::category "categories"
@@ -99,6 +101,12 @@ class datablock : public std::list<category>
 	}
 
 	/**
+	 * @brief Attempt to load the dictionary specified in audit_conform category
+	 * 
+	 */
+	void load_dictionary();
+
+	/**
 	 * @brief Set the validator object to @a v
 	 * 
 	 * @param v The new validator object, may be null
@@ -121,15 +129,6 @@ class datablock : public std::list<category>
 	bool is_valid() const;
 
 	/**
-	 * @brief Validates the content of this datablock and all its content
-	 * and updates or removes the audit_conform category to match the result.
-	 * 
-	 * @return true If the content is valid
-	 * @return false If the content is not valid
-	 */
-	bool is_valid();
-
-	/**
 	 * @brief Validates all contained data for valid links between parents and children
 	 * as defined in the validator
 	 * 
@@ -137,6 +136,14 @@ class datablock : public std::list<category>
 	 * @return false If all links are not valid
 	 */
 	bool validate_links() const;
+
+	/**
+	 * @brief Strip removes all categories and items that are invalid according
+	 * to the assigned validator. Will also add a valid audit_conform block.
+	 * 
+	 * @return true if the remaining datablock is valid
+	 */
+	bool strip();
 
 	// --------------------------------------------------------------------
 
@@ -175,6 +182,15 @@ class datablock : public std::list<category>
 	 * @return category* Pointer to the category found or nullptr
 	 */
 	const category *get(std::string_view name) const;
+
+
+	/**
+	 * @brief Return true if this datablock contains a non-empty category
+	 */
+	bool contains(std::string_view name) const
+	{
+		return get(name) != nullptr;
+	}
 
 	/**
 	 * @brief Tries to find a category with name @a name and will create a

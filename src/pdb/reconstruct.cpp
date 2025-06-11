@@ -100,9 +100,34 @@ void checkEntities(datablock &db)
 
 	for (auto entity : db["entity"].find("formula_weight"_key == null or "formula_weight"_key == 0))
 	{
-		const auto &[entity_id, type] = entity.get<std::string, std::string>("id", "type");
+		auto &&[entity_id, type] = entity.get<std::string, std::string>("id", "type");
 
 		float formula_weight = 0;
+
+		if (type.empty()) // yes, that happens
+		{
+			const auto comp_id = db["atom_site"].find_first<std::string>("label_entity_id"_key == entity_id, "label_comp_id");
+			auto compound = cf.create(comp_id);
+			if (compound != nullptr)
+			{
+				if (compound->is_base() or compound->is_peptide())
+					type = "polymer";
+				else if (compound->is_water())
+					type = "water";
+				else
+				{
+					if (db["pdbx_entity_branch_link"].contains("entity_id"_key == entity_id))
+						type = "branched";
+					else
+						type = "non-polymer";
+				}
+			}
+
+			if (type.empty())
+				throw std::runtime_error("Entity without type and cannot determine what it should be");
+
+			entity["type"] = type;
+		}
 
 		if (type == "polymer")
 		{
@@ -111,10 +136,10 @@ void checkEntities(datablock &db)
 			for (std::string comp_id : db["pdbx_poly_seq_scheme"].find<std::string>("entity_id"_key == entity_id, "mon_id"))
 			{
 				auto compound = cf.create(comp_id);
-				assert(compound);
-				if (not compound)
-					throw std::runtime_error("missing information for compound " + comp_id);
-				formula_weight += compound->formula_weight();
+				if (compound)
+					formula_weight += compound->formula_weight();
+				else if (cif::VERBOSE > 0)
+					std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
 
@@ -129,10 +154,10 @@ void checkEntities(datablock &db)
 			for (std::string comp_id : db["pdbx_entity_branch_list"].find<std::string>("entity_id"_key == entity_id, "comp_id"))
 			{
 				auto compound = cf.create(comp_id);
-				assert(compound);
-				if (not compound)
-					throw std::runtime_error("missing information for compound " + comp_id);
-				formula_weight += compound->formula_weight();
+				if (compound)
+					formula_weight += compound->formula_weight();
+				else if (cif::VERBOSE > 0)
+					std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
 
@@ -180,11 +205,11 @@ void createEntityIDs(datablock &db)
 	std::vector<residue_key_type> waters;
 
 	for (residue_key_type k : atom_site.rows<std::optional<std::string>,
-							  std::optional<int>,
-							  std::optional<std::string>,
-							  std::optional<std::string>,
-							  std::optional<int>,
-							  std::optional<std::string>>(
+			 std::optional<int>,
+			 std::optional<std::string>,
+			 std::optional<std::string>,
+			 std::optional<int>,
+			 std::optional<std::string>>(
 			 "auth_asym_id", "auth_seq_id", "auth_comp_id",
 			 "label_asym_id", "label_seq_id", "label_comp_id"))
 	{
@@ -466,7 +491,7 @@ void checkAtomRecords(datablock &db)
 		auto chem_comp_entry = chem_comp.find_first("id"_key == comp_id);
 
 		std::optional<bool> non_std;
-		if  (cf.is_monomer(comp_id))
+		if (cf.is_monomer(comp_id))
 			non_std = cf.is_std_monomer(comp_id);
 
 		if (not chem_comp_entry)
@@ -751,6 +776,7 @@ void createEntity(datablock &db)
 void createEntityPoly(datablock &db)
 {
 	using namespace literals;
+	using namespace std::literals;
 
 	auto &cf = compound_factory::instance();
 
@@ -777,7 +803,7 @@ void createEntityPoly(datablock &db)
 			auto c = cf.create(comp_id);
 
 			std::string letter;
-			char letter_can;
+			char letter_can{};
 
 			// TODO: Perhaps we should improve this...
 			if (type != "other")
@@ -889,7 +915,7 @@ void createEntityPoly(datablock &db)
 
 		entity_poly.emplace({ //
 			{ "entity_id", entity_id },
-			{ "type", type },
+			{ "type", type.empty() ? "other"s : type },
 			{ "nstd_linkage", non_std_linkage },
 			{ "nstd_monomer", non_std_monomer },
 			{ "pdbx_seq_one_letter_code", entity_seq },
@@ -1011,6 +1037,10 @@ void comparePolySeqSchemes(datablock &db)
 {
 	auto &ndb_poly_seq_scheme = db["ndb_poly_seq_scheme"];
 	auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
+
+	// Don't bother if ndb_poly_seq_scheme is empty
+	if (ndb_poly_seq_scheme.empty())
+		return;
 
 	// Since often ndb_poly_seq_scheme only contains an id and mon_id item
 	// we assume that it should match the accompanying pdbx_poly_seq
@@ -1161,7 +1191,71 @@ void createPdbxNonpolyScheme(datablock &db)
 	}
 }
 
-bool reconstruct_pdbx(file &file, std::string_view dictionary)
+void createPdbxBranchScheme(datablock &db)
+{
+	using namespace literals;
+
+	createPdbxEntityNonpoly(db);
+
+	auto &entity = db["entity"];
+	auto &pdbx_branch_scheme = db["pdbx_branch_scheme"];
+	auto &pdbx_entity_branch_list = db["pdbx_entity_branch_list"];
+	auto &atom_site = db["atom_site"];
+
+	for (const auto entity_id : entity.find<std::string>("type"_key == "branched", "id"))
+	{
+		for (const auto &[comp_id, asym_id, auth_seq_id] : atom_site.find<std::string, std::string, std::optional<int>>("label_entity_id"_key == entity_id, "label_comp_id", "label_asym_id", "auth_seq_id"))
+		{
+			if (not auth_seq_id.has_value())
+				throw std::runtime_error("Missing auth_seq_id on sugar atom");
+
+			int num = *auth_seq_id;
+
+			if (not pdbx_entity_branch_list.contains("entity_id"_key == entity_id and "num"_key == num))
+			{
+				pdbx_entity_branch_list.emplace({
+					// clang-format off
+
+					{ "entity_id", entity_id },
+					{ "comp_id", comp_id },
+					{ "num", num },
+
+					// clang-format on
+				});
+			}
+
+			if (not pdbx_branch_scheme.contains("entity_id"_key == entity_id and "asym_id"_key == asym_id and "num"_key == num))
+			{
+				pdbx_branch_scheme.emplace({
+					// clang-format off
+					{ "asym_id", asym_id },
+					{ "entity_id", entity_id },
+					{ "mon_id", comp_id },
+					{ "num", num },
+					{ "pdb_asym_id", asym_id },
+					{ "pdb_mon_id", comp_id },
+					{ "pdb_seq_num", num }
+					// clang-format on
+				});
+			}
+		}
+	}
+}
+
+bool reconstruct_pdbx(file &file)
+{
+	if (file.empty())
+		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
+
+	auto &db = file.front();
+
+	if (auto ac = db.get("audit_conform"); ac != nullptr)
+		return reconstruct_pdbx(file, validator_factory::instance().get(*ac));
+	else
+		return reconstruct_pdbx(file, validator_factory::instance().get("mmcif_pdbx.dic"));
+}
+
+bool reconstruct_pdbx(file &file, const validator &validator)
 {
 	if (file.empty())
 		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
@@ -1174,8 +1268,6 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
 		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
-
-	auto &validator = validator_factory::instance()[dictionary];
 
 	std::string entry_id;
 
@@ -1427,7 +1519,7 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 
 	db["chem_comp"].reorder_by_index();
 
-	file.load_dictionary(dictionary);
+	db.set_validator(&validator);
 
 	if (db.get("atom_site_anisotrop"))
 		checkAtomAnisotropRecords(db);
@@ -1440,9 +1532,6 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 	if (auto cat = db.get("entity"); cat == nullptr or cat->empty())
 		createEntity(db);
 
-	// fill in missing formula_weight, e.g.
-	checkEntities(db);
-
 	if (auto cat = db.get("pdbx_poly_seq_scheme"); cat == nullptr or cat->empty())
 		createPdbxPolySeqScheme(db);
 
@@ -1451,12 +1540,18 @@ bool reconstruct_pdbx(file &file, std::string_view dictionary)
 	
 	createPdbxNonpolyScheme(db);
 
+	// Create a minimal set of branch records
+	createPdbxBranchScheme(db);
+
+	// fill in missing formula_weight, e.g.
+	checkEntities(db);
+
 	// skip unknown categories for now
 	bool valid = true;
 	for (auto &cat : db)
 		valid = valid and (cat.get_cat_validator() == nullptr or cat.is_valid());
 
-	return valid and is_valid_pdbx_file(file, dictionary);
+	return valid and is_valid_pdbx_file(file, validator);
 }
 
 } // namespace cif::pdb

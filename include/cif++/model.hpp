@@ -34,7 +34,7 @@
 #include <numeric>
 
 #if __cpp_lib_format
-#include <format>
+# include <format>
 #endif
 
 /** @file model.hpp
@@ -105,8 +105,6 @@ class atom
 		}
 
 		atom_impl(const atom_impl &i) = default;
-
-		void prefetch();
 
 		int compare(const atom_impl &b) const;
 
@@ -345,7 +343,7 @@ class atom
 	std::string get_auth_asym_id() const { return get_property("auth_asym_id"); }      ///< Return the auth_asym_id property
 	std::string get_auth_seq_id() const { return get_property("auth_seq_id"); }        ///< Return the auth_seq_id property
 	std::string get_auth_atom_id() const { return get_property("auth_atom_id"); }      ///< Return the auth_atom_id property
-	std::string get_auth_alt_id() const { return get_property("auth_alt_id"); }        ///< Return the auth_alt_id property
+	std::string get_auth_alt_id() const { return get_property("pdbx_auth_alt_id"); }   ///< Return the auth_alt_id property
 	std::string get_auth_comp_id() const { return get_property("auth_comp_id"); }      ///< Return the auth_comp_id property
 	std::string get_pdb_ins_code() const { return get_property("pdbx_PDB_ins_code"); } ///< Return the pdb_ins_code property
 
@@ -481,8 +479,8 @@ class residue
 		, m_compound_id(compoundID)
 		, m_asym_id(asymID)
 		, m_seq_id(seqID)
-		, m_auth_asym_id(authAsymID)
-		, m_auth_seq_id(authSeqID)
+		, m_pdb_strand_id(authAsymID)
+		, m_pdb_seq_num(authSeqID)
 		, m_pdb_ins_code(pdbInsCode)
 	{
 	}
@@ -509,8 +507,8 @@ class residue
 	const std::string &get_asym_id() const { return m_asym_id; } ///< Return the asym_id
 	int get_seq_id() const { return m_seq_id; }                  ///< Return the seq_id
 
-	const std::string get_auth_asym_id() const { return m_auth_asym_id; } ///< Return the auth_asym_id
-	const std::string get_auth_seq_id() const { return m_auth_seq_id; }   ///< Return the auth_seq_id
+	const std::string get_pdb_strand_id() const { return m_pdb_strand_id; } ///< Return the pdb_strand_id
+	const std::string get_pdb_seq_num() const { return m_pdb_seq_num; }   ///< Return the pdb_seq_num
 	std::string get_pdb_ins_code() const { return m_pdb_ins_code; }       ///< Return the pdb_ins_code
 
 	const std::string &get_compound_id() const { return m_compound_id; } ///< Return the compound_id
@@ -539,6 +537,9 @@ class residue
 
 	/// \brief Return the atom with atom_id @a atomID
 	atom get_atom_by_atom_id(const std::string &atomID) const;
+
+	/// \brief Return the atom with atom_id @a atomID and alternate_id @a altID
+	atom get_atom_by_atom_id(const std::string &atomID, const std::string &altID) const;
 
 	/// \brief Return the list of atoms having ID \a atomID
 	///
@@ -577,7 +578,7 @@ class residue
 								   m_seq_id == rhs.m_seq_id and
 								   m_asym_id == rhs.m_asym_id and
 								   m_compound_id == rhs.m_compound_id and
-								   m_auth_seq_id == rhs.m_auth_seq_id);
+								   m_pdb_seq_num == rhs.m_pdb_seq_num);
 	}
 
 	/// @brief Create a new atom and add it to the list
@@ -591,7 +592,7 @@ class residue
 	structure *m_structure = nullptr;
 	std::string m_compound_id, m_asym_id;
 	int m_seq_id = 0;
-	std::string m_auth_asym_id, m_auth_seq_id, m_pdb_ins_code;
+	std::string m_pdb_strand_id, m_pdb_seq_num, m_pdb_ins_code;
 	std::vector<atom> m_atoms;
 	/** @endcond */
 };
@@ -621,6 +622,9 @@ class monomer : public residue
 
 	bool is_first_in_chain() const; ///< Return if this residue is the first residue in the chain
 	bool is_last_in_chain() const;  ///< Return if this residue is the last residue in the chain
+
+	const monomer &prev() const; // Return previous monomer in polymer
+	const monomer &next() const; // Return next monomer in polymer
 
 	// convenience
 	bool has_alpha() const; ///< Return if a alpha value can be calculated (depends on location in chain)
@@ -709,14 +713,14 @@ class polymer : public std::vector<monomer>
 	structure *get_structure() const { return m_structure; } ///< Return the structure
 
 	std::string get_asym_id() const { return m_asym_id; }           ///< Return the asym_id
-	std::string get_auth_asym_id() const { return m_auth_asym_id; } ///< Return the PDB chain ID, actually
+	std::string get_pdb_strand_id() const { return m_pdb_strand_id; } ///< Return the PDB chain ID, actually
 	std::string get_entity_id() const { return m_entity_id; }       ///< Return the entity_id
 
   private:
 	structure *m_structure;
 	std::string m_entity_id;
 	std::string m_asym_id;
-	std::string m_auth_asym_id;
+	std::string m_pdb_strand_id;
 };
 
 // --------------------------------------------------------------------
@@ -754,7 +758,7 @@ class sugar : public residue
 	int num() const
 	{
 		int result;
-		auto r = std::from_chars(m_auth_seq_id.data(), m_auth_seq_id.data() + m_auth_seq_id.length(), result);
+		auto r = std::from_chars(m_pdb_seq_num.data(), m_pdb_seq_num.data() + m_pdb_seq_num.length(), result);
 		if ((bool)r.ec)
 			throw std::runtime_error("The auth_seq_id should be a number for a sugar");
 		return result;
@@ -1057,18 +1061,18 @@ class structure
 	/**
 	 * @brief Change residue @a res to a new compound ID optionally
 	 * remapping atoms.
-	 * 
+	 *
 	 * A new chem_comp entry as well as an entity is created if needed and
 	 * if the list of @a remappedAtoms is not empty it is used to remap.
-	 * 
+	 *
 	 * The array in @a remappedAtoms contains tuples of strings, both
 	 * strings contain an atom_id. The first is the one in the current
 	 * residue and the second is the atom_id that should be used instead.
 	 * If the second string is empty, the atom is removed from the residue.
-	 * 
-	 * @param res 
-	 * @param newcompound 
-	 * @param remappedAtoms 
+	 *
+	 * @param res
+	 * @param newcompound
+	 * @param remappedAtoms
 	 */
 	void change_residue(residue &res, const std::string &newcompound,
 		const std::vector<std::tuple<std::string, std::string>> &remappedAtoms);

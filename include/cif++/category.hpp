@@ -32,7 +32,6 @@
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
-#include "cif++/validate.hpp"
 
 #include <array>
 
@@ -50,6 +49,11 @@
 
 namespace cif
 {
+
+class validator;
+struct category_validator;
+struct item_validator;
+struct link_validator;
 
 // --------------------------------------------------------------------
 // special exceptions
@@ -143,6 +147,16 @@ class category
 
 	category() = default;            ///< Default constructor
 	category(std::string_view name); ///< Constructor taking a \a name
+
+	/// @brief Constructor creating a category named @a name and filled with @a rows
+	/// @param name Name for the new category
+	/// @param rows The data stored in the category
+	category(std::string_view name, row_initializer &&rows)
+		: category(name)
+	{
+		emplace(std::forward<row_initializer>(rows));
+	}
+
 	category(const category &rhs);   ///< Copy constructor
 
 	category(category &&rhs) noexcept ///< Move constructor
@@ -208,6 +222,11 @@ class category
 	///
 	/// @return Returns true is all validations pass
 	bool validate_links() const;
+
+	/**
+	 * @brief Strip removes items from this category that are invalid according to the assigned validator
+	 */
+	void strip();
 
 	/// @brief Equality operator, returns true if @a rhs is equal to this
 	/// @param rhs The object to compare with
@@ -947,6 +966,12 @@ class category
 		return insert_impl(cend(), r);
 	}
 
+	void emplace(const_iterator b, const_iterator e)
+	{
+		while (b != e)
+			emplace(*b++);
+	}
+
 	/// @brief Completely erase all rows contained in this category
 	void clear();
 
@@ -1079,25 +1104,7 @@ class category
 	// --------------------------------------------------------------------
 	/// \brief Return the index number for \a item_name
 
-	uint16_t get_item_ix(std::string_view item_name) const
-	{
-		uint16_t result;
-
-		for (result = 0; result < m_items.size(); ++result)
-		{
-			if (iequals(item_name, m_items[result].m_name))
-				break;
-		}
-
-		if (VERBOSE > 0 and result == m_items.size() and m_cat_validator != nullptr) // validate the name, if it is known at all (since it was not found)
-		{
-			auto iv = m_cat_validator->get_validator_for_item(item_name);
-			if (iv == nullptr)
-				std::cerr << "Invalid name used '" << item_name << "' is not a known item in " + m_name << '\n';
-		}
-
-		return result;
-	}
+	uint16_t get_item_ix(std::string_view item_name) const;
 
 	/// @brief Return the name for item with index @a ix
 	/// @param ix The index number
@@ -1113,28 +1120,7 @@ class category
 	/// @brief Make sure a item with name @a item_name is known and return its index number
 	/// @param item_name The name of the item
 	/// @return The index number of the item
-	uint16_t add_item(std::string_view item_name)
-	{
-		using namespace std::literals;
-
-		uint16_t result = get_item_ix(item_name);
-
-		if (result == m_items.size())
-		{
-			const item_validator *item_validator = nullptr;
-
-			if (m_cat_validator != nullptr)
-			{
-				item_validator = m_cat_validator->get_validator_for_item(item_name);
-				if (item_validator == nullptr)
-					m_validator->report_error(validation_error::item_not_allowed_in_category, m_name, item_name, false);
-			}
-
-			m_items.emplace_back(item_name, item_validator);
-		}
-
-		return result;
-	}
+	uint16_t add_item(std::string_view item_name);
 
 	/** @brief Remove item name @a colum_name
 	 * @param item_name The item to be removed

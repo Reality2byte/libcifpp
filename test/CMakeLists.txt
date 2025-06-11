@@ -29,7 +29,6 @@ list(
 	spinner
 	# reconstruction
 	validate-pdbx
-	insertion-codes
 	)
 
 add_library(test-main OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/test-main.cpp")

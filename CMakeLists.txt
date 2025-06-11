@@ -130,9 +130,6 @@ if(WIN32)
 		add_definitions(-D _WIN32_WINNT=0x0501)
 	endif()
 
-	# Man, this is 2024 we're living in...
-	add_definitions(-DNOMINMAX)
-
 	# We do not want to write an export file for all our symbols...
 	set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
 endif()

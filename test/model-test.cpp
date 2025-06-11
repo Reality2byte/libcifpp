@@ -474,14 +474,24 @@ TEST_CASE("options_1")
 			CHECK(a.get_label_asym_id() == "A");
 	}
 
-	SECTION("b-factor")
+	SECTION("min-b-factor")
 	{
-		cif::mm::structure s(file, 1, { .b_factor_limit = 20.f });
+		cif::mm::structure s(file, 1, { .min_b_factor = 20.f });
 
 		REQUIRE_NOTHROW(s.validate_atoms());
 
 		for (auto a : s.atoms())
-			CHECK(a.get_property_float("B_iso_or_equiv") < 20.f);
+			CHECK(a.get_property_float("B_iso_or_equiv") >= 20.f);
+	}
+
+	SECTION("max-b-factor")
+	{
+		cif::mm::structure s(file, 1, { .max_b_factor = 20.f });
+
+		REQUIRE_NOTHROW(s.validate_atoms());
+
+		for (auto a : s.atoms())
+			CHECK(a.get_property_float("B_iso_or_equiv") <= 20.f);
 	}
 }
 

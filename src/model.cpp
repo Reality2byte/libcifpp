@@ -1248,8 +1248,11 @@ void structure::load_atoms_for_model(structure_open_options options)
 			c = std::move(c) and (cif::key("group_PDB") != "HETATM" or (cif::key("auth_comp_id") == "HOH" or cif::key("auth_comp_id") == "H20" or cif::key("auth_comp_id") == "WAT"));
 	}
 
-	if (options.b_factor_limit < std::numeric_limits<float>::max())
-		c = std::move(c) and cif::key("B_iso_or_equiv") <= options.b_factor_limit;
+	if (options.min_b_factor.has_value())
+		c = std::move(c) and cif::key("B_iso_or_equiv") >= *options.min_b_factor;
+
+	if (options.max_b_factor.has_value())
+		c = std::move(c) and cif::key("B_iso_or_equiv") <= *options.max_b_factor;
 
 	if (not options.asyms.empty())
 	{

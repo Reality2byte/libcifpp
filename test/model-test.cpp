@@ -431,3 +431,159 @@ TEST_CASE("remove_residue_1")
 
 	REQUIRE_NOTHROW(s.validate_atoms());
 }
+
+// --------------------------------------------------------------------
+// Tests for structure_open_options
+
+TEST_CASE("options_1")
+{
+	using namespace cif::literals;
+
+	const std::filesystem::path example(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	cif::file file(example.string());
+
+	auto &cf = cif::compound_factory::instance();
+
+	SECTION("skip_water")
+	{
+		cif::mm::structure s(file, 1, { .skip_water = true });
+
+		REQUIRE_NOTHROW(s.validate_atoms());
+
+		for (auto a : s.atoms())
+			CHECK_FALSE(a.is_water());
+	}
+
+	SECTION("skip_hetatom")
+	{
+		cif::mm::structure s(file, 1, { .skip_hetatom = true });
+
+		REQUIRE_NOTHROW(s.validate_atoms());
+
+		for (auto a : s.atoms())
+			CHECK((a.is_water() or cf.is_peptide(a.get_label_comp_id()) or cf.is_base(a.get_label_comp_id())));
+	}
+
+	SECTION("selected_asyms")
+	{
+		cif::mm::structure s(file, 1, { .asyms = { "A" } });
+
+		REQUIRE_NOTHROW(s.validate_atoms());
+
+		for (auto a : s.atoms())
+			CHECK(a.get_label_asym_id() == "A");
+	}
+
+	SECTION("b-factor")
+	{
+		cif::mm::structure s(file, 1, { .b_factor_limit = 20.f });
+
+		REQUIRE_NOTHROW(s.validate_atoms());
+
+		for (auto a : s.atoms())
+			CHECK(a.get_property_float("B_iso_or_equiv") < 20.f);
+	}
+}
+
+TEST_CASE("options_2")
+{
+
+	auto data = R"(
+data_TEST
+# 
+_pdbx_nonpoly_scheme.asym_id         A 
+_pdbx_nonpoly_scheme.ndb_seq_num     1 
+_pdbx_nonpoly_scheme.entity_id       1 
+_pdbx_nonpoly_scheme.mon_id          HEM 
+_pdbx_nonpoly_scheme.pdb_seq_num     1 
+_pdbx_nonpoly_scheme.auth_seq_num    1 
+_pdbx_nonpoly_scheme.pdb_mon_id      HEM 
+_pdbx_nonpoly_scheme.auth_mon_id     HEM 
+_pdbx_nonpoly_scheme.pdb_strand_id   A 
+_pdbx_nonpoly_scheme.pdb_ins_code    . 
+#
+loop_
+_atom_site.id
+_atom_site.auth_asym_id
+_atom_site.label_alt_id
+_atom_site.label_asym_id
+_atom_site.label_atom_id
+_atom_site.label_comp_id
+_atom_site.label_entity_id
+_atom_site.label_seq_id
+_atom_site.type_symbol
+_atom_site.group_PDB
+_atom_site.pdbx_PDB_ins_code
+_atom_site.Cartn_x
+_atom_site.Cartn_y
+_atom_site.Cartn_z
+_atom_site.occupancy
+_atom_site.B_iso_or_equiv
+_atom_site.pdbx_formal_charge
+_atom_site.auth_seq_id
+_atom_site.auth_comp_id
+_atom_site.auth_atom_id
+_atom_site.pdbx_PDB_model_num
+1 A A A CHA HEM 1 . C HETATM ? -5.248 39.769 -0.250 0.75 7.67 ? 1 HEM CHA 1
+3 A A A CHB HEM 1 . C HETATM ? -3.774 36.790 3.280  0.75 7.05 ? 1 HEM CHB 1
+2 A A A CHC HEM 1 . C HETATM ? -2.879 33.328 0.013  0.75 7.69 ? 1 HEM CHC 1
+4 A A A CHD HEM 1 . C HETATM ? -4.342 36.262 -3.536 0.75 8.00 ? 1 HEM CHD 1
+5 A B A CHA HEM 1 . C HETATM ? -5.248 39.769 -0.250 0.25 7.67 ? 1 HEM CHA 1
+6 A B A CHB HEM 1 . C HETATM ? -3.774 36.790 3.280  0.25 7.05 ? 1 HEM CHB 1
+7 A B A CHC HEM 1 . C HETATM ? -2.879 33.328 0.013  0.25 7.69 ? 1 HEM CHC 1
+8 A B A CHD HEM 1 . C HETATM ? -4.342 36.262 -3.536 0.25 8.00 ? 1 HEM CHD 1
+#
+_chem_comp.id               HEM
+_chem_comp.type             NON-POLYMER
+_chem_comp.name             'PROTOPORPHYRIN IX CONTAINING FE'
+_chem_comp.formula          'C34 H32 Fe N4 O4'
+_chem_comp.formula_weight   616.487000
+#
+_pdbx_entity_nonpoly.entity_id   1
+_pdbx_entity_nonpoly.name        'PROTOPORPHYRIN IX CONTAINING FE'
+_pdbx_entity_nonpoly.comp_id     HEM
+#
+_entity.id                 1
+_entity.type               non-polymer
+_entity.pdbx_description   'PROTOPORPHYRIN IX CONTAINING FE'
+_entity.formula_weight     616.487000
+#
+_struct_asym.id                            A
+_struct_asym.entity_id                     1
+_struct_asym.pdbx_blank_PDB_chainid_flag   N
+_struct_asym.pdbx_modified                 N
+_struct_asym.details                       ?
+#
+)"_cf;
+
+	data.front().set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
+
+	SECTION("max")
+	{
+		cif::mm::structure s(data, 1, {
+			.occupancy_mode = cif::mm::occupancy_policy::MAX
+		});
+
+		REQUIRE(s.atoms().size() == 4);
+		CHECK(s.atoms().front().get_label_alt_id() == "A");
+	}
+
+	SECTION("min")
+	{
+		cif::mm::structure s(data, 1, {
+			.occupancy_mode = cif::mm::occupancy_policy::MIN
+		});
+
+		REQUIRE(s.atoms().size() == 4);
+		CHECK(s.atoms().front().get_label_alt_id() == "B");
+	}
+
+	SECTION("unoccupied")
+	{
+		cif::mm::structure s(data, 1, {
+			.occupancy_mode = cif::mm::occupancy_policy::UNOCCUPIED
+		});
+
+		CHECK(s.atoms().empty());
+	}
+}

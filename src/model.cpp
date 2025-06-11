@@ -1187,19 +1187,19 @@ float branch::weight() const
 // --------------------------------------------------------------------
 //	structure
 
-structure::structure(file &p, std::size_t modelNr, StructureOpenOptions options)
+structure::structure(file &p, std::size_t modelNr, structure_open_options options)
 	: structure(p.front(), modelNr, options)
 {
 }
 
-structure::structure(datablock &db, std::size_t modelNr, StructureOpenOptions options)
+structure::structure(datablock &db, std::size_t modelNr, structure_open_options options)
 	: m_db(db)
 	, m_model_nr(modelNr)
 {
 	if (db.get_validator() == nullptr)
 		db.load_dictionary();
 
-	auto &atomCat = db["atom_site"];
+	auto &atom_site = db["atom_site"];
 
 	load_atoms_for_model(options);
 
@@ -1207,7 +1207,7 @@ structure::structure(datablock &db, std::size_t modelNr, StructureOpenOptions op
 	if (m_atoms.empty() and m_model_nr == 1)
 	{
 		std::optional<std::size_t> model_nr;
-		cif::tie(model_nr) = atomCat.front().get("pdbx_PDB_model_num");
+		cif::tie(model_nr) = atom_site.front().get("pdbx_PDB_model_num");
 		if (model_nr and *model_nr != m_model_nr)
 		{
 			if (VERBOSE > 0)
@@ -1226,137 +1226,121 @@ structure::structure(datablock &db, std::size_t modelNr, StructureOpenOptions op
 		load_data();
 }
 
-void structure::load_atoms_for_model(StructureOpenOptions options)
+void structure::load_atoms_for_model(structure_open_options options)
 {
 	using namespace literals;
 
-	auto &atomCat = m_db["atom_site"];
+	auto &atom_site = m_db["atom_site"];
 
 	condition c = "pdbx_PDB_model_num"_key == null or "pdbx_PDB_model_num"_key == m_model_nr;
 
-	// TODO Initially if no option was passed to the structure constructor it was like keeping hydrogens
-	if (options.get_skip_hydrogen())
+	if (options.skip_hydrogen)
 		c = std::move(c) and (cif::key("type_symbol") != "H" and cif::key("type_symbol") != "D");
 
-	// skip_water superseeds skip_hetatoms
-	// TODO: Add explicitly to the documentation
-	if (options.get_skip_water())
+	if (options.skip_water)
 		c = std::move(c) and (cif::key("auth_comp_id") != "HOH" and cif::key("auth_comp_id") != "H20" and cif::key("auth_comp_id") != "WAT");
 
-	if (options.get_skip_hetatoms()) {
-		if (options.get_skip_water()) {
+	if (options.skip_hetatom)
+	{
+		if (options.skip_water)
 			c = std::move(c) and cif::key("group_PDB") != "HETATM";
-		} else {
+		else
 			c = std::move(c) and (cif::key("group_PDB") != "HETATM" or (cif::key("auth_comp_id") == "HOH" or cif::key("auth_comp_id") == "H20" or cif::key("auth_comp_id") == "WAT"));
-		}
 	}
 
-	if (options.get_b_factor_limit() != std::numeric_limits<double>::max())
-		c = std::move(c) and cif::key("B_iso_or_equiv") <= options.get_b_factor_limit();
+	if (options.b_factor_limit < std::numeric_limits<float>::max())
+		c = std::move(c) and cif::key("B_iso_or_equiv") <= options.b_factor_limit;
 
-	if (!options.get_loaded_chains().empty()) {
+	if (not options.asyms.empty())
+	{
 		condition tmp_c;
-		for (const std::string& c : options.get_loaded_chains()) {
-			tmp_c = std::move(tmp_c) or cif::key("auth_asym_id") == c;
-		}
+		for (auto asym_id : options.asyms)
+			tmp_c = std::move(tmp_c) or cif::key("label_asym_id") == asym_id;
 		c = std::move(c) and std::move(tmp_c);
 	}
 
-	//TODO CHECK GET_ALTERNATE METHOD FROM CIFPP
-	if (options.get_occupancy_mode() == OccupancyPolicy::ALL) {
-		// By default, cif loads all atoms regardless of the occupancy factor
-		// regarless of the existence of an alternate location
-		// Does nothing
-	} else if (options.get_occupancy_mode() == OccupancyPolicy::NONE) {
-		c = std::move(c) and cif::key("occupancy") == std::string();
-	} else {
-		// get list of residues id with alternate atoms
-		std::set<std::string> res_with_alts;
-		for (const auto& res_id : atomCat.find<std::string>(cif::key("label_alt_id") != ".", "label_seq_id")) {
-			res_with_alts.insert(res_id);
+	if (options.occupancy_mode == occupancy_policy::ALL)
+	{
+		for (auto id : atom_site.find<std::string>(std::move(c), "id"))
+			emplace_atom(std::make_shared<atom::atom_impl>(m_db, id));
+	}
+	else if (options.occupancy_mode == occupancy_policy::UNOCCUPIED)
+	{
+		for (auto id : atom_site.find<std::string>(std::move(c), "id"))
+		{
+			auto a = std::make_shared<atom::atom_impl>(m_db, id);
+			if (a->get_property_float("occupancy") > 0)
+				continue;
+			emplace_atom(a);
 		}
-		// for each residue,, get the list of atom with alternate location
-		for (const auto& res_id : res_with_alts) {
-			std::set<std::string> atom_with_alt;
-			for (const auto& atom_label : atomCat.find<std::string>(cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".", "label_atom_id")) {
-				atom_with_alt.insert(atom_label);
+	}
+	else
+	{
+		std::vector<cif::mm::atom> atoms;
+		std::map<std::tuple<std::string,int>, std::map<std::string, float>> alts;
+	
+		for (auto id : atom_site.find<std::string>(std::move(c), "id"))
+		{
+			auto a = atoms.emplace_back(std::make_shared<atom::atom_impl>(m_db, id));
+	
+			if (a.is_alternate())
+			{
+				auto key = std::make_tuple(a.get_label_asym_id(), a.get_label_seq_id());
+				auto alt_id = a.get_label_alt_id();
+	
+				if (auto i = alts.find(key); i != alts.end())
+					i->second[alt_id] += a.get_occupancy();
+				else
+					alts[key][alt_id] = a.get_occupancy();
 			}
-			for (const auto& atom_id : atom_with_alt) {
-				//max policy
-				if (options.get_occupancy_mode() == OccupancyPolicy::MAX) {
-					// get the max occupancy factor of all alternates for one atom
-					double max = atomCat.find_max<double>("occupancy", cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".");
-					// db["atom_site"].erase(cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != "." and cif::key("occupancy") != max);
-					// Get all alternates that are at the max occupancy factor
-					// The following doesn't work (it should, but one can suppose that the coversion from double to std::string back to double is faulty) or simply it's a set and therefore doesn't allow duplicate
-					// const auto& max_atoms = db["atom_site"].find<std::string, std::string, std::string, double, double>(cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".", "label_atom_id", "label_seq_id", "label_alt_id", "occupancy", "B_iso_or_equiv");
-					// Instead it is manually handled to retrieve all concerned atoms :
-					const auto& atom_label = atomCat.find<std::string, std::string, std::string, double, double>(cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".", "label_atom_id", "label_seq_id", "label_alt_id", "occupancy","B_iso_or_equiv");
-
-					// // if there are several atoms at the maximal occupancy factor
-					std::set<std::tuple<std::string, std::string, std::string, double, double>> atoms;
-					std::set<std::tuple<std::string, std::string, std::string, double, double>> max_atoms;
-					for(const auto& a : atom_label) {
-						atoms.insert(a);
-						if(std::get<3>(a) == max ) {
-							max_atoms.insert(a);
-						}
-					}
-					double min_b_factor = std::numeric_limits<double>::max();
-					std::tuple<std::string, std::string, std::string, double, double> max_atom;
-					for (const auto& m_a : max_atoms) {
-						double m_min_b_factor = std::get<4>(m_a);
-						if (m_min_b_factor < min_b_factor) {
-							max_atom = m_a;
-							min_b_factor = m_min_b_factor;
-						}
-					}
-					for (const auto& m_a : atoms) {
-						if (m_a != max_atom) {
-							c = std::move(c) and not ( (cif::key("label_atom_id") == std::get<0>(m_a) and cif::key("label_seq_id") == std::get<1>(m_a) and cif::key("label_alt_id") == std::get<2>(m_a)));
-						}
+		}
+	
+		for (auto &&[key, value] : alts)
+		{
+			const auto &[asym_id, seq_id] = key;
+	
+			// select highest occupancy for this residue's alternates
+			std::string alt_id;
+			float occupancy = options.occupancy_mode == occupancy_policy::MAX ? 0.f : std::numeric_limits<float>::max();
+			for (const auto &[alt_key, alt_value] : value)
+			{
+				if (options.occupancy_mode == occupancy_policy::MAX)
+				{
+					if (occupancy < alt_value)
+					{
+						alt_id = alt_key;
+						occupancy = alt_value;
 					}
 				}
-				if (options.get_occupancy_mode() == OccupancyPolicy::MIN) {
-					// get the min occupancy factor of all alternates for one atom
-					double min = atomCat.find_min<double>("occupancy", cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".");
-					// db["atom_site"].erase(cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != "." and cif::key("occupancy") != max);
-					// Get all alternates that are at the max occupancy factor
-					// The following doesn't work (it should, but one can suppose that the coversion from double to std::string back to double is faulty) or simply it's a set and therefore doesn't allow duplicate
-					// const auto& max_atoms = db["atom_site"].find<std::string, std::string, std::string, double, double>(cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".", "label_atom_id", "label_seq_id", "label_alt_id", "occupancy", "B_iso_or_equiv");
-					// Instead it is manually handled to retrieve all concerned atoms :
-					const auto& atom_label = atomCat.find<std::string, std::string, std::string, double, double>(cif::key("label_atom_id") == atom_id and cif::key("label_seq_id") == res_id and cif::key("label_alt_id") != ".", "label_atom_id", "label_seq_id", "label_alt_id", "occupancy","B_iso_or_equiv");
-
-					// // if there are several atoms at the maximal occupancy factor
-					std::set<std::tuple<std::string, std::string, std::string, double, double>> atoms;
-					std::set<std::tuple<std::string, std::string, std::string, double, double>> min_atoms;
-					for(const auto& a : atom_label) {
-						atoms.insert(a);
-						if(std::get<3>(a) == min ) {
-							min_atoms.insert(a);
-						}
-					}
-					double min_b_factor = std::numeric_limits<double>::max();
-					std::tuple<std::string, std::string, std::string, double, double> min_atom;
-					for (const auto& m_a : min_atoms) {
-						double m_min_b_factor = std::get<4>(m_a);
-						if (m_min_b_factor < min_b_factor) {
-							min_atom = m_a;
-							min_b_factor = m_min_b_factor;
-						}
-					}
-					for (const auto& m_a : atoms) {
-						if (m_a != min_atom) {
-							c = std::move(c) and not ( (cif::key("label_atom_id") == std::get<0>(m_a) and cif::key("label_seq_id") == std::get<1>(m_a) and cif::key("label_alt_id") == std::get<2>(m_a)));
-						}
+				else
+				{
+					if (occupancy > alt_value)
+					{
+						alt_id = alt_key;
+						occupancy = alt_value;
 					}
 				}
 			}
+	
+			value.clear();
+			value.emplace(alt_id, occupancy);
+		}
+	
+		for (auto a : atoms)
+		{
+			if (a.is_alternate())
+			{
+				auto key = std::make_tuple(a.get_label_asym_id(), a.get_label_seq_id());
+
+				if (alts[key].contains(a.get_label_alt_id()))
+					emplace_atom(a);
+			}
+			else
+				emplace_atom(a);
+	
 		}
 	}
 
-	for (auto id : atomCat.find<std::string>(std::move(c), "id"))
-		emplace_atom(std::make_shared<atom::atom_impl>(m_db, id));
 }
 
 void structure::load_data()

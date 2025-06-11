@@ -508,8 +508,8 @@ class residue
 	int get_seq_id() const { return m_seq_id; }                  ///< Return the seq_id
 
 	const std::string get_pdb_strand_id() const { return m_pdb_strand_id; } ///< Return the pdb_strand_id
-	const std::string get_pdb_seq_num() const { return m_pdb_seq_num; }   ///< Return the pdb_seq_num
-	std::string get_pdb_ins_code() const { return m_pdb_ins_code; }       ///< Return the pdb_ins_code
+	const std::string get_pdb_seq_num() const { return m_pdb_seq_num; }     ///< Return the pdb_seq_num
+	std::string get_pdb_ins_code() const { return m_pdb_ins_code; }         ///< Return the pdb_ins_code
 
 	const std::string &get_compound_id() const { return m_compound_id; } ///< Return the compound_id
 	void set_compound_id(const std::string &id) { m_compound_id = id; }  ///< Set the compound_id to @a id
@@ -712,9 +712,9 @@ class polymer : public std::vector<monomer>
 
 	structure *get_structure() const { return m_structure; } ///< Return the structure
 
-	std::string get_asym_id() const { return m_asym_id; }           ///< Return the asym_id
+	std::string get_asym_id() const { return m_asym_id; }             ///< Return the asym_id
 	std::string get_pdb_strand_id() const { return m_pdb_strand_id; } ///< Return the PDB chain ID, actually
-	std::string get_entity_id() const { return m_entity_id; }       ///< Return the entity_id
+	std::string get_entity_id() const { return m_entity_id; }         ///< Return the entity_id
 
   private:
 	structure *m_structure;
@@ -858,82 +858,35 @@ class branch : public std::vector<sugar>
 };
 
 /** @brief Enumeration for controlling atom selection based on occupancy. */
-enum OccupancyPolicy {
+enum class occupancy_policy
+{
 	/** @brief Include all atoms regardless of their occupancy factor. */
-	ALL = 1,
+	ALL = 0,
 
-    /** @brief Exclude all atoms with an occupancy factor greater than zero. */
-    NONE = 2,
+	/** @brief Select only alternate atoms with the maximum occupancy factor.
+	 * If multiple atoms have the same maximum occupancy, choose the one with the minimum B-factor.
+	 * If multiple atoms share both the maximum occupancy and the minimum B-factor, select the first encountered atom.
+	 */
+	MAX = 1,
 
-    /** @brief Select only alternate atoms with the maximum occupancy factor. 
-     * If multiple atoms have the same maximum occupancy, choose the one with the minimum B-factor. 
-     * If multiple atoms share both the maximum occupancy and the minimum B-factor, select the first encountered atom.
-     */
-    MAX = 3,
+	/** @brief Select only alternate atoms with the minimum occupancy factor.
+	 * Similar to MAX, if multiple atoms have the same minimum occupancy, choose the one with the minimum B-factor.
+	 * If multiple atoms share both the minimum occupancy and the minimum B-factor, select the first encountered atom.
+	 */
+	MIN = 2,
 
-    /** @brief Select only alternate atoms with the minimum occupancy factor. 
-     * Similar to MAX, if multiple atoms have the same minimum occupancy, choose the one with the minimum B-factor. 
-     * If multiple atoms share both the minimum occupancy and the minimum B-factor, select the first encountered atom.
-     */
-    MIN = 4
+	/** @brief Exclude all atoms with an occupancy factor greater than zero. */
+	UNOCCUPIED = 3
 };
 
-struct StructureOpenOptions
+struct structure_open_options
 {
-public:
-	//! \brief By default, all chains are loaded
-	//! One can select a different subset of chains, which will be the same for all possible models.
-	//! If no chain is provided, then all chains are loaded.
-	//! The hypothesis is that if the user doesn't want to load any chain, it's better not to read the file at all.
-	void set_loaded_chains(std::vector<std::string> value) { loaded_chains = value; }
-
-	/**
-	 * \brief By default, hydrogen atoms are skipped (not loaded).
-	 */
-	void set_skip_hydrogen(bool value) { skip_hydrogen = value; }
-
-	/**
-	 * \brief By default, hetero atoms are not loaded. These are filtered.
-	 */
-	void set_skip_hetatom(bool value) { skip_hetatom = value; }
-
-   /**
-	* \brief By default, the water molecules are skipped (not loaded and neither are associated atoms).
-	*/
-	void set_skip_water(bool value) { skip_water = value; }
-
-   /**
-	* \brief By default, the occupancy policy is set to OccupancyPolicy::MAX.
-	*/
-	void set_occupancy_mode(OccupancyPolicy value) { occupancy_mode = value; }
-
-	/**
-	 * \brief By default, the alternate atom is chosen according to the occupancy policy. If specified, the alternate atom with alternate_selected charater will be selected.
-	 */
-	void set_loaded_alternate_selected(char value) { loaded_alternate_selected = value; }
-
-   /**
-	* \brief By default, there is no limit to the b_factor (double numeric limit). Hence, by default, no atom is filtered according to this property.
-	*/
-	void set_b_factor_limit(double value) { b_factor_limit = value; }
-
-	const std::vector<std::string>& get_loaded_chains() const { return loaded_chains; }
-	bool get_skip_hydrogen() const { return skip_hydrogen; }
-	bool get_skip_water() const { return skip_water; }
-	bool get_skip_hetatoms() const { return skip_hetatom; }
-    
-	unsigned get_occupancy_mode() const { return occupancy_mode; }
-	char get_loaded_alternate_selected() const { return loaded_alternate_selected; }
-	double get_b_factor_limit() const { return b_factor_limit; }
-
-private:
-	bool skip_hydrogen = true;
-	bool skip_water = true;
-	bool skip_hetatom = true;
-	std::vector<std::string> loaded_chains = {};
-	OccupancyPolicy occupancy_mode = OccupancyPolicy::MAX;
-	char loaded_alternate_selected = ' ';
-	double b_factor_limit = std::numeric_limits<double>::max(); // No limit by default
+	bool skip_hydrogen = false;                               ///< Do not include hydrogen atoms in the structure object
+	bool skip_hetatom = false;                                ///< Do not include HET atoms in the structure object
+	bool skip_water = false;                                  ///< Do not include water atoms in the structure object
+	occupancy_policy occupancy_mode = occupancy_policy::ALL;  ///< By default, the occupancy policy is set to occupancy_policy::ALL
+	std::vector<std::string> asyms;                           ///< The asyms to load, if empty load all
+	float b_factor_limit = std::numeric_limits<float>::max(); ///< Only load atoms with at least this b_factor
 };
 
 // --------------------------------------------------------------------
@@ -948,10 +901,10 @@ class structure
 {
   public:
 	/// \brief Read the structure from cif::file @a p
-	structure(file &p, std::size_t modelNr = 1, StructureOpenOptions options = {});
+	structure(file &p, std::size_t modelNr = 1, structure_open_options options = {});
 
 	/// \brief Load the structure from already parsed mmCIF data in @a db
-	structure(datablock &db, std::size_t modelNr = 1, StructureOpenOptions options = {});
+	structure(datablock &db, std::size_t modelNr = 1, structure_open_options options = {});
 
 	/** @cond */
 	structure(structure &&s) = default;
@@ -1181,7 +1134,7 @@ class structure
 	friend polymer;
 	friend residue;
 
-	void load_atoms_for_model(StructureOpenOptions options);
+	void load_atoms_for_model(structure_open_options options);
 
 	std::string insert_compound(const std::string &compoundID, bool is_entity);
 

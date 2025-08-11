@@ -100,7 +100,7 @@ endif()
 # CCP4 build
 if(BUILD_FOR_CCP4)
 	if("$ENV{CCP4}" STREQUAL "" OR NOT EXISTS $ENV{CCP4})
-		message(FATAL_ERROR "A CCP4 built was requested but CCP4 was not sourced")
+		message(FATAL_ERROR "cifpp: A CCP4 built was requested but CCP4 was not sourced")
 	else()
 		list(PREPEND CMAKE_MODULE_PATH "$ENV{CCP4}")
 		list(PREPEND CMAKE_PREFIX_PATH "$ENV{CCP4}")
@@ -163,7 +163,7 @@ int main(int argc, char *argv[]) { return 0; }"
 
 if(GXX_LIBSTDCPP)
 	message(
-		STATUS "Testing for known regex bug, since you're using GNU libstdc++")
+		STATUS "cifpp: Testing for known regex bug, since you're using GNU libstdc++")
 
 	try_run(STD_REGEX_RUNNING STD_REGEX_COMPILING
 		${CMAKE_CURRENT_BINARY_DIR}/test
@@ -172,7 +172,7 @@ if(GXX_LIBSTDCPP)
 	if(STD_REGEX_RUNNING STREQUAL FAILED_TO_RUN)
 		message(
 			STATUS
-			"You are probably trying to compile using the g++ standard library which contains a crashing std::regex implementation. Will use boost::regex instead"
+			"cifpp: You are probably trying to compile using the g++ standard library which contains a crashing std::regex implementation. Will use boost::regex instead"
 		)
 
 		find_package(Boost 1.80 QUIET COMPONENTS regex)
@@ -224,7 +224,7 @@ find_package(ZLIB QUIET)
 find_package(Threads)
 
 if(NOT ZLIB_FOUND)
-	message(FATAL_ERROR "The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
+	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
 endif()
 
 # Using Eigen3 is a bit of a thing. We don't want to build it completely since
@@ -246,7 +246,7 @@ else()
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
 
-message(STATUS "Eigen include dir is ${EIGEN_INCLUDE_DIR}")
+message(STATUS "cifpp: Eigen include dir is ${EIGEN_INCLUDE_DIR}")
 
 # Create a revision file, containing the current git version info
 include(VersionString)
@@ -389,7 +389,7 @@ if(CIFPP_DOWNLOAD_CCD)
 		file(SIZE ${COMPONENTS_CIF} CCD_FILE_SIZE)
 
 		if(CCD_FILE_SIZE EQUAL 0)
-			message(STATUS "Removing empty ${COMPONENTS_CIF} file")
+			message(STATUS "cifpp: Removing empty ${COMPONENTS_CIF} file")
 			file(REMOVE "${COMPONENTS_CIF}")
 		endif()
 	endif()
@@ -428,7 +428,7 @@ if(CIFPP_DOWNLOAD_CCD)
 
 		if(CCD_FETCH_STATUS_CODE)
 			message(
-				FATAL_ERROR "Error trying to download CCD file: ${CCD_FETCH_STATUS}")
+				FATAL_ERROR "cifpp: Error trying to download CCD file: ${CCD_FETCH_STATUS}")
 		endif()
 	endif()
 endif()
@@ -492,7 +492,7 @@ file(GLOB OLD_CONFIG_FILES
 
 if(OLD_CONFIG_FILES)
 	message(
-		STATUS "Installation will remove old config files: ${OLD_CONFIG_FILES}")
+		STATUS "cifpp: Installation will remove old config files: ${OLD_CONFIG_FILES}")
 	install(CODE "file(REMOVE ${OLD_CONFIG_FILES})")
 endif()
 
@@ -558,7 +558,7 @@ if(CIFPP_INSTALL_UPDATE_SCRIPT)
 			PERMISSIONS OWNER_EXECUTE OWNER_READ GROUP_EXECUTE GROUP_READ WORLD_EXECUTE
 			WORLD_READ)
 	else()
-		message(FATAL_ERROR "Don't know where to install the update script")
+		message(FATAL_ERROR "cifpp: Don't know where to install the update script")
 	endif()
 
 	# a config file, to make it complete
@@ -572,7 +572,7 @@ if(CIFPP_INSTALL_UPDATE_SCRIPT)
 		install(FILES ${CMAKE_CURRENT_BINARY_DIR}/libcifpp.conf
 			DESTINATION ${CMAKE_INSTALL_SYSCONFDIR})
 		install(
-			CODE "message(\"A configuration file has been written to ${CIFPP_ETC_DIR}/libcifpp.conf, please edit this file to enable automatic updates\")"
+			CODE "message(\"cifpp: A configuration file has been written to ${CIFPP_ETC_DIR}/libcifpp.conf, please edit this file to enable automatic updates\")"
 		)
 
 		install(DIRECTORY DESTINATION ${CMAKE_INSTALL_SYSCONFDIR}/libcifpp/cache-update.d)

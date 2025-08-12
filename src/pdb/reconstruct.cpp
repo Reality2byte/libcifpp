@@ -1554,4 +1554,92 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 	return valid and is_valid_pdbx_file(file, validator);
 }
 
+// --------------------------------------------------------------------
+
+void fixup_pdbx(file &file)
+{
+	if (file.empty())
+		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
+
+	auto &db = file.front();
+
+	if (auto ac = db.get("audit_conform"); ac != nullptr)
+		fixup_pdbx(file, validator_factory::instance().get(*ac));
+	else
+		fixup_pdbx(file, validator_factory::instance().get("mmcif_pdbx.dic"));
+}
+
+void fixup_pdbx(file &file, const validator &validator)
+{
+	if (file.empty())
+		throw std::runtime_error("Cannot reconstruct PDBx, file seems to be empty");
+
+	// assuming the first datablock contains the entry ...
+	auto &db = file.front();
+
+	// ... and any additional datablock will contain compound information
+	cif::compound_source cs(file);
+
+	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
+		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
+
+	std::string entry_id;
+
+	// Phenix files do not have an entry record
+	if (auto cat = db.get("entry"); cat == nullptr or cat->empty())
+	{
+		entry_id = db.name();
+		category entry("entry");
+		entry.emplace({ { "id", entry_id } });
+		db.emplace_back(std::move(entry));
+	}
+	else
+	{
+		auto &entry = db["entry"];
+		if (entry.size() != 1)
+			throw std::runtime_error("Unexpected size of entry category");
+
+		entry_id = entry.front().get<std::string>("id");
+	}
+
+	// Start with chem_comp, it is often missing many fields
+	// that can easily be filled in.
+	checkChemCompRecords(db);
+
+	// If the data is really horrible, it might not contain entities
+	if (not db["atom_site"].find_first(key("label_entity_id") != null))
+		createEntityIDs(db);
+
+	// Now see if atom records make sense at all
+	checkAtomRecords(db);
+
+	db["chem_comp"].reorder_by_index();
+
+	db.set_validator(&validator);
+
+	// Now create any missing categories
+	// Next make sure we have struct_asym records
+	if (auto cat = db.get("struct_asym"); cat == nullptr or cat->empty())
+		createStructAsym(db);
+
+	if (auto cat = db.get("entity"); cat == nullptr or cat->empty())
+		createEntity(db);
+
+	if (auto cat = db.get("pdbx_poly_seq_scheme"); cat == nullptr or cat->empty())
+		createPdbxPolySeqScheme(db);
+
+	if (auto cat = db.get("ndb_poly_seq_scheme"); cat == nullptr or cat->empty())
+		comparePolySeqSchemes(db);
+	
+	createPdbxNonpolyScheme(db);
+
+	// Create a minimal set of branch records
+	createPdbxBranchScheme(db);
+
+	// fill in missing formula_weight, e.g.
+	checkEntities(db);
+
+	// That's it
+}
+
 } // namespace cif::pdb

@@ -104,6 +104,27 @@ inline void write(const std::filesystem::path &p, const file &f)
 
 // --------------------------------------------------------------------
 
+/**
+ * @brief Quickly fix a PDB file that lacks some often needed categories
+ * 
+ * This differs from reconstruct_pdbx which does a much more thorough job
+ * 
+ * \param pdbx_file The cif::file that hopefully contains some valid data
+ */
+
+void fixup_pdbx(file &pdbx_file);
+
+/**
+ * @brief Quickly fix a PDB file that lacks some often needed categories
+ * 
+ * This differs from reconstruct_pdbx which does a much more thorough job
+ * 
+ * \param pdbx_file The cif::file that hopefully contains some valid data
+ * \param v The validator to use
+ */
+
+void fixup_pdbx(file &pdbx_file, const validator &v);
+
 /** \brief Reconstruct all missing categories for an assumed PDBx file.
  *
  * Some people believe that simply dumping some atom records is enough.

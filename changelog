@@ -4,6 +4,8 @@ Version 9.0.0
   using the correct mapping between atom_site and residues.
 - _atom_site.auth_alt_id does not exist, it should be
   _atom_site.pdbx_auth_alt_id of course.
+- Added a more lightweight fixup for mmcif_pdbx files
+  that lack certain categories.
 
 Version 8.0.1
 - Fix cif::mm::structure::cleanup_empty_categories, removed too much

@@ -61,8 +61,6 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 			result = std::move(result) or std::move(cond);
 		}
 	}
-	else if (cif::VERBOSE > 0)
-		std::cerr << "warning: no child to parent links were found for child " << childName << " and parent " << parentName << '\n';
 
 	return result;
 }
@@ -92,7 +90,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 {
 	using namespace cif::literals;
 
-	bool result = true;
+	bool result = true, warned_missing_parents = false;
 
 	try
 	{
@@ -129,10 +127,18 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			if (not cf.is_monomer(comp_id))
 				continue;
 
-			auto p = pdbx_poly_seq_scheme.find(get_parents_condition(validator, r, pdbx_poly_seq_scheme));
+			auto cond = get_parents_condition(validator, r, pdbx_poly_seq_scheme);
+			if (not cond)
+			{
+				if (VERBOSE > 0 and std::exchange(warned_missing_parents, true) == false)
+					std::cerr << "warning: missing links for atom_site/pdbx_poly_seq_scheme\n";
+				continue;
+			}
+
+			auto p = pdbx_poly_seq_scheme.find(std::move(cond));
 			if (p.size() != 1)
 			{
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "In atom_site record: " << r["id"].text() << '\n';
 				throw std::runtime_error("For each monomer in atom_site there should be exactly one pdbx_poly_seq_scheme record");
 			}
@@ -274,7 +280,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 
 			if (not seq.has_value())
 			{
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "Warning: entity_poly has no sequence for entity_id " << entity_id << '\n';
 			}
 			else
@@ -287,7 +293,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 
 			if (not seq_can.has_value())
 			{
-				if (cif::VERBOSE > 1)
+				if (VERBOSE > 1)
 					std::clog << "Warning: entity_poly has no canonical sequence for entity_id " << entity_id << '\n';
 			}
 			else
@@ -304,7 +310,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 	catch (const std::exception &ex)
 	{
 		result = false;
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::clog << ex.what() << '\n';
 		ec = make_error_code(validation_error::not_valid_pdbx);
 	}

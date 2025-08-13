@@ -1167,7 +1167,7 @@ void createPdbxNonpolyScheme(datablock &db)
 		for (int ndb_nr = 1; auto row : atom_site.find("label_entity_id"_key == entity_id and "label_comp_id"_key == comp_id))
 		{
 			// Skip existing records
-			auto linked = atom_site.get_linked(row, pdbx_nonpoly_scheme);
+			auto linked = atom_site.get_children(row, pdbx_nonpoly_scheme);
 			if (not linked.empty())
 				continue;
 

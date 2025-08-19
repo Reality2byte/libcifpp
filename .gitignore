@@ -13,3 +13,4 @@ docs/api
 docs/conf.py
 build_ci/
 data/components.cif
+perf.data*

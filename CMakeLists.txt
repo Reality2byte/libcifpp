@@ -43,6 +43,7 @@ include(CheckIncludeFiles)
 include(CheckLibraryExists)
 include(CMakePackageConfigHelpers)
 include(CheckCXXSourceCompiles)
+include(FindPkgConfig)
 include(GenerateExportHeader)
 include(CTest)
 include(FetchContent)
@@ -222,6 +223,7 @@ endif()
 
 find_package(ZLIB QUIET)
 find_package(Threads)
+pkg_check_modules(PCRE libpcre2-8 REQUIRED IMPORTED_TARGET)
 
 if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
@@ -373,9 +375,11 @@ target_include_directories(
 	cifpp
 	PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 	"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-	PRIVATE "${BOOST_REGEX_INCLUDE_DIR}" "${EIGEN_INCLUDE_DIR}")
+	PRIVATE "${BOOST_REGEX_INCLUDE_DIR}" "${EIGEN_INCLUDE_DIR}" "${PCRE_INCLUDE_DIRS}")
 
-target_link_libraries(cifpp PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>)
+target_link_libraries(cifpp
+	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>
+	PRIVATE ${PCRE_LINK_LIBRARIES})
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

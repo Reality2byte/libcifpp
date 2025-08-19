@@ -39,13 +39,16 @@
 // on reading the pdbx dictionary. Therefore, in case g++ is used
 // the code will use boost::regex instead.
 
-#if USE_BOOST_REGEX
-# include <boost/regex.hpp>
-using boost::regex;
-#else
-# include <regex>
-using std::regex;
-#endif
+// #if USE_BOOST_REGEX
+// # include <boost/regex.hpp>
+// using boost::regex;
+// #else
+// # include <regex>
+// using std::regex;
+// #endif
+
+#define PCRE2_CODE_UNIT_WIDTH 8
+#include <pcre2.h>
 
 namespace cif
 {
@@ -67,13 +70,64 @@ validation_exception::validation_exception(std::error_code ec, std::string_view 
 
 // --------------------------------------------------------------------
 
-struct regex_impl : public regex
+// struct regex_impl : public regex
+// {
+// 	regex_impl(std::string_view rx)
+// 		: regex(rx.begin(), rx.end(), regex::extended | regex::optimize)
+// 	{
+// 	}
+// };
+
+struct regex_impl
 {
-	regex_impl(std::string_view rx)
-		: regex(rx.begin(), rx.end(), regex::extended | regex::optimize)
-	{
-	}
+	regex_impl(std::string_view rx);
+	~regex_impl();
+
+	regex_impl(const regex_impl &) = delete;
+	regex_impl &operator=(const regex_impl &) = delete;
+
+	bool match(std::string_view v) const;
+
+  private:
+
+	pcre2_code *m_rx = nullptr;
 };
+
+regex_impl::regex_impl(std::string_view rx)
+{
+	int err_code;
+	size_t err_offset;
+	m_rx = pcre2_compile((PCRE2_SPTR)rx.data(), rx.length(), 0, &err_code, &err_offset, nullptr);
+	if (m_rx == nullptr)
+	{
+		PCRE2_UCHAR buffer[256];
+		int n = pcre2_get_error_message(err_code, buffer, sizeof(buffer));
+
+		throw std::runtime_error(std::string("PCRE2 compilation failed: ") + std::string{ (char *)buffer, (char *)buffer + n });
+	}
+}
+
+regex_impl::~regex_impl()
+{
+	if (m_rx)
+		pcre2_code_free(m_rx);
+}
+
+bool regex_impl::match(std::string_view v) const
+{
+	bool result = false;
+
+	auto match_data = pcre2_match_data_create_from_pattern(m_rx, nullptr);
+
+	if (int rc = pcre2_match(m_rx, (PCRE2_SPTR)v.data(), v.length(), 0, 0, match_data, nullptr); rc >= 0)
+		result = true;
+	else if (rc != PCRE2_ERROR_NOMATCH)
+		std::cerr << "Error matching with pcre\n";
+
+	pcre2_match_data_free(match_data);
+
+	return result;
+}
 
 // --------------------------------------------------------------------
 
@@ -233,7 +287,7 @@ bool item_validator::validate_value(std::string_view value, std::error_code &ec)
 
 	if (not value.empty() and value != "?" and value != ".")
 	{
-		if (m_type != nullptr and not regex_match(value.begin(), value.end(), *m_type->m_rx))
+		if (m_type != nullptr and not m_type->m_rx->match(value))
 			ec = make_error_code(validation_error::value_does_not_match_rx);
 		else if (not m_enums.empty() and m_enums.count(std::string{ value }) == 0)
 			ec = make_error_code(validation_error::value_is_not_in_enumeration_list);

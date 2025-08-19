@@ -250,7 +250,7 @@ class item
 			return value();
 	}
 
-	constexpr auto operator<=>(const item &rhs) const = default;
+	auto operator<=>(const item &rhs) const = default;
 
   private:
 	std::string_view m_name;

@@ -49,49 +49,49 @@
  * @code {.cpp}
  * cif::condition c = cif::key("id") == 1;
  * @endcode
- * 
+ *
  * That will find rows where the ID item contains the number 1. If
  * using cif::key is a bit too much typing, you can also write:
- * 
+ *
  * @code{.cpp}
  * using namespace cif::literals;
- * 
+ *
  * cif::condition c2 = "id"_key == 1;
  * @endcode
- * 
+ *
  * Now if you want both ID = 1 and ID = 2 in the result:
- * 
+ *
  * @code{.cpp}
  * auto c3 = "id"_key == 1 or "id"_key == 2;
  * @endcode
- * 
+ *
  * There are some special values you can use. To find rows with item that
  * do not have a value:
- * 
+ *
  * @code{.cpp}
  * auto c4 = "type"_key == cif::null;
- * @endcode 
- * 
+ * @endcode
+ *
  * Of if it should not be NULL:
- * 
+ *
  * @code{.cpp}
  * auto c5 = "type"_key != cif::null;
- * @endcode 
- * 
+ * @endcode
+ *
  * There's even a way to find all records:
- * 
+ *
  * @code{.cpp}
  * auto c6 = cif::all;
  * @endcode
- * 
+ *
  * And when you want to search for any item containing the value 'foo':
- * 
+ *
  * @code{.cpp}
  * auto c7 = cif::any == "foo";
- * @endcode 
- * 
+ * @endcode
+ *
  * All these conditions can be chained together again:
- * 
+ *
  * @code{.cpp}
  * auto c8 = std::move(c3) and std::move(c5);
  * @endcode
@@ -106,7 +106,7 @@ namespace cif
 
 /**
  * @brief Get the items that can be used as key in conditions for a category
- * 
+ *
  * @param cat The category whose items to return
  * @return iset The set of key item names
  */
@@ -115,7 +115,7 @@ iset get_category_fields(const category &cat);
 
 /**
  * @brief Get the items that can be used as key in conditions for a category
- * 
+ *
  * @param cat The category whose items to return
  * @return iset The set of key field names
  */
@@ -123,7 +123,7 @@ iset get_category_items(const category &cat);
 
 /**
  * @brief Get the item index for item @a col in category @a cat
- * 
+ *
  * @param cat The category
  * @param col The name of the item
  * @return uint16_t The index
@@ -132,7 +132,7 @@ uint16_t get_item_ix(const category &cat, std::string_view col);
 
 /**
  * @brief Return whether the item @a col in category @a cat has a primitive type of *uchar*
- * 
+ *
  * @param cat The category
  * @param col The item name
  * @return true If the primitive type is of type *uchar*
@@ -175,14 +175,13 @@ namespace detail
 class condition
 {
   public:
-
 	/** @cond */
 	using condition_impl = detail::condition_impl;
 	/** @endcond */
 
 	/**
 	 * @brief Construct a new, empty condition object
-	 * 
+	 *
 	 */
 	condition()
 		: m_impl(nullptr)
@@ -191,7 +190,7 @@ class condition
 
 	/**
 	 * @brief Construct a new condition object with implementation @a impl
-	 * 
+	 *
 	 * @param impl The implementation to use
 	 */
 	explicit condition(condition_impl *impl)
@@ -230,15 +229,15 @@ class condition
 	/**
 	 * @brief Prepare the condition to be used on category @a c. This will
 	 * take care of setting the correct indices for items e.g.
-	 * 
+	 *
 	 * @param c The category this query should act upon
 	 */
 	void prepare(const category &c);
 
 	/**
-	 * @brief This operator returns true if the row referenced by @a r is 
+	 * @brief This operator returns true if the row referenced by @a r is
 	 * a match for this condition.
-	 * 
+	 *
 	 * @param r The reference to a row.
 	 * @return true If there is a match
 	 * @return false If there is no match
@@ -263,7 +262,7 @@ class condition
 	/**
 	 * @brief If the prepare step found out there is only one hit
 	 * this single hit can be returned by this method.
-	 * 
+	 *
 	 * @return std::optional<row_handle> The result will contain
 	 * a row reference if there is a single hit, it will be empty otherwise
 	 */
@@ -292,7 +291,7 @@ class condition
 
 	/**
 	 * @brief Operator to use to write out a condition to @a os, for debugging purposes
-	 * 
+	 *
 	 * @param os The std::ostream to write to
 	 * @param cond The condition to write
 	 * @return std::ostream& The same as @a os
@@ -752,28 +751,9 @@ namespace detail
 				delete sub;
 		}
 
-		condition_impl *prepare(const category &c) override
-		{
-			for (auto &sub : m_sub)
-				sub = sub->prepare(c);
-			return this;
-		}
+		condition_impl *prepare(const category &c) override;
 
-		bool test(row_handle r) const override
-		{
-			bool result = true;
-
-			for (auto sub : m_sub)
-			{
-				if (sub->test(r))
-					continue;
-
-				result = false;
-				break;
-			}
-
-			return result;
-		}
+		bool test(row_handle r) const override;
 
 		void str(std::ostream &os) const override
 		{
@@ -820,6 +800,7 @@ namespace detail
 		static condition_impl *combine_equal(std::vector<and_condition_impl *> &subs, or_condition_impl *oc);
 
 		std::vector<condition_impl *> m_sub;
+		std::optional<row_handle> m_single; // Potential result of index lookup
 	};
 
 	struct or_condition_impl : public condition_impl
@@ -977,9 +958,9 @@ inline condition operator or(condition &&a, condition &&b)
 			if (ci->m_item_name == ce->m_item_name)
 				return condition(new detail::key_equals_or_empty_condition_impl(ci));
 		}
-		
+
 		if (typeid(*b.m_impl) == typeid(detail::key_equals_condition_impl) and
-				 typeid(*a.m_impl) == typeid(detail::key_is_empty_condition_impl))
+			typeid(*a.m_impl) == typeid(detail::key_is_empty_condition_impl))
 		{
 			auto ci = static_cast<detail::key_equals_condition_impl *>(b.m_impl);
 			auto ce = static_cast<detail::key_is_empty_condition_impl *>(a.m_impl);
@@ -997,9 +978,9 @@ inline condition operator or(condition &&a, condition &&b)
 			if (ci->m_item_name == ce->m_item_name)
 				return condition(new detail::key_equals_number_or_empty_condition_impl(ci));
 		}
-		
+
 		if (typeid(*b.m_impl) == typeid(detail::key_equals_number_condition_impl) and
-				 typeid(*a.m_impl) == typeid(detail::key_is_empty_condition_impl))
+			typeid(*a.m_impl) == typeid(detail::key_is_empty_condition_impl))
 		{
 			auto ci = static_cast<detail::key_equals_number_condition_impl *>(b.m_impl);
 			auto ce = static_cast<detail::key_is_empty_condition_impl *>(a.m_impl);
@@ -1019,7 +1000,7 @@ inline condition operator or(condition &&a, condition &&b)
 
 /**
  * @brief A helper class to make it possible to search for empty items (NULL)
- * 
+ *
  * @code{.cpp}
  * "id"_key == cif::empty_type();
  * @endcode
@@ -1031,7 +1012,7 @@ struct empty_type
 
 /**
  * @brief A helper to make it possible to have conditions like
- * 
+ *
  * @code{.cpp}
  * "id"_key == cif::null;
  * @endcode
@@ -1041,14 +1022,14 @@ inline constexpr empty_type null = empty_type();
 
 /**
  * @brief Class to use in creating conditions, creates a reference to a item or item
- * 
+ *
  */
 struct key
 {
 	/**
 	 * @brief Construct a new key object using @a item_name as name
-	 * 
-	 * @param item_name 
+	 *
+	 * @param item_name
 	 */
 	explicit key(const std::string &item_name)
 		: m_item_name(item_name)
@@ -1057,8 +1038,8 @@ struct key
 
 	/**
 	 * @brief Construct a new key object using @a item_name as name
-	 * 
-	 * @param item_name 
+	 *
+	 * @param item_name
 	 */
 	explicit key(const char *item_name)
 		: m_item_name(item_name)
@@ -1067,8 +1048,8 @@ struct key
 
 	/**
 	 * @brief Construct a new key object using @a item_name as name
-	 * 
-	 * @param item_name 
+	 *
+	 * @param item_name
 	 */
 	explicit key(std::string_view item_name)
 		: m_item_name(item_name)
@@ -1345,7 +1326,7 @@ namespace literals
 {
 	/**
 	 * @brief Return a cif::key for the item name @a text
-	 * 
+	 *
 	 * @param text The name of the item
 	 * @param length The length of @a text
 	 * @return key The cif::key created

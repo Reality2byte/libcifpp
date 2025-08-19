@@ -24,8 +24,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/category.hpp"
 #include "cif++/condition.hpp"
+#include "cif++/category.hpp"
 #include "cif++/validate.hpp"
 
 namespace cif
@@ -61,6 +61,52 @@ bool is_item_type_uchar(const category &cat, std::string_view col)
 
 namespace detail
 {
+	// 	// index lookup
+	// 	struct index_lookup_condition_impl : public condition_impl
+	// 	{
+	// 		index_lookup_condition_impl(row_initializer &&key_values)
+	// 			: m_key_values(std::move(key_values))
+	// 		{
+	// 		}
+	//
+	// 		condition_impl *prepare(const category &c) override
+	// 		{
+	// 			m_single_hit = c[m_key_values];
+	// 			return this;
+	// 		}
+	//
+	// 		bool test(row_handle r) const override
+	// 		{
+	// 			return m_single_hit == r;
+	// 		}
+	//
+	// 		void str(std::ostream &os) const override
+	// 		{
+	// 			os << "index scan";
+	// 		}
+	//
+	// 		virtual std::optional<row_handle> single() const override
+	// 		{
+	// 			return m_single_hit;
+	// 		}
+	//
+	// 		virtual bool equals(const condition_impl *rhs) const override
+	// 		{
+	// 			if (typeid(*rhs) == typeid(index_lookup_condition_impl))
+	// 			{
+	// 				auto ri = static_cast<const index_lookup_condition_impl *>(rhs);
+	// 				if (m_single_hit or ri->m_single_hit)
+	// 					return m_single_hit == ri->m_single_hit;
+	// 				else
+	// 					// watch out, both m_item_ix might be the same while item_names might be diffent (in case they both do not exist in the category)
+	// 					return m_key_values == ri->m_key_values;
+	// 			}
+	// 			return this == rhs;
+	// 		}
+	//
+	// 		row_initializer m_key_values;
+	// 		row_handle m_single_hit;
+	// 	};
 
 	condition_impl *key_equals_condition_impl::prepare(const category &c)
 	{
@@ -85,7 +131,8 @@ namespace detail
 			c.key_item_indices().contains(m_item_ix) and
 			c.key_item_indices().size() == 1)
 		{
-			m_single_hit = c[{ { m_item_name, m_value } }];
+			item v(m_item_name, m_value);
+			m_single_hit = c[{ { m_item_name, std::string{ v.value() }, false } }];
 		}
 
 		return this;
@@ -99,7 +146,8 @@ namespace detail
 		{
 			auto &cs = (*s)->m_sub;
 
-			if (find_if(cs.begin(), cs.end(), [c](const condition_impl *i) { return i->equals(c); }) == cs.end())
+			if (find_if(cs.begin(), cs.end(), [c](const condition_impl *i)
+					{ return i->equals(c); }) == cs.end())
 			{
 				result = false;
 				break;
@@ -119,7 +167,8 @@ namespace detail
 		for (size_t fc_i = 0; fc_i < fc.size();)
 		{
 			auto c = fc[fc_i];
-			if (not found_in_range(c, subs.begin() + 1, subs.end())) {
+			if (not found_in_range(c, subs.begin() + 1, subs.end()))
+			{
 				++fc_i;
 				continue;
 			}
@@ -137,11 +186,12 @@ namespace detail
 				for (size_t ssub_i = 0; ssub_i < ssub.size();)
 				{
 					auto sc = ssub[ssub_i];
-					if (not sc->equals(c)) {
+					if (not sc->equals(c))
+					{
 						++ssub_i;
 						continue;
 					}
-					
+
 					ssub.erase(ssub.begin() + ssub_i);
 					delete sc;
 					break;
@@ -156,6 +206,99 @@ namespace detail
 		}
 
 		return oc;
+	}
+
+	condition_impl *and_condition_impl::prepare(const category &c)
+	{
+		for (auto &sub : m_sub)
+			sub = sub->prepare(c);
+
+		if (auto cv = c.get_cat_validator(); cv != nullptr)
+		{
+			// See if we can collapse a search part of this and_condition into a single index lookup
+
+			cif::iset keys{ cv->m_keys.begin(), cv->m_keys.end() };
+			category::key_type lookup;
+			std::vector<condition_impl *> subs;
+			std::vector<std::string> may_be_empty;
+
+			for (auto &sub : m_sub)
+			{
+				if (auto s = dynamic_cast<const key_equals_condition_impl *>(sub); s != nullptr)
+				{
+					if (keys.contains(s->m_item_name))
+					{
+						lookup.emplace_back(s->m_item_name, s->m_value);
+						subs.emplace_back(sub);
+					}
+					continue;
+				}
+
+				if (auto s = dynamic_cast<const key_equals_number_condition_impl *>(sub); s != nullptr)
+				{
+					if (keys.contains(s->m_item_name))
+					{
+						item v{ s->m_item_name, s->m_value };
+						lookup.emplace_back(s->m_item_name, std::string{ v.value() } );
+						subs.emplace_back(sub);
+					}
+					continue;
+				}
+
+				if (auto s = dynamic_cast<const key_equals_or_empty_condition_impl *>(sub); s != nullptr)
+				{
+					if (keys.contains(s->m_item_name))
+					{
+						lookup.emplace_back(s->m_item_name, s->m_value, true);
+						subs.emplace_back(sub);
+						may_be_empty.emplace_back(s->m_item_name);
+					}
+					continue;
+				}
+
+				if (auto s = dynamic_cast<const key_equals_number_or_empty_condition_impl *>(sub); s != nullptr)
+				{
+					if (keys.contains(s->m_item_name))
+					{
+						item v{ s->m_item_name, s->m_value };
+						lookup.emplace_back(s->m_item_name, std::string{ v.value() }, true );
+						subs.emplace_back(sub);
+					}
+					continue;
+				}
+			}
+
+			if (lookup.size() == keys.size())
+			{
+				m_single = c[lookup];
+
+				for (auto s : subs)
+					m_sub.erase(std::remove(m_sub.begin(), m_sub.end(), s), m_sub.end());
+			}
+		}
+
+		return this;
+	}
+
+	bool and_condition_impl::test(row_handle r) const
+	{
+		bool result = true;
+
+		if (m_single.has_value() and *m_single != r)
+			result = false;
+		else
+		{
+			for (auto sub : m_sub)
+			{
+				if (sub->test(r))
+					continue;
+
+				result = false;
+				break;
+			}
+		}
+
+		return result;
 	}
 
 	condition_impl *or_condition_impl::prepare(const category &c)
@@ -181,7 +324,7 @@ void condition::prepare(const category &c)
 {
 	if (m_impl)
 		m_impl = m_impl->prepare(c);
-	
+
 	m_prepared = true;
 }
 

@@ -6406,7 +6406,7 @@ file read(std::istream &is)
 		if (std::isalpha(ch) and std::toupper(ch) != 'D')
 		{
 			read_pdb_file(is, result);
-			reconstruct_pdbx(result);
+			fixup_pdbx(result);
 		}
 		else
 		{

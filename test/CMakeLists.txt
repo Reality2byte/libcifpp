@@ -24,6 +24,7 @@ list(
 	unit-3d
 	format
 	model
+	query
 	rename-compound
 	sugar
 	spinner

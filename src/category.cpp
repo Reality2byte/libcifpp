@@ -92,7 +92,7 @@ class row_comparator
 		return d;
 	}
 
-	int operator()(const category &cat, const row_initializer &a, const row *b) const
+	int operator()(const category &cat, const category::key_type &a, const row *b) const
 	{
 		assert(b);
 
@@ -105,10 +105,11 @@ class row_comparator
 		{
 			assert(ai != a.end());
 
-			std::string_view ka = ai->value();
+			std::string_view ka = ai->value;
 			std::string_view kb = rhb[k].text();
 
-			d = f(ka, kb);
+			if (not (ai->may_be_null and rhb[k].empty()))
+				d = f(ka, kb);
 
 			if (d != 0)
 				break;
@@ -142,7 +143,7 @@ class category_index
 	}
 
 	row *find(const category &cat, row *k) const;
-	row *find_by_value(const category &cat, row_initializer k) const;
+	row *find_by_value(const category &cat, const category::key_type &k) const;
 
 	void insert(category &cat, row *r);
 	void erase(category &cat, row *r);
@@ -352,19 +353,19 @@ row *category_index::find(const category &cat, row *k) const
 	return r ? r->m_row : nullptr;
 }
 
-row *category_index::find_by_value(const category &cat, row_initializer k) const
+row *category_index::find_by_value(const category &cat, const category::key_type &k) const
 {
 	// sort the values in k first
 
-	row_initializer k2;
+	category::key_type k2;
 	for (auto &f : cat.key_item_indices())
 	{
 		auto fld = cat.get_item_name(f);
 
 		auto ki = find_if(k.begin(), k.end(), [&fld](auto &i)
-			{ return i.name() == fld; });
+			{ return i.name == fld; });
 		if (ki == k.end())
-			k2.emplace_back(fld, "");
+			k2.emplace_back(std::string{ fld }, "");
 		else
 			k2.emplace_back(*ki);
 	}

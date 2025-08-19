@@ -157,7 +157,7 @@ class category
 		emplace(std::forward<row_initializer>(rows));
 	}
 
-	category(const category &rhs);   ///< Copy constructor
+	category(const category &rhs); ///< Copy constructor
 
 	category(category &&rhs) noexcept ///< Move constructor
 	{
@@ -332,8 +332,16 @@ class category
 	// --------------------------------------------------------------------
 	// A category can have a key, as defined by the validator/dictionary
 
+	/// @brief The type of an element of the key_type
+	struct key_element_type
+	{
+		std::string name;         ///< Name of the item
+		std::string value;        ///< Value to be found
+		bool may_be_null = false; ///< If true, value should be same or empty
+	};
+
 	/// @brief The key type
-	using key_type = row_initializer;
+	using key_type = std::vector<key_element_type>;
 
 	/// @brief Return a row_handle for the row specified by \a key
 	/// @param key The value for the key, items specified in the dictionary should have a value
@@ -1249,7 +1257,7 @@ class category
 		{
 		}
 
-// TODO: NEED TO FIX THIS!
+		// TODO: NEED TO FIX THIS!
 		category *linked;
 		const link_validator *v;
 	};

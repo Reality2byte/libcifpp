@@ -138,8 +138,8 @@ void checkEntities(datablock &db)
 				auto compound = cf.create(comp_id);
 				if (compound)
 					formula_weight += compound->formula_weight();
-				else if (cif::VERBOSE > 0)
-					std::clog << "missing information for compound " + comp_id << '\n';
+				// else if (cif::VERBOSE > 0)
+				// 	std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
 
@@ -156,8 +156,8 @@ void checkEntities(datablock &db)
 				auto compound = cf.create(comp_id);
 				if (compound)
 					formula_weight += compound->formula_weight();
-				else if (cif::VERBOSE > 0)
-					std::clog << "missing information for compound " + comp_id << '\n';
+				// else if (cif::VERBOSE > 0)
+				// 	std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
 
@@ -171,7 +171,7 @@ void checkEntities(datablock &db)
 				auto compound = cf.create(*comp_id);
 				if (not compound)
 				{
-					std::cerr << "missing information for compound " << *comp_id << "\n";
+					// std::cerr << "missing information for compound " << *comp_id << "\n";
 					continue;
 				}
 				formula_weight = compound->formula_weight();
@@ -484,7 +484,8 @@ void checkAtomRecords(datablock &db)
 		if (not compound)
 		{
 			missingCompounds.insert(comp_id);
-			std::cerr << "Missing compound information for " << comp_id << "\n";
+			// if (cif::VERBOSE > 0)
+			// 	std::cerr << "Missing compound information for " << comp_id << "\n";
 			continue;
 		}
 
@@ -628,13 +629,13 @@ void checkAtomAnisotropRecords(datablock &db)
 
 		if (row["pdbx_auth_alt_id"].empty() and not parent["pdbx_auth_alt_id"].empty())
 			row["pdbx_auth_alt_id"] = parent["pdbx_auth_alt_id"].text();
-		if (row["pdbx_label_seq_id"].empty() and not parent["pdbx_label_seq_id"].empty())
+		if (row["pdbx_label_seq_id"].empty() and not parent["label_seq_id"].empty())
 			row["pdbx_label_seq_id"] = parent["label_seq_id"].text();
-		if (row["pdbx_label_asym_id"].empty() and not parent["pdbx_label_asym_id"].empty())
+		if (row["pdbx_label_asym_id"].empty() and not parent["label_asym_id"].empty())
 			row["pdbx_label_asym_id"] = parent["label_asym_id"].text();
-		if (row["pdbx_label_atom_id"].empty() and not parent["pdbx_label_atom_id"].empty())
+		if (row["pdbx_label_atom_id"].empty() and not parent["label_atom_id"].empty())
 			row["pdbx_label_atom_id"] = parent["label_atom_id"].text();
-		if (row["pdbx_label_comp_id"].empty() and not parent["pdbx_label_comp_id"].empty())
+		if (row["pdbx_label_comp_id"].empty() and not parent["label_comp_id"].empty())
 			row["pdbx_label_comp_id"] = parent["label_comp_id"].text();
 		// if (row["pdbx_PDB_model_num"].empty() and not parent["pdbx_PDB_model_num"].empty())
 		// 	row["pdbx_PDB_model_num"] = parent["pdbx_PDB_model_num"].text();
@@ -1242,6 +1243,101 @@ void createPdbxBranchScheme(datablock &db)
 	}
 }
 
+void reconstruct_index_for_category(const validator &validator, category &cat, datablock &db)
+{
+	auto cv = validator.get_validator_for_category(cat.name());
+
+	enum class State
+	{
+		Start,
+		MissingKeys,
+		DuplicateKeys
+	} state = State::Start;
+
+	for (;;)
+	{
+		// See if we can build an index
+		try
+		{
+			cat.set_validator(&validator, db);
+		}
+		catch (const missing_key_error &ex)
+		{
+			if (state == State::MissingKeys)
+			{
+				if (cif::VERBOSE > 0)
+					std::clog << "Repairing failed for category " << cat.name() << ", missing keys remain: " << ex.what() << '\n';
+
+				throw;
+			}
+
+			state = State::MissingKeys;
+
+			auto key = ex.get_key();
+
+			if (cif::VERBOSE > 1)
+				std::clog << "Need to add key " << key << " to category " << cat.name() << '\n';
+
+			for (auto row : cat)
+			{
+				auto ord = row.get<std::string>(key.c_str());
+				if (ord.empty())
+					row.assign({ //
+						{ key, cat.get_unique_value(key) } });
+			}
+
+			continue;
+		}
+		catch (const duplicate_key_error &ex)
+		{
+			if (state == State::DuplicateKeys)
+			{
+				if (cif::VERBOSE > 0)
+					std::clog << "Repairing failed for category " << cat.name() << ", duplicate keys remain: " << ex.what() << '\n';
+
+				throw;
+			}
+
+			state = State::DuplicateKeys;
+
+			if (cif::VERBOSE > 0)
+				std::clog << "Attempt to fix " << cat.name() << " failed: " << ex.what() << '\n';
+
+			// replace items that do not define a relation to a parent
+
+			std::set<std::string> replaceableKeys;
+			for (auto key : cv->m_keys)
+			{
+				bool replaceable = true;
+				for (auto lv : validator.get_links_for_child(cat.name()))
+				{
+					if (find(lv->m_child_keys.begin(), lv->m_child_keys.end(), key) != lv->m_child_keys.end())
+					{
+						replaceable = false;
+						break;
+					}
+				}
+
+				if (replaceable)
+					replaceableKeys.insert(key);
+			}
+
+			if (replaceableKeys.empty())
+				throw std::runtime_error("Cannot repair category " + cat.name() + " since it contains duplicate keys that cannot be replaced");
+
+			for (auto key : replaceableKeys)
+			{
+				for (auto row : cat)
+					row.assign(key, cat.get_unique_value(key), false, false);
+			}
+
+			continue;
+		}
+
+		break;
+	}
+}
+
 bool reconstruct_pdbx(file &file)
 {
 	if (file.empty())
@@ -1408,95 +1504,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 				}
 			}
 
-			enum class State
-			{
-				Start,
-				MissingKeys,
-				DuplicateKeys
-			} state = State::Start;
-
-			for (;;)
-			{
-				// See if we can build an index
-				try
-				{
-					cat.set_validator(&validator, db);
-				}
-				catch (const missing_key_error &ex)
-				{
-					if (state == State::MissingKeys)
-					{
-						if (cif::VERBOSE > 0)
-							std::clog << "Repairing failed for category " << cat.name() << ", missing keys remain: " << ex.what() << '\n';
-
-						throw;
-					}
-
-					state = State::MissingKeys;
-
-					auto key = ex.get_key();
-
-					if (cif::VERBOSE > 0)
-						std::clog << "Need to add key " << key << " to category " << cat.name() << '\n';
-
-					for (auto row : cat)
-					{
-						auto ord = row.get<std::string>(key.c_str());
-						if (ord.empty())
-							row.assign({ //
-								{ key, cat.get_unique_value(key) } });
-					}
-
-					continue;
-				}
-				catch (const duplicate_key_error &ex)
-				{
-					if (state == State::DuplicateKeys)
-					{
-						if (cif::VERBOSE > 0)
-							std::clog << "Repairing failed for category " << cat.name() << ", duplicate keys remain: " << ex.what() << '\n';
-
-						throw;
-					}
-
-					state = State::DuplicateKeys;
-
-					if (cif::VERBOSE > 0)
-						std::clog << "Attempt to fix " << cat.name() << " failed: " << ex.what() << '\n';
-
-					// replace items that do not define a relation to a parent
-
-					std::set<std::string> replaceableKeys;
-					for (auto key : cv->m_keys)
-					{
-						bool replaceable = true;
-						for (auto lv : validator.get_links_for_child(cat.name()))
-						{
-							if (find(lv->m_child_keys.begin(), lv->m_child_keys.end(), key) != lv->m_child_keys.end())
-							{
-								replaceable = false;
-								break;
-							}
-						}
-
-						if (replaceable)
-							replaceableKeys.insert(key);
-					}
-
-					if (replaceableKeys.empty())
-						throw std::runtime_error("Cannot repair category " + cat.name() + " since it contains duplicate keys that cannot be replaced");
-
-					for (auto key : replaceableKeys)
-					{
-						for (auto row : cat)
-							row.assign(key, cat.get_unique_value(key), false, false);
-					}
-
-					continue;
-				}
-
-				break;
-			}
+			reconstruct_index_for_category(validator, cat, db);
 		}
 		catch (const std::exception &ex)
 		{
@@ -1537,7 +1545,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 
 	if (auto cat = db.get("ndb_poly_seq_scheme"); cat == nullptr or cat->empty())
 		comparePolySeqSchemes(db);
-	
+
 	createPdbxNonpolyScheme(db);
 
 	// Create a minimal set of branch records
@@ -1577,11 +1585,16 @@ void fixup_pdbx(file &file, const validator &validator)
 	// assuming the first datablock contains the entry ...
 	auto &db = file.front();
 
+	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
+		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
+
 	// ... and any additional datablock will contain compound information
 	cif::compound_source cs(file);
 
-	if (auto cat = db.get("atom_site"); cat == nullptr or cat->empty())
-		throw std::runtime_error("Cannot reconstruct PDBx file, atom data missing");
+	// Be silent about missing compound info in fixup
+	auto &cf = compound_factory::instance();
+	bool save_report = cf.get_report_missing();
+	cf.set_report_missing(cif::VERBOSE > 1);
 
 	std::string entry_id;
 
@@ -1610,10 +1623,23 @@ void fixup_pdbx(file &file, const validator &validator)
 	if (not db["atom_site"].find_first(key("label_entity_id") != null))
 		createEntityIDs(db);
 
-	// Now see if atom records make sense at all
+	// Now see if atom records make sense at all, but in a silent way, this time
 	checkAtomRecords(db);
 
 	db["chem_comp"].reorder_by_index();
+
+	// See if we can easily reconstruct missing data fields in order to create an index
+	for (auto &cat : db)
+	{
+		try
+		{
+			cat.set_validator(&validator, db);
+		}
+		catch (const missing_key_error &)
+		{
+			reconstruct_index_for_category(validator, cat, db);
+		}
+	}
 
 	db.set_validator(&validator);
 
@@ -1630,7 +1656,7 @@ void fixup_pdbx(file &file, const validator &validator)
 
 	if (auto cat = db.get("ndb_poly_seq_scheme"); cat == nullptr or cat->empty())
 		comparePolySeqSchemes(db);
-	
+
 	createPdbxNonpolyScheme(db);
 
 	// Create a minimal set of branch records
@@ -1640,6 +1666,7 @@ void fixup_pdbx(file &file, const validator &validator)
 	checkEntities(db);
 
 	// That's it
+	cf.set_report_missing(save_report);
 }
 
 } // namespace cif::pdb

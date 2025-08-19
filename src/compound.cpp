@@ -757,8 +757,7 @@ bool compound_factory::is_monomer(std::string_view res_name) const
 
 void compound_factory::report_missing_compound(std::string_view compound_id)
 {
-	static bool s_reported = false;
-	if (std::exchange(s_reported, true) == false)
+	if (std::exchange(m_report_missing, false))
 	{
 		using namespace cif::colour;
 

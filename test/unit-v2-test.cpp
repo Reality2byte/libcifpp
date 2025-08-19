@@ -3355,10 +3355,10 @@ _cat_1.id_2
 	using test_tuple_type = std::tuple<key_type,bool>;
 
 	test_tuple_type TESTS[] = {
-		{ {{"id", 1}, {"id_2", 10}}, true },
-		{ {{"id_2", 10}, {"id", 1}}, true },
-		{ {{"id", 1}, {"id_2", 20}}, false },
-		{ {{"id", 3} }, true },
+		{ {{"id", "1"}, {"id_2", "10"}}, true },
+		{ {{"id_2", "10"}, {"id", "1"}}, true },
+		{ {{"id", "1"}, {"id_2", "20"}}, false },
+		{ {{"id", "3"} }, true },
 	};
 
 	for (const auto &[key, test] : TESTS)

@@ -180,7 +180,7 @@ class compound
 	friend class local_compound_factory_impl;
 
 	compound(cif::datablock &db);
-	
+
 	std::string m_id;
 	std::string m_name;
 	std::string m_type;
@@ -290,6 +290,13 @@ class compound_factory
 
 	void report_missing_compound(std::string_view compound_id);
 
+	bool get_report_missing() const { return m_report_missing; }
+
+	void set_report_missing(bool report)
+	{
+		m_report_missing = report;
+	}
+
   private:
 	compound_factory();
 
@@ -301,6 +308,7 @@ class compound_factory
 	static bool s_use_thread_local_instance;
 
 	std::shared_ptr<compound_factory_impl> m_impl;
+	bool m_report_missing = true;
 };
 
 // --------------------------------------------------------------------

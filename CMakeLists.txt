@@ -169,15 +169,13 @@ if(MSVC)
 	endforeach()
 endif()
 
-ExternalProject_Add(
+FetchContent_Declare(
 	mypcre2
 	GIT_REPOSITORY https://github.com/PCRE2Project/pcre2
 	GIT_TAG pcre2-10.45
-	# CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/installed-pcre"
-	INSTALL_COMMAND "")
-
-ExternalProject_Get_Property(mypcre2 SOURCE_DIR)
-add_subdirectory(${SOURCE_DIR} EXCLUDE_FROM_ALL)
+	EXCLUDE_FROM_ALL)
+FetchContent_Populate(mypcre2)
+add_subdirectory(${mypcre2_SOURCE_DIR})
 
 find_package(ZLIB QUIET)
 find_package(Threads)

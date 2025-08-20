@@ -83,6 +83,7 @@ struct regex_impl
   private:
 
 	pcre2_code *m_rx = nullptr;
+	pcre2_match_data *m_data = nullptr;
 };
 
 regex_impl::regex_impl(std::string_view rx)
@@ -97,10 +98,15 @@ regex_impl::regex_impl(std::string_view rx)
 
 		throw std::runtime_error(std::string("PCRE2 compilation failed: ") + std::string{ (char *)buffer, (char *)buffer + n });
 	}
+
+	m_data = pcre2_match_data_create_from_pattern(m_rx, nullptr);
 }
 
 regex_impl::~regex_impl()
 {
+	if (m_data)
+		pcre2_match_data_free(m_data);
+
 	if (m_rx)
 		pcre2_code_free(m_rx);
 }
@@ -109,14 +115,10 @@ bool regex_impl::match(std::string_view v) const
 {
 	bool result = false;
 
-	auto match_data = pcre2_match_data_create_from_pattern(m_rx, nullptr);
-
-	if (int rc = pcre2_match(m_rx, (PCRE2_SPTR)v.data(), v.length(), 0, 0, match_data, nullptr); rc >= 0)
+	if (int rc = pcre2_match(m_rx, (PCRE2_SPTR)v.data(), v.length(), 0, 0, m_data, nullptr); rc >= 0)
 		result = true;
 	else if (rc != PCRE2_ERROR_NOMATCH)
 		std::cerr << "Error matching with pcre\n";
-
-	pcre2_match_data_free(match_data);
 
 	return result;
 }

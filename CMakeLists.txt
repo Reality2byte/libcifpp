@@ -175,7 +175,7 @@ FetchContent_Declare(
 	GIT_TAG pcre2-10.45
 	EXCLUDE_FROM_ALL)
 FetchContent_Populate(mypcre2)
-add_subdirectory(${mypcre2_SOURCE_DIR})
+add_subdirectory(${mypcre2_SOURCE_DIR} EXCLUDE_FROM_ALL)
 
 find_package(ZLIB QUIET)
 find_package(Threads)

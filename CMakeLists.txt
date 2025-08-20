@@ -38,16 +38,11 @@ project(
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 include(FindAtomic)
-include(CheckFunctionExists)
-include(CheckIncludeFiles)
-include(CheckLibraryExists)
 include(CMakePackageConfigHelpers)
-include(CheckCXXSourceCompiles)
-include(FindPkgConfig)
 include(GenerateExportHeader)
 include(CTest)
-include(FetchContent)
 include(ExternalProject)
+include(CPM)
 
 # When building with ninja-multiconfig, build both debug and release by default
 if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
@@ -173,7 +168,14 @@ if(MSVC)
 	endforeach()
 endif()
 
-pkg_check_modules(PCRE libpcre2-8 REQUIRED IMPORTED_TARGET)
+# The pcre2 package cmake config files are broken, don't yet know what's wrong
+CPMFindPackage(
+	NAME pcre2
+	GIT_REPOSITORY https://github.com/PCRE2Project/pcre2
+	GIT_TAG pcre2-10.45
+	EXCLUDE_FROM_ALL YES
+	OPTIONS "PCRE2_BUILD_TESTS OFF"
+)
 
 find_package(ZLIB QUIET)
 find_package(Threads)
@@ -322,7 +324,7 @@ target_include_directories(
 
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>
-	PRIVATE ${PCRE_LINK_LIBRARIES})
+	PRIVATE $<TARGET_FILE:pcre2-8-static>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

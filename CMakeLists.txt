@@ -42,6 +42,7 @@ include(CMakePackageConfigHelpers)
 include(GenerateExportHeader)
 include(CTest)
 include(ExternalProject)
+include(FetchContent)
 include(CPM)
 
 # When building with ninja-multiconfig, build both debug and release by default
@@ -168,14 +169,15 @@ if(MSVC)
 	endforeach()
 endif()
 
-# The pcre2 package cmake config files are broken, don't yet know what's wrong
-CPMFindPackage(
-	NAME pcre2
+ExternalProject_Add(
+	mypcre2
 	GIT_REPOSITORY https://github.com/PCRE2Project/pcre2
 	GIT_TAG pcre2-10.45
-	EXCLUDE_FROM_ALL YES
-	OPTIONS "PCRE2_BUILD_TESTS OFF"
-)
+	# CMAKE_ARGS "-DCMAKE_INSTALL_PREFIX=${CMAKE_CURRENT_BINARY_DIR}/installed-pcre"
+	INSTALL_COMMAND "")
+
+ExternalProject_Get_Property(mypcre2 SOURCE_DIR)
+add_subdirectory(${SOURCE_DIR} EXCLUDE_FROM_ALL)
 
 find_package(ZLIB QUIET)
 find_package(Threads)
@@ -320,11 +322,11 @@ target_include_directories(
 	cifpp
 	PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 	"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-	PRIVATE "${EIGEN_INCLUDE_DIR}" "${PCRE_INCLUDE_DIRS}")
+	PRIVATE "${EIGEN_INCLUDE_DIR}")
 
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>
-	PRIVATE $<TARGET_FILE:pcre2-8-static>)
+	PRIVATE $<BUILD_INTERFACE:pcre2-8>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

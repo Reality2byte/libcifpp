@@ -49,11 +49,6 @@ include(CTest)
 include(FetchContent)
 include(ExternalProject)
 
-# FindBoost, take care of it now.
-if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.30)
-	cmake_policy(SET CMP0167 NEW)
-endif()
-
 # When building with ninja-multiconfig, build both debug and release by default
 if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
 	set(CMAKE_CROSS_CONFIGS "Debug;Release")
@@ -150,51 +145,8 @@ endif()
 
 # Libraries
 
-# Start by finding out if std:regex is usable. Note that the current
-# implementation in GCC is not acceptable, it crashes on long lines. The
-# implementation in libc++ (clang) and MSVC seem to be OK.
-check_cxx_source_compiles(
-	"
-#include <iostream>
-#ifndef __GLIBCXX__
-#error
-#endif
-int main(int argc, char *argv[]) { return 0; }"
-	GXX_LIBSTDCPP)
-
-if(GXX_LIBSTDCPP)
-	message(
-		STATUS "cifpp: Testing for known regex bug, since you're using GNU libstdc++")
-
-	try_run(STD_REGEX_RUNNING STD_REGEX_COMPILING
-		${CMAKE_CURRENT_BINARY_DIR}/test
-		${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-rx.cpp)
-
-	if(STD_REGEX_RUNNING STREQUAL FAILED_TO_RUN)
-		message(
-			STATUS
-			"cifpp: You are probably trying to compile using the g++ standard library which contains a crashing std::regex implementation. Will use boost::regex instead"
-		)
-
-		find_package(Boost 1.80 QUIET COMPONENTS regex)
-
-		if(NOT Boost_FOUND)
-			set(BOOST_REGEX_STANDALONE ON)
-
-			FetchContent_Declare(
-				boost-rx
-				GIT_REPOSITORY https://github.com/boostorg/regex
-				GIT_TAG boost-1.83.0)
-
-			FetchContent_MakeAvailable(boost-rx)
-		endif()
-
-		set(BOOST_REGEX ON)
-	endif()
-endif()
-
 if(MSVC)
-	# Avoid linking the shared library of zlib Search ZLIB_ROOT first if it is
+	# Avoid linking the shared library of zlib. Search ZLIB_ROOT first if it is
 	# set.
 	if(ZLIB_ROOT)
 		set(_ZLIB_SEARCH_ROOT PATHS ${ZLIB_ROOT} NO_DEFAULT_PATH)
@@ -221,9 +173,10 @@ if(MSVC)
 	endforeach()
 endif()
 
+pkg_check_modules(PCRE libpcre2-8 REQUIRED IMPORTED_TARGET)
+
 find_package(ZLIB QUIET)
 find_package(Threads)
-pkg_check_modules(PCRE libpcre2-8 REQUIRED IMPORTED_TARGET)
 
 if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
@@ -352,18 +305,8 @@ target_sources(cifpp
 # The code now really requires C++20
 target_compile_features(cifpp PUBLIC cxx_std_20)
 
-set(CMAKE_DEBUG_POSTFIX d)
-set_target_properties(cifpp PROPERTIES DEBUG_POSTFIX "d")
-
 generate_export_header(cifpp EXPORT_FILE_NAME
 	${CMAKE_CURRENT_SOURCE_DIR}/include/cif++/exports.hpp)
-
-if(BOOST_REGEX)
-	target_compile_definitions(cifpp PRIVATE USE_BOOST_REGEX=1
-		BOOST_REGEX_STANDALONE=1)
-	get_target_property(BOOST_REGEX_INCLUDE_DIR Boost::regex
-		INTERFACE_INCLUDE_DIRECTORIES)
-endif()
 
 if(MSVC)
 	target_compile_definitions(cifpp PUBLIC NOMINMAX=1)
@@ -375,7 +318,7 @@ target_include_directories(
 	cifpp
 	PUBLIC "$<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>"
 	"$<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>"
-	PRIVATE "${BOOST_REGEX_INCLUDE_DIR}" "${EIGEN_INCLUDE_DIR}" "${PCRE_INCLUDE_DIRS}")
+	PRIVATE "${EIGEN_INCLUDE_DIR}" "${PCRE_INCLUDE_DIRS}")
 
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>

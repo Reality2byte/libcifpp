@@ -117,12 +117,8 @@ Other libraries you might want to install beforehand are:
   `libeigen3-dev`
 - [zlib](https://github.com/madler/zlib), the development version of this
   library. On Debian/Ubuntu this is the package `zlib1g-dev`.
-- [boost](https://www.boost.org), in Debian/Ubuntu this is `libboost-dev`.
-  
-  The Boost libraries are only needed in case you are using GCC due to a long
-  standing bug in GNU's implementation of std::regex. It simply crashes
-  on the regular expressions used in the mmcif_pdbx dictionary and so
-  we use the boost regex implementation instead.
+- [pcre2](https://www.pcre.org/), the Perl Compatible Regular Expression
+  library. On Debian/Ubuntu this is the package `libpcre2-dev`.
 
 ### Building
 

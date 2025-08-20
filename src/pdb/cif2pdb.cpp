@@ -33,7 +33,6 @@
 #include <regex>
 #include <set>
 
-
 namespace cif::pdb
 {
 

@@ -36,16 +36,8 @@
 
 // The validator depends on regular expressions. Unfortunately,
 // the implementation of std::regex in g++ is buggy and crashes
-// on reading the pdbx dictionary. Therefore, in case g++ is used
-// the code will use boost::regex instead.
-
-// #if USE_BOOST_REGEX
-// # include <boost/regex.hpp>
-// using boost::regex;
-// #else
-// # include <regex>
-// using std::regex;
-// #endif
+// on reading the pdbx dictionary. We used to use boost regex
+// instead but using pcre2 is even easier and faster.
 
 #define PCRE2_CODE_UNIT_WIDTH 8
 #include <pcre2.h>

@@ -169,6 +169,7 @@ if(MSVC)
 	endforeach()
 endif()
 
+set(PCRE2_BUILD_TESTS OFF)
 FetchContent_Declare(
 	mypcre2
 	GIT_REPOSITORY https://github.com/PCRE2Project/pcre2

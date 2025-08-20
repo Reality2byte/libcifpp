@@ -18,13 +18,26 @@ jobs:
         include:
           - os: windows-latest
             cpp_compiler: cl
+            vcpkg_triplet: x64-windows-release
           - os: ubuntu-latest
             cpp_compiler: g++
+            vcpkg_triplet: x64-linux-release
           - os: macos-latest
             cpp_compiler: clang++
+            vcpkg_triplet: x64-osx-release
 
     steps:
     - uses: actions/checkout@v3
+
+    - name: vcpkg build
+      uses: johnwason/vcpkg-action@v7
+      id: vcpkg
+      with:
+        pkgs: pcre2
+        triplet: ${{ matrix.vcpkg_triplet }}
+        cache-key: ${{ matrix.os }}
+        revision: master
+        token: ${{ github.token }}
 
     - name: Set reusable strings
       id: strings
@@ -39,6 +52,10 @@ jobs:
       if: matrix.os == 'windows-latest'
       run: ./tools/depends.cmd
       shell: cmd
+
+    - name: Install dependencies macOS
+      if: matrix.os == 'macos-latest'
+      run: brew install pcre2
 
     - name: Configure CMake
       run: >

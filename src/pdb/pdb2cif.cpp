@@ -895,12 +895,7 @@ class PDBFileParser
 				if (year < 1950)
 					year += 100;
 
-				std::stringstream ss;
-				ss << std::setw(4) << std::setfill('0') << year << '-'
-				   << std::setw(2) << std::setfill('0') << month << '-'
-				   << std::setw(2) << std::setfill('0') << day;
-
-				s = ss.str();
+				s = std::format("{:04}-{:02}-{:02}", year, month, day);
 			}
 			else if (regex_match(s, m, rx2))
 			{
@@ -912,7 +907,7 @@ class PDBFileParser
 				if (year < 1950)
 					year += 100;
 
-				s = cif::format("%04d-%02d", year, month).str();
+				s = std::format("{:04}-{:02}", year, month);
 			}
 			else
 				ec = error::make_error_code(error::pdbErrors::invalidDate);
@@ -3341,18 +3336,18 @@ void PDBFileParser::ParseRemark350()
 								{ "type", type },
 								// { "name", "" },
 							    // { "symmetryOperation", "" },
-								{ "matrix[1][1]", cif::format("%12.10f", mat[0]).str() },
-								{ "matrix[1][2]", cif::format("%12.10f", mat[1]).str() },
-								{ "matrix[1][3]", cif::format("%12.10f", mat[2]).str() },
-								{ "vector[1]", cif::format("%12.10f", vec[0]).str() },
-								{ "matrix[2][1]", cif::format("%12.10f", mat[3]).str() },
-								{ "matrix[2][2]", cif::format("%12.10f", mat[4]).str() },
-								{ "matrix[2][3]", cif::format("%12.10f", mat[5]).str() },
-								{ "vector[2]", cif::format("%12.10f", vec[1]).str() },
-								{ "matrix[3][1]", cif::format("%12.10f", mat[6]).str() },
-								{ "matrix[3][2]", cif::format("%12.10f", mat[7]).str() },
-								{ "matrix[3][3]", cif::format("%12.10f", mat[8]).str() },
-								{ "vector[3]", cif::format("%12.10f", vec[2]).str() }
+								{ "matrix[1][1]", std::format("%12.10f", mat[0]) },
+								{ "matrix[1][2]", std::format("%12.10f", mat[1]) },
+								{ "matrix[1][3]", std::format("%12.10f", mat[2]) },
+								{ "vector[1]", std::format("%12.10f", vec[0]) },
+								{ "matrix[2][1]", std::format("%12.10f", mat[3]) },
+								{ "matrix[2][2]", std::format("%12.10f", mat[4]) },
+								{ "matrix[2][3]", std::format("%12.10f", mat[5]) },
+								{ "vector[2]", std::format("%12.10f", vec[1]) },
+								{ "matrix[3][1]", std::format("%12.10f", mat[6]) },
+								{ "matrix[3][2]", std::format("%12.10f", mat[7]) },
+								{ "matrix[3][3]", std::format("%12.10f", mat[8]) },
+								{ "vector[3]", std::format("%12.10f", vec[2]) }
 							});
 																			// clang-format on
 
@@ -5850,7 +5845,7 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 
 			auto f = [](float f) -> std::string
 			{
-				return cif::format("%6.4f", f).str();
+				return std::format("%6.4f", f);
 			};
 
 			// clang-format off

@@ -169,14 +169,9 @@ if(MSVC)
 	endforeach()
 endif()
 
-set(PCRE2_BUILD_TESTS OFF)
-FetchContent_Declare(
-	mypcre2
-	GIT_REPOSITORY https://github.com/PCRE2Project/pcre2
-	GIT_TAG pcre2-10.45
-	EXCLUDE_FROM_ALL)
-FetchContent_Populate(mypcre2)
-add_subdirectory(${mypcre2_SOURCE_DIR} EXCLUDE_FROM_ALL)
+# find_package(pcre2) is unfortunately broken 
+
+include(FindPCRE2)
 
 find_package(ZLIB QUIET)
 find_package(Threads)

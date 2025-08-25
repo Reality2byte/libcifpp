@@ -171,7 +171,7 @@ endif()
 
 # find_package(pcre2) is unfortunately broken 
 
-include(FindPCRE2)
+include(FindPCRE2x)
 
 find_package(ZLIB QUIET)
 find_package(Threads)

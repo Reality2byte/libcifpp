@@ -1,10 +1,9 @@
 set(PCRE2_USE_STATIC_LIBS ON)
 
-find_package(pcre2 CONFIG )
+find_package(pcre2 CONFIG)
 
 if(PCRE2_FOUND)
 	message(STATUS "Using pcre2 found using find_package")
-
 else()
 	include(FindPkgConfig)
 
@@ -13,11 +12,15 @@ else()
 
 		if(PCRE2_FOUND)
 			message(STATUS "Using pcre2 found using pkg-config")
+
+			add_library(pcre2-8 ALIAS PkgConfig::PCRE2)
 		endif()
 	endif()
 endif()
 
 if(NOT PCRE2_FOUND)
+	message(STATUS "Using pcre2 using FetchContent")
+
 	set(PCRE2_BUILD_TESTS OFF)
 	FetchContent_Declare(
 		pcre2

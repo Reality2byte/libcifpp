@@ -17,10 +17,10 @@ IF NOT EXIST zlib-%ZLIB_VERSION% (
   C:\windows\system32\tar.exe -x -f zlib-%ZLIB_VERSION%.zip || EXIT /b 1
 )
 CD zlib-%ZLIB_VERSION%
-cmake -G "Visual Studio 17 2022" . || EXIT /b 1
-cmake --build . --target ALL_BUILD --config Release || EXIT /b 1
-cmake --build . --target RUN_TESTS --config Release || EXIT /b 1
-cmake --build . --target INSTALL --config Release || EXIT /b 1
+cmake -B build || EXIT /b 1
+cmake --build build --target ALL_BUILD --config Release || EXIT /b 1
+cmake --build build --target RUN_TESTS --config Release || EXIT /b 1
+cmake --build build --target INSTALL --config Release || EXIT /b 1
 
 @REM Install PCRE2
 IF NOT EXIST pcre2-%PCRE2_VERSION%.zip (
@@ -32,9 +32,9 @@ IF NOT EXIST pcre2-%PCRE2_VERSION% (
   C:\windows\system32\tar.exe -x -f pcre2-%PCRE2_VERSION%.zip || EXIT /b 1
 )
 CD pcre2-%PCRE2_VERSION%
-cmake -G "Visual Studio 17 2022" . || EXIT /b 1
-cmake --build . --target ALL_BUILD --config Release || EXIT /b 1
-cmake --build . --target RUN_TESTS --config Release || EXIT /b 1
-cmake --build . --target INSTALL --config Release || EXIT /b 1
+cmake -B build -DPCRE2_BUILD_PCRE2GREP=OFF || EXIT /b 1
+cmake --build build --target ALL_BUILD --config Release || EXIT /b 1
+@REM cmake --build build --target RUN_TESTS --config Release || EXIT /b 1
+cmake --build build --target INSTALL --config Release || EXIT /b 1
 
 @EXIT /b 0

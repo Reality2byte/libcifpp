@@ -20,8 +20,8 @@ else()
 endif()
 
 if(NOT PCRE2_FOUND)
-	find_path(PCRE2_INCLUDEDIR NAMES pcre2.h REQUIRED)
-	find_library(PCRE2_LIBRARY NAMES pcre2-8-static pcre2-8 REQUIRED)
+	find_path(PCRE2_INCLUDEDIR NAMES pcre2.h HINTS "C:/Program Files (x86)/PCRE2/include" REQUIRED)
+	find_library(PCRE2_LIBRARY NAMES pcre2-8-static pcre2-8 HINTS "C:/Program Files (x86)/PCRE2/lib" REQUIRED)
 
 	add_library(pcre2-8 SHARED IMPORTED)
 	set_target_properties(pcre2-8 PROPERTIES INCLUDE_DIRECTORIES ${PCRE2_INCLUDEDIR})

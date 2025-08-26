@@ -264,8 +264,8 @@ void createEntityIDs(datablock &db)
 
 		std::string comp_id = get_comp_id(k);
 
-		for (auto &k : e)
-			atom_site.update_value(get_condition(k), "label_entity_id", entity_id);
+		for (auto &k2 : e)
+			atom_site.update_value(get_condition(k2), "label_entity_id", entity_id);
 	}
 
 	if (not waters.empty())

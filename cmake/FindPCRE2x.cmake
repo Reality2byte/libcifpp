@@ -1,6 +1,6 @@
 set(PCRE2_USE_STATIC_LIBS ON)
 
-find_package(pcre2 CONFIG)
+find_package(pcre2 CONFIG COMPONENTS 8BIT)
 
 if(PCRE2_FOUND)
 	message(STATUS "Using pcre2 found using find_package")

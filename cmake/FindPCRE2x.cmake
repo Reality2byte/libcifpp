@@ -19,15 +19,10 @@ else()
 endif()
 
 if(NOT PCRE2_FOUND)
-	message(STATUS "Using pcre2 using FetchContent")
+	find_path(PCRE2_INCLUDEDIR NAMES pcre2.h REQUIRED)
+	find_library(PCRE2_LIBRARY NAMES pcre2-8-static pcre2-8 REQUIRED)
 
-	set(PCRE2_BUILD_TESTS OFF)
-	FetchContent_Declare(
-		pcre2
-		GIT_REPOSITORY https://github.com/PCRE2Project/pcre2
-		GIT_TAG pcre2-10.45
-		EXCLUDE_FROM_ALL)
-	FetchContent_MakeAvailable(pcre2)
-
-	# add_subdirectory(${pcre2_SOURCE_DIR} EXCLUDE_FROM_ALL)
+	add_library(pcre2-8 SHARED IMPORTED)
+	set_target_properties(pcre2-8 PROPERTIES INCLUDE_DIRECTORIES ${PCRE2_INCLUDEDIR})
+	set_target_properties(pcre2-8 PROPERTIES IMPORTED_LOCATION ${PCRE2_LIBRARY})
 endif()

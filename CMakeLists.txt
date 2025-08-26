@@ -321,7 +321,7 @@ target_include_directories(
 	PRIVATE "${EIGEN_INCLUDE_DIR}")
 
 target_link_libraries(cifpp
-	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic> pcre2-8)
+	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic> $<BUILD_INTERFACE:pcre2-8>)
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

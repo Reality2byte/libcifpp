@@ -171,10 +171,7 @@ endif()
 
 # find_package(pcre2) is unfortunately broken 
 
-include(FindPCRE2x)
-
-# CPMAddPackage("gh:mhekkel/pcre2#2bbf7cf9")
-
+include(FindPCRE2)
 find_package(ZLIB QUIET)
 find_package(Threads)
 
@@ -193,8 +190,10 @@ if(Eigen3_FOUND AND TARGET Eigen3::Eigen)
 else()
 	# Use ExternalProject since FetchContent always tries to install the result...
 	ExternalProject_Add(my-eigen3
-		GIT_REPOSITORY https://gitlab.com/libeigen/eigen.git
-		GIT_TAG 3.4.0
+		URL https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.zip
+		DOWNLOAD_EXTRACT_TIMESTAMP TRUE
+		CONFIGURE_COMMAND ""
+		BUILD_COMMAND ""
 		INSTALL_COMMAND "")
 
 	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)

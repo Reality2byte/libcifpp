@@ -43,7 +43,6 @@ include(GenerateExportHeader)
 include(CTest)
 include(ExternalProject)
 include(FetchContent)
-include(CPM)
 
 # When building with ninja-multiconfig, build both debug and release by default
 if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
@@ -169,11 +168,10 @@ if(MSVC)
 	endforeach()
 endif()
 
+find_package(Threads)
 # find_package(pcre2) is unfortunately broken 
-
 include(FindPCRE2)
 find_package(ZLIB QUIET)
-find_package(Threads)
 
 if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")

@@ -1300,7 +1300,7 @@ void structure::load_atoms_for_model(structure_open_options options)
 	
 		for (auto &&[key, value] : alts)
 		{
-			const auto &[asym_id, seq_id] = key;
+			// const auto &[asym_id, seq_id] = key;
 	
 			// select highest occupancy for this residue's alternates
 			std::string alt_id;

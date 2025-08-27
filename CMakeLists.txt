@@ -328,7 +328,7 @@ target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic> $<BUILD_INTERFACE:pcre2-8>)
 
 if(fmt_FOUND)
-	target_link_libraries(cifpp PUBLIC fmt::fmt-header-only)
+	target_link_libraries(cifpp PUBLIC fmt::fmt)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
@@ -467,6 +467,7 @@ if(CIFPP_DATA_DIR AND CIFPP_DOWNLOAD_CCD)
 endif()
 
 set(CONFIG_TEMPLATE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cifpp-config.cmake.in)
+set(REQUIRE_FMT ${fmt_FOUND})
 
 configure_package_config_file(
 	${CONFIG_TEMPLATE_FILE} ${CMAKE_CURRENT_BINARY_DIR}/cifpp/cifpp-config.cmake

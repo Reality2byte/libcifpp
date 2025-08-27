@@ -3336,18 +3336,18 @@ void PDBFileParser::ParseRemark350()
 								{ "type", type },
 								// { "name", "" },
 							    // { "symmetryOperation", "" },
-								{ "matrix[1][1]", std::format("%12.10f", mat[0]) },
-								{ "matrix[1][2]", std::format("%12.10f", mat[1]) },
-								{ "matrix[1][3]", std::format("%12.10f", mat[2]) },
-								{ "vector[1]", std::format("%12.10f", vec[0]) },
-								{ "matrix[2][1]", std::format("%12.10f", mat[3]) },
-								{ "matrix[2][2]", std::format("%12.10f", mat[4]) },
-								{ "matrix[2][3]", std::format("%12.10f", mat[5]) },
-								{ "vector[2]", std::format("%12.10f", vec[1]) },
-								{ "matrix[3][1]", std::format("%12.10f", mat[6]) },
-								{ "matrix[3][2]", std::format("%12.10f", mat[7]) },
-								{ "matrix[3][3]", std::format("%12.10f", mat[8]) },
-								{ "vector[3]", std::format("%12.10f", vec[2]) }
+								{ "matrix[1][1]", std::format("{:12.10f}", mat[0]) },
+								{ "matrix[1][2]", std::format("{:12.10f}", mat[1]) },
+								{ "matrix[1][3]", std::format("{:12.10f}", mat[2]) },
+								{ "vector[1]", std::format("{:12.10f}", vec[0]) },
+								{ "matrix[2][1]", std::format("{:12.10f}", mat[3]) },
+								{ "matrix[2][2]", std::format("{:12.10f}", mat[4]) },
+								{ "matrix[2][3]", std::format("{:12.10f}", mat[5]) },
+								{ "vector[2]", std::format("{:12.10f}", vec[1]) },
+								{ "matrix[3][1]", std::format("{:12.10f}", mat[6]) },
+								{ "matrix[3][2]", std::format("{:12.10f}", mat[7]) },
+								{ "matrix[3][3]", std::format("{:12.10f}", mat[8]) },
+								{ "vector[3]", std::format("{:12.10f}", vec[2]) }
 							});
 																			// clang-format on
 
@@ -5845,7 +5845,7 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 
 			auto f = [](float f) -> std::string
 			{
-				return std::format("%6.4f", f);
+				return std::format("{:6.4f}", f);
 			};
 
 			// clang-format off

@@ -168,6 +168,13 @@ if(MSVC)
 	endforeach()
 endif()
 
+# First check if <format> is available
+find_file(FMT NAME format)
+
+if(FMT EQUAL "FMT-NOTFOUND")
+    find_package(fmt REQUIRED)
+endif()
+
 find_package(Threads)
 # find_package(pcre2) is unfortunately broken 
 include(FindPCRE2)
@@ -319,6 +326,10 @@ target_include_directories(
 
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic> $<BUILD_INTERFACE:pcre2-8>)
+
+if(fmt_FOUND)
+	target_link_libraries(cifpp PUBLIC fmt::fmt-header-only)
+endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

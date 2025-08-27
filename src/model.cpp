@@ -47,9 +47,9 @@ void atom::atom_impl::moveTo(const point &p)
 
 	auto r = row();
 
-	r.assign("Cartn_x", std::format("{:.3f}", p.m_x), false, false);
-	r.assign("Cartn_y", std::format("{:.3f}", p.m_y), false, false);
-	r.assign("Cartn_z", std::format("{:.3f}", p.m_z), false, false);
+	r.assign("Cartn_x", cif::format("{:.3f}", p.m_x), false, false);
+	r.assign("Cartn_y", cif::format("{:.3f}", p.m_y), false, false);
+	r.assign("Cartn_z", cif::format("{:.3f}", p.m_z), false, false);
 
 	m_location = p;
 }

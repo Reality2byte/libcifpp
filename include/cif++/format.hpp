@@ -26,16 +26,27 @@
 
 #pragma once
 
+#if __has_include(<format>)
 #include <format>
+#else
+#include <fmt/format.h>
+#endif
+
 #include <string>
 
 /**  \file format.hpp
  * 
- * Now using std::format instead of a home grown rip off
+ * Now using cif::format instead of a home grown rip off
  */
 
 namespace cif
 {
+
+#if defined(__cpp_lib_format)
+using std::format;
+#else
+using fmt::format;
+#endif
 
 // --------------------------------------------------------------------
 /// A streambuf that fills out lines with spaces up until a specified width

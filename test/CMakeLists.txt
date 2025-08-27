@@ -22,7 +22,6 @@ list(
 	CIFPP_tests
 	unit-v2
 	unit-3d
-	format
 	model
 	query
 	rename-compound

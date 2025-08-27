@@ -27,6 +27,7 @@
 #pragma once
 
 #include "cif++/row.hpp"
+#include "cif++/format.hpp"
 
 #include <cassert>
 #include <concepts>
@@ -1118,13 +1119,10 @@ inline condition operator!=(const key &key, std::string_view value)
 template <Numeric T>
 condition operator>(const key &key, const T &v)
 {
-	std::ostringstream s;
-	s << " > " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v) > 0; },
-		s.str()));
+		std::format(" > {}", v)));
 }
 
 /**
@@ -1133,13 +1131,10 @@ condition operator>(const key &key, const T &v)
 template <Numeric T>
 condition operator>=(const key &key, const T &v)
 {
-	std::ostringstream s;
-	s << " >= " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v) >= 0; },
-		s.str()));
+		std::format(" >= {}", v)));
 }
 
 /**
@@ -1148,13 +1143,10 @@ condition operator>=(const key &key, const T &v)
 template <Numeric T>
 condition operator<(const key &key, const T &v)
 {
-	std::ostringstream s;
-	s << " < " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v) < 0; },
-		s.str()));
+		std::format(" < {}", v)));
 }
 
 /**
@@ -1163,13 +1155,10 @@ condition operator<(const key &key, const T &v)
 template <Numeric T>
 condition operator<=(const key &key, const T &v)
 {
-	std::ostringstream s;
-	s << " <= " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v) <= 0; },
-		s.str()));
+		std::format(" <= {}", v)));
 }
 
 /**
@@ -1177,13 +1166,10 @@ condition operator<=(const key &key, const T &v)
  */
 inline condition operator>(const key &key, std::string_view v)
 {
-	std::ostringstream s;
-	s << " > " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) > 0; },
-		s.str()));
+		std::format(" > {}", v)));
 }
 
 /**
@@ -1191,13 +1177,10 @@ inline condition operator>(const key &key, std::string_view v)
  */
 inline condition operator>=(const key &key, std::string_view v)
 {
-	std::ostringstream s;
-	s << " >= " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) >= 0; },
-		s.str()));
+		std::format(" >= {}", v)));
 }
 
 /**
@@ -1205,13 +1188,10 @@ inline condition operator>=(const key &key, std::string_view v)
  */
 inline condition operator<(const key &key, std::string_view v)
 {
-	std::ostringstream s;
-	s << " < " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) < 0; },
-		s.str()));
+		std::format(" < {}", v)));
 }
 
 /**
@@ -1219,13 +1199,10 @@ inline condition operator<(const key &key, std::string_view v)
  */
 inline condition operator<=(const key &key, std::string_view v)
 {
-	std::ostringstream s;
-	s << " <= " << v;
-
 	return condition(new detail::key_compare_condition_impl(
 		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) <= 0; },
-		s.str()));
+		std::format(" <= {}", v)));
 }
 
 /**

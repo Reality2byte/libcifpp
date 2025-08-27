@@ -26,138 +26,16 @@
 
 #pragma once
 
+#include <format>
 #include <string>
 
 /**  \file format.hpp
  * 
- * File containing a basic reimplementation of boost::format
- * but then a bit more simplistic. Still this allowed me to move my code
- * from using boost::format to something without external dependency easily.
+ * Now using std::format instead of a home grown rip off
  */
 
 namespace cif
 {
-
-namespace detail
-{
-	template <typename T>
-	struct to_varg
-	{
-		using type = T;
-
-		to_varg(const T &v)
-			: m_value(v)
-		{
-		}
-
-		type operator*() { return m_value; }
-
-		T m_value;
-	};
-
-	template <>
-	struct to_varg<const char *>
-	{
-		using type = const char *;
-
-		to_varg(const char *v)
-			: m_value(v)
-		{
-		}
-
-		type operator*() { return m_value.c_str(); }
-
-		std::string m_value;
-	};
-
-	template <>
-	struct to_varg<std::string>
-	{
-		using type = const char *;
-
-		to_varg(const std::string &v)
-			: m_value(v)
-		{
-		}
-
-		type operator*() { return m_value.c_str(); }
-
-		std::string m_value;
-	};
-
-} // namespace
-
-/** @cond */
-
-template <typename... Args>
-class format_plus_arg
-{
-  public:
-	using args_vector_type = std::tuple<detail::to_varg<Args>...>;
-	using vargs_vector_type = std::tuple<typename detail::to_varg<Args>::type...>;
-
-	format_plus_arg(const format_plus_arg &) = delete;
-	format_plus_arg &operator=(const format_plus_arg &) = delete;
-
-
-	format_plus_arg(std::string_view fmt, Args... args)
-		: m_fmt(fmt)
-		, m_args(std::forward<Args>(args)...)
-	{
-		auto ix = std::make_index_sequence<sizeof...(Args)>();
-		copy_vargs(ix);
-	}
-
-	std::string str()
-	{
-		char buffer[1024];
-		std::string::size_type r = std::apply(snprintf, std::tuple_cat(std::make_tuple(buffer, sizeof(buffer), m_fmt.c_str()), m_vargs));
-		return { buffer, r };
-	}
-
-	friend std::ostream &operator<<(std::ostream &os, const format_plus_arg &f)
-	{
-		char buffer[1024];
-		std::string::size_type r = std::apply(snprintf, std::tuple_cat(std::make_tuple(buffer, sizeof(buffer), f.m_fmt.c_str()), f.m_vargs));
-		os.write(buffer, r);
-		return os;
-	}
-
-  private:
-
-	template <std::size_t... I>
-	void copy_vargs(std::index_sequence<I...>)
-	{
-		((std::get<I>(m_vargs) = *std::get<I>(m_args)), ...);
-	}
-
-	std::string m_fmt;
-	args_vector_type m_args;
-	vargs_vector_type m_vargs;
-};
-
-/** @endcond */
-
-/**
- * @brief A simplistic reimplementation of boost::format, in fact it is
- * actually a way to call the C function snprintf to format the arguments
- * in @a args into the format string @a fmt
- * 
- * The string in @a fmt should thus be a C style format string.
- * 
- * TODO: Move to C++23 style of printing.
- * 
- * @tparam Args The types of the arguments
- * @param fmt The format string
- * @param args The arguments
- * @return An object that can be written out to a std::ostream using operator<<
- */
-
-template <typename... Args>
-constexpr auto format(std::string_view fmt, Args... args)
-{
-	return format_plus_arg(fmt, std::forward<Args>(args)...);
-}
 
 // --------------------------------------------------------------------
 /// A streambuf that fills out lines with spaces up until a specified width

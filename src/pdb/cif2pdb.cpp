@@ -257,7 +257,7 @@ std::size_t WriteCitation(std::ostream &pdbFile, const datablock &db, row_handle
 	{
 		to_upper(pubname);
 
-		pdbFile << s1 + std::format("REF {:2.2s} {:<28.28s}  {:2.2s}{:4.4s} {:5.5s} {:4.4s}", "" /* continuation */, pubname, (volume.empty() ? "" : "V."), volume, pageFirst, year)
+		pdbFile << s1 + std::format("REF {:2.2s} {:<28.28s}  {:2.2s}{:>4.4s} {:5.5s} {:4.4s}", "" /* continuation */, pubname, (volume.empty() ? "" : "V."), volume, pageFirst, year)
 				<< '\n';
 		++result;
 	}
@@ -3130,7 +3130,7 @@ std::tuple<int, int> WriteSecondaryStructure(std::ostream &pdbFile, const databl
 					"pdbx_end_PDB_ins_code", "beg_auth_comp_id", "beg_auth_asym_id", "beg_auth_seq_id",
 					"end_auth_comp_id", "end_auth_asym_id", "end_auth_seq_id");
 
-				pdbFile << std::format("SHEET  {:3.3s} {:3.3s}{:2} {:3.3s} {:1.1s}{:4}{:1.1s} {:3.3s} {:1.1s}{:4}{:1.1s}{:2}", rangeID1, sheetID, numStrands, initResName, initChainID, initSeqNum, initICode, endResName, endChainID, endSeqNum, endICode, 0) << '\n';
+				pdbFile << std::format("SHEET  {:>3.3s} {:>3.3s}{:2} {:3.3s} {:1.1s}{:4}{:1.1s} {:3.3s} {:1.1s}{:4}{:1.1s}{:2}", rangeID1, sheetID, numStrands, initResName, initChainID, initSeqNum, initICode, endResName, endChainID, endSeqNum, endICode, 0) << '\n';
 
 				first = false;
 			}
@@ -3149,7 +3149,7 @@ std::tuple<int, int> WriteSecondaryStructure(std::ostream &pdbFile, const databl
 
 			if (h.empty())
 			{
-				pdbFile << std::format("SHEET  {:3.3s} {:3.3s}{:2} {:3.3s} {:1.1s}{:4}{:1.1s} {:3.3s} {:1.1s}{:4}{:1.1s}{:2}", rangeID2, sheetID, numStrands, initResName, initChainID, initSeqNum, initICode, endResName, endChainID, endSeqNum, endICode, sense) << '\n';
+				pdbFile << std::format("SHEET  {:>3.3s} {:>3.3s}{:2} {:3.3s} {:1.1s}{:4}{:1.1s} {:3.3s} {:1.1s}{:4}{:1.1s}{:2}", rangeID2, sheetID, numStrands, initResName, initChainID, initSeqNum, initICode, endResName, endChainID, endSeqNum, endICode, sense) << '\n';
 			}
 			else
 			{
@@ -3162,7 +3162,7 @@ std::tuple<int, int> WriteSecondaryStructure(std::ostream &pdbFile, const databl
 				curAtom = cif2pdbAtomName(curAtom, compID[0], db);
 				prevAtom = cif2pdbAtomName(prevAtom, compID[1], db);
 
-				pdbFile << std::format("SHEET  {:3.3s} {:3.3s}{:2} {:3.3s} {:1.1s}{:4}{:1.1s} {:3.3s} {:1.1s}{:4}{:1.1s}{:2} "
+				pdbFile << std::format("SHEET  {:>3.3s} {:>3.3s}{:2} {:3.3s} {:1.1s}{:4}{:1.1s} {:3.3s} {:1.1s}{:4}{:1.1s}{:2} "
 										"{:<4.4s}{:3.3s} {:1.1s}{:4}{:1.1s} {:<4.4s}{:3.3s} {:1.1s}{:4}{:1.1s}",
 							   rangeID2, sheetID, numStrands, initResName, initChainID, initSeqNum, initICode, endResName, endChainID, endSeqNum, endICode, sense, curAtom, curResName, curChainID, curResSeq, curICode, prevAtom, prevResName, prevChainID, prevResSeq, prevICode)
 						<< '\n';

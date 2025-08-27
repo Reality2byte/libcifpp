@@ -4313,7 +4313,7 @@ void PDBFileParser::ConstructEntities()
 	}
 
 	// build sugar trees first
-	ConstructSugarTrees(asymNr);
+	// ConstructSugarTrees(asymNr);
 
 	// done with the sugar, resume operation as before
 
@@ -6437,8 +6437,14 @@ file read(std::istream &is)
 	}
 
 	// Must be a PDB like file, right?
-	if (not result.empty() and result.front().get_validator() == nullptr)
-		result.front().set_validator(&validator_factory::instance().get("mmcif_pdbx.dic"));
+	if (not result.empty())
+	{
+		auto &db = result.front();
+		if (db.get_validator() == nullptr)
+			db.set_validator(&validator_factory::instance().get("mmcif_pdbx.dic"));
+		if (db.is_valid())
+			db.get_validator()->fill_audit_conform(db["audit_conform"]);
+	}
 
 	return result;
 }

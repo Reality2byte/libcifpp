@@ -257,14 +257,14 @@ std::size_t WriteCitation(std::ostream &pdbFile, const datablock &db, row_handle
 	{
 		to_upper(pubname);
 
-		pdbFile << s1 + std::format("REF {:2.2s} {:<28.28s}  {:2.2s}{:>4.4s} {:5.5s} {:4.4s}", "" /* continuation */, pubname, (volume.empty() ? "" : "V."), volume, pageFirst, year)
+		pdbFile << s1 << std::format("REF {:2.2s} {:<28.28s}  {:2.2s}{:>4.4s} {:5.5s} {:4.4s}", "" /* continuation */, pubname, (volume.empty() ? "" : "V."), volume, pageFirst, year)
 				<< '\n';
 		++result;
 	}
 
 	if (not issn.empty())
 	{
-		pdbFile << s1 + std::format("REFN                   ISSN {:<25.25s}", issn) << '\n';
+		pdbFile << s1 << std::format("REFN                   ISSN {:<25.25s}", issn) << '\n';
 		++result;
 	}
 
@@ -285,13 +285,13 @@ std::size_t WriteCitation(std::ostream &pdbFile, const datablock &db, row_handle
 
 	if (not pmid.empty())
 	{
-		pdbFile << s1 + std::format("PMID   {:<60.60s} ", pmid) << '\n';
+		pdbFile << s1 << std::format("PMID   {:<60.60s} ", pmid) << '\n';
 		++result;
 	}
 
 	if (not doi.empty())
 	{
-		pdbFile << s1 + std::format("DOI    {:<60.60s} ", doi) << '\n';
+		pdbFile << s1 << std::format("DOI    {:<60.60s} ", doi) << '\n';
 		++result;
 	}
 

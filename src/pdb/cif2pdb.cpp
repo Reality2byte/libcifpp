@@ -3363,19 +3363,12 @@ std::tuple<int, int> WriteCoordinatesForModel(std::ostream &pdbFile, const datab
 
 	auto &atom_site = db["atom_site"];
 	auto &atom_site_anisotrop = db["atom_site_anisotrop"];
-	auto &entity = db["entity"];
-	// auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
-	// auto &pdbx_nonpoly_scheme = db["pdbx_nonpoly_scheme"];
-	auto &pdbx_branch_scheme = db["pdbx_branch_scheme"];
 
 	int serial = 1;
 	auto ri = atom_site.begin();
 
 	std::string id, group, name, altLoc, resName, chainID, iCode, element;
 	int resSeq = 0, charge;
-
-	// Since auth_seq_id might be empty (sugars e.g.) find out a reasonable value
-	int nextMissingResSeq = atom_site.find_max<int>("auth_seq_id") + 1;
 
 	for (;;)
 	{
@@ -3443,29 +3436,6 @@ std::tuple<int, int> WriteCoordinatesForModel(std::ostream &pdbFile, const datab
 			r.get("id", "group_PDB", "label_atom_id", "label_alt_id", "auth_comp_id", "auth_asym_id", "auth_seq_id",
 				"pdbx_PDB_ins_code", "Cartn_x", "Cartn_y", "Cartn_z", "occupancy", "B_iso_or_equiv", "type_symbol", "pdbx_formal_charge");
 
-		if (resName != "HOH")
-		{
-			int entity_id = r.get<int>("label_entity_id");
-			try
-			{
-				auto type = entity.find1<std::string>("id"_key == entity_id, "type");
-
-				if (type == "branched")	// find the real auth_seq_num, since sugars have their auth_seq_num reused as sugar number... sigh.
-					resSeq = pdbx_branch_scheme.find1<int>("asym_id"_key == r.get<std::string>("label_asym_id") and "pdb_seq_num"_key == resSeq, "auth_seq_num");
-				// else if (type == "non-polymer")	// same for non-polymers
-				// 	resSeq = pdbx_nonpoly_scheme.find1<int>("asym_id"_key == r.get<std::string>("label_asym_id") and "pdb_seq_num"_key == resSeq, "auth_seq_num");
-				// else if (type == "polymer")
-				// 	resSeq = pdbx_poly_seq_scheme.find1<int>("asym_id"_key == r.get<std::string>("label_asym_id") and "pdb_seq_num"_key == resSeq, "auth_seq_num");
-			}
-			catch (const std::exception &ex)
-			{
-				std::cerr << "Oops, there was not exactly one entity with id " << entity_id << '\n';
-			}
-		}
-
-		if (resSeq == 0)
-			resSeq = nextMissingResSeq++;
-		
 		if (chainID.length() > 1)
 			throw std::runtime_error("Chain ID " + chainID + " won't fit into a PDB file");
 

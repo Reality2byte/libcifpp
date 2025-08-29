@@ -25,6 +25,7 @@
  */
 
 #include "cif++/file.hpp"
+#include "cif++/condition.hpp"
 #include "cif++/gzio.hpp"
 
 namespace cif
@@ -46,8 +47,16 @@ bool file::is_valid()
 {
 	bool result = not empty();
 
-	for (auto &d : *this)
-		result = d.is_valid() and result;
+	for (bool first = true; auto &d : *this)
+	{
+		if (first)
+		{
+			result = d.is_valid() and result;
+			first = false;
+		}
+		else if (d.get_validator() != nullptr)
+			result = d.is_valid() and result;
+	}
 
 	if (result)
 		result = validate_links();

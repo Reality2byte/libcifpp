@@ -3374,6 +3374,9 @@ std::tuple<int, int> WriteCoordinatesForModel(std::ostream &pdbFile, const datab
 	std::string id, group, name, altLoc, resName, chainID, iCode, element;
 	int resSeq = 0, charge;
 
+	// Since auth_seq_id might be empty (sugars e.g.) find out a reasonable value
+	int nextMissingResSeq = atom_site.find_max<int>("auth_seq_id") + 1;
+
 	for (;;)
 	{
 		std::string nextResName, nextChainID, nextICode, modelNum;
@@ -3459,6 +3462,9 @@ std::tuple<int, int> WriteCoordinatesForModel(std::ostream &pdbFile, const datab
 				std::cerr << "Oops, there was not exactly one entity with id " << entity_id << '\n';
 			}
 		}
+
+		if (resSeq == 0)
+			resSeq = nextMissingResSeq++;
 		
 		if (chainID.length() > 1)
 			throw std::runtime_error("Chain ID " + chainID + " won't fit into a PDB file");
@@ -3470,7 +3476,8 @@ std::tuple<int, int> WriteCoordinatesForModel(std::ostream &pdbFile, const datab
 		if (charge != 0)
 			sCharge = std::to_string(charge) + (charge > 0 ? '+' : '-');
 
-		pdbFile << cif::format("{:<6.6s}{:5} {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:2.2s}{:2.2s}", group, serial, name, altLoc, resName, chainID, resSeq, iCode, x, y, z, occupancy, tempFactor, element, sCharge) << '\n';
+		pdbFile << cif::format("{:<6.6s}{:5} {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:2.2s}{:2.2s}",
+			group, serial, name, altLoc, resName, chainID, resSeq, iCode, x, y, z, occupancy, tempFactor, element, sCharge) << '\n';
 
 		++numCoord;
 

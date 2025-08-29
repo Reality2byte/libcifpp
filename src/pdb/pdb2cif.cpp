@@ -32,6 +32,7 @@
 #include <map>
 #include <set>
 #include <stack>
+#include <stdexcept>
 
 using cif::category;
 using cif::datablock;
@@ -5766,6 +5767,9 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 		std::string tempFactor = vF(61, 66); //	61 - 66        Real(6.2)     tempFactor   Temperature  factor.
 		std::string element = vS(77, 78);    //	77 - 78        LString(2)    element      Element symbol, right-justified.
 		std::string charge = vS(79, 80);     //	79 - 80        LString(2)    charge       Charge  on the atom.
+
+		if (element.empty())
+			throw std::runtime_error("Empty element column in PDB file at line " + std::to_string(mRec->mLineNr));
 
 		std::string entityID = mAsymID2EntityID[asymID];
 

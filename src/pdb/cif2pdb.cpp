@@ -257,7 +257,7 @@ std::size_t WriteCitation(std::ostream &pdbFile, const datablock &db, row_handle
 	{
 		to_upper(pubname);
 
-		pdbFile << s1 << std::format("REF {:2.2s} {:<28.28s}  {:2.2s}{:>4.4s} {:5.5s} {:4.4s}", "" /* continuation */, pubname, (volume.empty() ? "" : "V."), volume, pageFirst, year)
+		pdbFile << s1 << std::format("REF {:2.2s} {:<28.28s}  {:2.2s}{:>4.4s} {:>5.5s} {:4.4s}", "" /* continuation */, pubname, (volume.empty() ? "" : "V."), volume, pageFirst, year)
 				<< '\n';
 		++result;
 	}
@@ -2628,7 +2628,7 @@ void WriteRemark470(std::ostream &pdbFile, const datablock &db)
 
 			while (not a.second.empty())
 			{
-				pdbFile << std::format("REMARK 470 {:3.3s} {:3.3s} {:1.1s}{:4}{:1.1s}  ", modelNr, resName, chainID, seqNr, iCode) << "  ";
+				pdbFile << std::format("REMARK 470 {:>3.3s} {:3.3s} {:1.1s}{:4}{:1.1s}  ", modelNr, resName, chainID, seqNr, iCode) << "  ";
 
 				for (std::size_t i = 0; i < 6 and not a.second.empty(); ++i)
 				{
@@ -2726,16 +2726,16 @@ int WritePrimaryStructure(std::ostream &pdbFile, const datablock &db)
 
 			if (dbAccession.length() > 8 or db_code.length() > 12 or atoi(dbseqEnd.c_str()) >= 100000)
 				pdbFile << std::format(
-							   "DBREF1 {:4.4s} {:1.1s} {:4.4s}{:1.1s} {:4.4s}{:1.1s} {:<6.6s}               {:<20.20s}",
+							   "DBREF1 {:>4.4s} {:1.1s} {:>4.4s}{:1.1s} {:>4.4s}{:1.1s} {:<6.6s}               {:<20.20s}",
 							   idCode, chainID, seqBegin, insertBegin, seqEnd, insertEnd, db_name, db_code)
 						<< '\n'
 						<< std::format(
-							   "DBREF2 {:4.4s} {:1.1s}     {:<22.22s}     {:10.10s}  {:10.10s}",
+							   "DBREF2 {:>4.4s} {:1.1s}     {:<22.22s}     {:10.10s}  {:10.10s}",
 							   idCode, chainID, dbAccession, dbseqBegin, dbseqEnd)
 						<< '\n';
 			else
 				pdbFile << std::format(
-							   "DBREF  {:4.4s} {:1.1s} {:4.4s}{:1.1s} {:4.4s}{:1.1s} {:<6.6s} {:<8.8s} {:<12.12s} {:5.5s}{:1.1s} {:5.5s}{:1.1s}",
+							   "DBREF  {:>4.4s} {:1.1s} {:>4.4s}{:1.1s} {:>4.4s}{:1.1s} {:<6.6s} {:<8.8s} {:<12.12s} {:>5.5s}{:1.1s} {:>5.5s}{:1.1s}",
 							   idCode, chainID, seqBegin, insertBegin, seqEnd, insertEnd, db_name, dbAccession, db_code, dbseqBegin, dbinsBeg, dbseqEnd, dbinsEnd)
 						<< '\n';
 		}
@@ -2754,7 +2754,7 @@ int WritePrimaryStructure(std::ostream &pdbFile, const datablock &db)
 		to_upper(conflict);
 
 		pdbFile << std::format(
-					   "SEQADV {:4.4s} {:3.3s} {:1.1s} {:4.4s}{:1.1s} {:<4.4s} {:<9.9s} {:3.3s} {:5.5s} {:<21.21s}",
+					   "SEQADV {:4.4s} {:3.3s} {:1.1s} {:>4.4s}{:1.1s} {:<4.4s} {:<9.9s} {:3.3s} {:>5.5s} {:<21.21s}",
 					   idCode, resName, chainID, seqNum, iCode, database, dbAccession, dbRes, dbSeq, conflict)
 				<< '\n';
 	}
@@ -3093,7 +3093,7 @@ std::tuple<int, int> WriteSecondaryStructure(std::ostream &pdbFile, const databl
 				"pdbx_PDB_helix_class", "pdbx_PDB_helix_length", "beg_auth_seq_id", "end_auth_seq_id");
 
 		++numHelix;
-		pdbFile << std::format("HELIX  {:3} {:3.3s} {:3.3s} {:1.1s} {:4}{:1.1s} {:3.3s} {:1.1s} {:4}{:1.1s}{:2}{:<30.30s} {:5}",
+		pdbFile << std::format("HELIX  {:3} {:>3.3s} {:3.3s} {:1.1s} {:4}{:1.1s} {:3.3s} {:1.1s} {:4}{:1.1s}{:2}{:<30.30s} {:5}",
 					   numHelix, pdbx_PDB_helix_id, beg_label_comp_id, beg_auth_asym_id, beg_auth_seq_id, pdbx_beg_PDB_ins_code, end_label_comp_id, end_auth_asym_id, end_auth_seq_id, pdbx_end_PDB_ins_code, pdbx_PDB_helix_class, details, pdbx_PDB_helix_length)
 				<< '\n';
 	}
@@ -3228,7 +3228,7 @@ void WriteConnectivity(std::ostream &pdbFile, const datablock &db)
 		sym1 = cif2pdbSymmetry(sym1);
 		sym2 = cif2pdbSymmetry(sym2);
 
-		pdbFile << std::format("LINK        {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}               {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}  {:6.6s} {:6.6s}", name1, altLoc1, resName1, chainID1, resSeq1, iCode1, name2, altLoc2, resName2, chainID2, resSeq2, iCode2, sym1, sym2);
+		pdbFile << std::format("LINK        {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}               {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}  {:>6.6s} {:>6.6s}", name1, altLoc1, resName1, chainID1, resSeq1, iCode1, name2, altLoc2, resName2, chainID2, resSeq2, iCode2, sym1, sym2);
 
 		if (not Length.empty())
 			pdbFile << std::format(" {:5.2f}", stod(Length));
@@ -3470,7 +3470,7 @@ std::tuple<int, int> WriteCoordinatesForModel(std::ostream &pdbFile, const datab
 		if (charge != 0)
 			sCharge = std::to_string(charge) + (charge > 0 ? '+' : '-');
 
-		pdbFile << std::format("{:<6.6s}{:5} {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:2.2s}{:2.2s}", group, serial, name, altLoc, resName, chainID, resSeq, iCode, x, y, z, occupancy, tempFactor, element, sCharge) << '\n';
+		pdbFile << std::format("{:<6.6s}{:5} {:<4.4s}{:1.1s}{:3.3s} {:1.1s}{:4}{:1.1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2.2s}{:2.2s}", group, serial, name, altLoc, resName, chainID, resSeq, iCode, x, y, z, occupancy, tempFactor, element, sCharge) << '\n';
 
 		++numCoord;
 

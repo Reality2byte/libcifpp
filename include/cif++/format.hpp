@@ -26,7 +26,7 @@
 
 #pragma once
 
-#if 0 //__has_include(<format>)
+#if __has_include(<format>)
 #include <format>
 #else
 #include <fmt/format.h>
@@ -42,7 +42,7 @@
 namespace cif
 {
 
-#if 0 // defined(__cpp_lib_format)
+#if defined(__cpp_lib_format)
 using std::format;
 #else
 using fmt::format;

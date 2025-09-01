@@ -173,9 +173,9 @@ find_file(FMT NAME format)
 
 if(FMT EQUAL "FMT-NOTFOUND")
 	if(NOT (fmt_FOUND OR TARGET fmt))
+		find_package(fmt REQUIRED)
 		message(FATAL_ERROR "fmt not found, compiler too old, you're out of luck")
 	endif()
-    # find_package(fmt REQUIRED)
 endif()
 
 find_package(Threads)
@@ -330,9 +330,9 @@ target_include_directories(
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic> $<BUILD_INTERFACE:pcre2-8>)
 
-# if(fmt_FOUND)
+if(fmt_FOUND)
 	target_link_libraries(cifpp PUBLIC fmt)
-# endif()
+endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

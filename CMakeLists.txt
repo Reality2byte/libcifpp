@@ -179,7 +179,6 @@ if(FMT EQUAL "FMT-NOTFOUND")
 endif()
 
 find_package(Threads)
-# find_package(pcre2) is unfortunately broken 
 include(FindPCRE2)
 find_package(ZLIB QUIET)
 

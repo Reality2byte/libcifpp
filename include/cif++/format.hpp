@@ -26,10 +26,9 @@
 
 #pragma once
 
-#include <version>
-
-#if defined(__cpp_lib_format)
+#if __has_include(<format>)
 #include <format>
+#define USE_STD_FORMAT 1
 #else
 #include <fmt/format.h>
 #endif
@@ -44,7 +43,7 @@
 namespace cif
 {
 
-#if defined(__cpp_lib_format)
+#if USE_STD_FORMAT
 using std::format;
 #else
 using fmt::format;

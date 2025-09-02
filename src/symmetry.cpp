@@ -32,6 +32,11 @@
 
 #include "symop_table_data.hpp"
 
+#if defined(_MSC_VER)
+#pragma warning (disable : 5054)	// warning C5054: operator '&': deprecated between enumerations of different types
+#pragma warning (disable : 4127)	// conditional expression is constant
+#endif
+
 #include <Eigen/Eigen>
 
 namespace cif
@@ -90,10 +95,10 @@ float cell::get_volume() const
 	auto cos_beta = std::cos(beta);
 	auto cos_gamma = std::cos(gamma);
 
-	auto vol = m_a * m_b * m_c;
+	double vol = m_a * m_b * m_c;
 	vol *= std::sqrt(1.0f - cos_alpha * cos_alpha - cos_beta * cos_beta - cos_gamma * cos_gamma + 2.0f * cos_alpha * cos_beta * cos_gamma);
 
-	return vol;
+	return static_cast<float>(vol);
 }
 
 // --------------------------------------------------------------------

@@ -1339,8 +1339,7 @@ std::string category::get_unique_value(std::string_view item_name)
 		// brain-dead implementation
 		for (std::size_t ix = 0; ix < size(); ++ix)
 		{
-			// result = m_name + "-" + std::to_string(ix);
-			result = cif_id_for_number(ix);
+			result = cif_id_for_number(static_cast<int>(ix));
 			if (not contains(key(item_name) == result))
 				break;
 		}

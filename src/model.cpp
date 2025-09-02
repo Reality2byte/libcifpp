@@ -2869,7 +2869,7 @@ static int compare_numbers(std::string_view a, std::string_view b)
 
 int compare_cif_id(const std::string &a, const std::string &b)
 {
-	int d = a.length() - b.length();
+	int d = static_cast<int>(a.length() - b.length());
 	if (d == 0)
 		d = a.compare(b);
 	return d;

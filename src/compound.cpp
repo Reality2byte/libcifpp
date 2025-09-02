@@ -480,10 +480,13 @@ compound *local_compound_factory_impl::create(const std::string &id)
 
 			try
 			{
-				const auto &[id, name, threeLetterCode, group] =
+				const auto &[id2, name, threeLetterCode, group] =
 					chem_comp->front().get<std::string, std::string, std::string, std::string>("id", "name", "three_letter_code", "group");
 
-				result = construct_compound(db, id, name, threeLetterCode, group);
+				if (id == id2)
+					result = construct_compound(db, id, name, threeLetterCode, group);
+				else
+					throw std::runtime_error("Compound ID's don't match: id 1=" + id + ", id 2=" + id2);
 			}
 			catch (const std::exception &ex)
 			{

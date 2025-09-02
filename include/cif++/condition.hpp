@@ -1072,7 +1072,8 @@ concept Numeric = ((std::is_floating_point_v<T> or std::is_integral_v<T>) and no
 template <Numeric T>
 condition operator==(const key &key, const T &v)
 {
-	return condition(new detail::key_equals_number_condition_impl(key.m_item_name, v));
+	// TODO: change key_equals_etc... to use std::variant<double,int64_t> or something
+	return condition(new detail::key_equals_number_condition_impl(key.m_item_name, static_cast<double>(v)));
 }
 
 /**

@@ -228,13 +228,13 @@ TEST_CASE("item_2")
 	cif::item i1("test1", std:: optional<float>());
 	REQUIRE(i1.value() == "?");
 
-	cif::item i2("test1", std::make_optional<float>(1));
+	cif::item i2("test1", std::make_optional<float>(1.f));
 	REQUIRE(i2.value() == "1");
 
 	cif::item i3("test1", std::optional<float>(), 2);
 	REQUIRE(i3.value() == "?");
 
-	cif::item i4("test1", std::make_optional<float>(1), 2);
+	cif::item i4("test1", std::make_optional<float>(1.f), 2);
 	REQUIRE(i4.value() == "1.00");
 }
 

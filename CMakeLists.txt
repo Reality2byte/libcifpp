@@ -327,7 +327,8 @@ target_include_directories(
 	PRIVATE "${EIGEN_INCLUDE_DIR}")
 
 target_link_libraries(cifpp
-	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic> $<BUILD_INTERFACE:pcre2-8>)
+	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>
+	PRIVATE pcre2-8)
 
 if(fmt_FOUND)
 	target_link_libraries(cifpp PUBLIC fmt)

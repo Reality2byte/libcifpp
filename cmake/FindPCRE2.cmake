@@ -1,21 +1,16 @@
 set(PCRE2_USE_STATIC_LIBS ON)
 
 # The cmake config files for pcre2 are broken
-# find_package(pcre2 CONFIG COMPONENTS 8BIT)
 
-if(PCRE2_FOUND)
-	message(STATUS "Using pcre2 found using find_package")
-else()
-	include(FindPkgConfig)
+include(FindPkgConfig)
 
-	if(PKG_CONFIG_FOUND)
-		pkg_check_modules(PCRE2 IMPORTED_TARGET libpcre2-8)
+if(PKG_CONFIG_FOUND)
+	pkg_check_modules(PCRE2 IMPORTED_TARGET libpcre2-8)
 
-		if(PCRE2_FOUND)
-			message(STATUS "Using pcre2 found using pkg-config")
+	if(PCRE2_FOUND)
+		message(STATUS "Using pcre2 found using pkg-config")
 
-			add_library(pcre2-8 ALIAS PkgConfig::PCRE2)
-		endif()
+		add_library(pcre2-8 ALIAS PkgConfig::PCRE2)
 	endif()
 endif()
 

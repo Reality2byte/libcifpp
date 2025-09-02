@@ -144,10 +144,10 @@ void checkEntities(datablock &db)
 				++n;
 			}
 
-			formula_weight -= (n - 1) * 18.015;
+			formula_weight -= (n - 1) * 18.015f;
 		}
 		else if (type == "water")
-			formula_weight = 18.015;
+			formula_weight = 18.015f;
 		else if (type == "branched")
 		{
 			int n = 0;
@@ -162,7 +162,7 @@ void checkEntities(datablock &db)
 				++n;
 			}
 
-			formula_weight -= (n - 1) * 18.015;
+			formula_weight -= (n - 1) * 18.015f;
 		}
 		else if (type == "non-polymer")
 		{
@@ -320,7 +320,7 @@ void fillLabelAsymID(category &atom_site)
 		{
 			if (not mapAuthAsymIDAndEntityToLabelAsymID.contains(key))
 			{
-				std::string asym_id = cif_id_for_number(mapAuthAsymIDAndEntityToLabelAsymID.size());
+				std::string asym_id = cif_id_for_number(static_cast<int>(mapAuthAsymIDAndEntityToLabelAsymID.size()));
 				mapAuthAsymIDAndEntityToLabelAsymID[key] = asym_id;
 			}
 		}
@@ -544,7 +544,7 @@ void checkAtomRecords(datablock &db)
 
 		// Rewrite the coordinates and other items that look better in a fixed format
 		// Be careful not to nuke invalidly formatted data here
-		for (auto [item_name, prec] : std::vector<std::tuple<std::string_view, std::string::size_type>>{
+		for (auto [item_name, prec] : std::vector<std::tuple<std::string_view, int>>{
 				 { "cartn_x", 3 },
 				 { "cartn_y", 3 },
 				 { "cartn_z", 3 },
@@ -563,7 +563,7 @@ void checkAtomRecords(datablock &db)
 			{
 				char b[12];
 
-				if (auto [ptr, ec] = cif::to_chars(b, b + sizeof(b), v, cif::chars_format::fixed, prec); (bool)ec)
+				if (auto [ptr, ec] = cif::to_chars(b, b + sizeof(b), v, cif::chars_format::fixed, prec); ec == std::errc{})
 					row.assign(item_name, { b, static_cast<std::string::size_type>(ptr - b) }, false, false);
 			}
 		}
@@ -724,7 +724,7 @@ void createEntity(datablock &db)
 
 		std::string type, desc;
 		float weight = 0;
-		int count = 0;
+		size_t count = 0;
 
 		auto first_comp_id = std::get<0>(content.front());
 
@@ -1434,7 +1434,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 				              iv->m_type != nullptr and
 				              iv->m_type->m_primitive_type == cif::DDL_PrimitiveType::Numb;
 
-				for (std::size_t ix = 0; auto row : cat)
+				for (int ix = 0; auto row : cat)
 				{
 					if (number)
 						row.assign(key, std::to_string(++ix), false, false);

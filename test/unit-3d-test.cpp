@@ -30,6 +30,11 @@
 
 #include <cif++.hpp>
 
+#if defined(_MSC_VER)
+#pragma warning (disable : 5054)	// warning C5054: operator '&': deprecated between enumerations of different types
+#pragma warning (disable : 4127)	// conditional expression is constant
+#endif
+
 #include <Eigen/Eigenvalues>
 
 // --------------------------------------------------------------------
@@ -296,7 +301,7 @@ TEST_CASE("m2q_0a")
 		auto d = cif::kSymopNrTable[i].symop().data();
 
 		Eigen::Matrix3f rot;
-		rot << d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8];
+		rot << static_cast<float>(d[0]), static_cast<float>(d[1]), static_cast<float>(d[2]), static_cast<float>(d[3]), static_cast<float>(d[4]), static_cast<float>(d[5]), static_cast<float>(d[6]), static_cast<float>(d[7]), static_cast<float>(d[8]);
 
 		// check to see if this matrix contains a true rotation
 		if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
@@ -435,11 +440,11 @@ TEST_CASE("symm_4")
 
 	// based on 2b8h
 	auto sg = cif::spacegroup(154); // p 32 2 1
-	auto c = cif::cell(107.516, 107.516, 338.487, 90.00, 90.00, 120.00);
+	auto c = cif::cell(107.516f, 107.516f, 338.487f, 90.00f, 90.00f, 120.00f);
 
-	cif::point a{ -8.688, 79.351, 10.439 };  // O6 NAG A 500
-	cif::point b{ -35.356, 33.693, -3.236 }; // CG2 THR D 400
-	cif::point sb(-6.916, 79.34, 3.236);     // 4_565 copy of b
+	cif::point a{ -8.688f, 79.351f, 10.439f };  // O6 NAG A 500
+	cif::point b{ -35.356f, 33.693f, -3.236f }; // CG2 THR D 400
+	cif::point sb(-6.916f, 79.34f, 3.236f);     // 4_565 copy of b
 
 	CHECK_THAT(distance(a, sg(a, c, "1_455"_symop)), Catch::Matchers::WithinRel(static_cast<float>(c.get_a()), 0.01f));
 	CHECK_THAT(distance(a, sg(a, c, "1_545"_symop)), Catch::Matchers::WithinRel(static_cast<float>(c.get_b()), 0.01f));
@@ -466,7 +471,7 @@ TEST_CASE("symm_4wvp_1")
 
 	cif::crystal c(db);
 
-	cif::point p{ -78.722, 98.528, 11.994 };
+	cif::point p{ -78.722f, 98.528f, 11.994f };
 	auto a = s.get_residue("A", 10, "").get_atom_by_atom_id("O");
 
 	auto sp1 = c.symmetry_copy(a.get_location(), "2_565"_symop);

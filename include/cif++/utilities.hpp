@@ -53,6 +53,7 @@
 #pragma warning(disable : 4068) // unknown pragma
 #pragma warning(disable : 4100) // unreferenced formal parameter
 #pragma warning(disable : 4101) // unreferenced local variable
+#pragma warning(disable : 4702) // unreachable code (too bad, this one. Happens in for loops)
 #define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING 1
 #endif
 

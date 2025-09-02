@@ -26,7 +26,9 @@
 
 #pragma once
 
-#if __has_include(<format>)
+#include <version>
+
+#if defined(__cpp_lib_format)
 #include <format>
 #else
 #include <fmt/format.h>

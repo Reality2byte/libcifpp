@@ -207,8 +207,6 @@ else()
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
 
-message(STATUS "cifpp: Eigen include dir is ${EIGEN_INCLUDE_DIR}")
-
 # Create a revision file, containing the current git version info
 include(VersionString)
 write_version_header(${CMAKE_CURRENT_SOURCE_DIR}/src/ LIB_NAME "LibCIFPP")

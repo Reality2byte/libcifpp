@@ -26,7 +26,12 @@
 
 #pragma once
 
+#if CATCH22
+#include <catch2/catch.hpp>
+#else
 #include <catch2/catch_all.hpp>
+#endif
+
 #include <filesystem>
 
 extern std::filesystem::path gTestDir;

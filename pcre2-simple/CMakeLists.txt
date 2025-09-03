@@ -24,7 +24,7 @@
 
 # A simplified wrapper CMakeLists.txt file for PCRE2
 #
-# We will only build a static 8bit library, no fancy switches at all
+# This will generate an OBJECT library so it can be linked into another library
 
 cmake_minimum_required(VERSION 3.25)
 

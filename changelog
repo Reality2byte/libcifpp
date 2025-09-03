@@ -1,3 +1,7 @@
+Version 9.0.1
+- Use pcre2 from pkg-config if available, if not
+  build a version from the original code.
+
 Version 9.0.0
 - Rename fields of cif::mm::polymer to match the naming
   in mmcif_pdbx.dic. Also, related, fix building mm::structure

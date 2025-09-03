@@ -33,12 +33,17 @@ jobs:
 
     - name: Install dependencies Ubuntu
       if: matrix.os == 'ubuntu-latest'
-      run: sudo apt-get update && sudo apt-get install mrc
+      run: sudo apt-get update && sudo apt-get install mrc catch2
 
     - name: Install dependencies Window
       if: matrix.os == 'windows-latest'
       run: ./tools/depends.cmd
       shell: cmd
+
+    - name: Install Catch2 macOS
+      if: matrix.os == 'macos-latest'
+      run: >
+        brew install catch2
 
     - name: Configure CMake
       run: >

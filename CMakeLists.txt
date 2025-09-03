@@ -32,7 +32,7 @@ endif()
 # set the project name
 project(
 	libcifpp
-	VERSION 9.0.0
+	VERSION 9.0.1
 	LANGUAGES CXX C)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -179,12 +179,18 @@ if(FMT EQUAL "FMT-NOTFOUND")
 endif()
 
 find_package(Threads)
-include(FindPCRE2)
 find_package(ZLIB QUIET)
 
 if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
 endif()
+
+include(FetchContent)
+FetchContent_Declare(pcre2s
+	GIT_REPOSITORY https://forge.hekkelman.net/maarten/pcre2s.git
+	GIT_TAG f34c4cb
+)
+FetchContent_MakeAvailable(pcre2s)
 
 # Using Eigen3 is a bit of a thing. We don't want to build it completely since
 # we only need a couple of header files. Nothing special. But often, eigen3 is
@@ -326,7 +332,7 @@ target_include_directories(
 
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>
-	PRIVATE pcre2-8)
+	PRIVATE pcre2s::pcre2)
 
 if(fmt_FOUND)
 	target_link_libraries(cifpp PUBLIC fmt)

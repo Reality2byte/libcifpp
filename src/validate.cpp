@@ -62,14 +62,6 @@ validation_exception::validation_exception(std::error_code ec, std::string_view 
 
 // --------------------------------------------------------------------
 
-// struct regex_impl : public regex
-// {
-// 	regex_impl(std::string_view rx)
-// 		: regex(rx.begin(), rx.end(), regex::extended | regex::optimize)
-// 	{
-// 	}
-// };
-
 struct regex_impl
 {
 	regex_impl(std::string_view rx);
@@ -81,7 +73,6 @@ struct regex_impl
 	bool match(std::string_view v) const;
 
   private:
-
 	pcre2_code *m_rx = nullptr;
 	pcre2_match_data *m_data = nullptr;
 };

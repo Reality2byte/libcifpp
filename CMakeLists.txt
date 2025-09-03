@@ -185,13 +185,14 @@ if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
 endif()
 
-include(FetchContent)
-FetchContent_Declare(pcre2s
-	GIT_REPOSITORY https://forge.hekkelman.net/maarten/pcre2s.git
-	GIT_TAG aa35901
-	EXCLUDE_FROM_ALL
-)
-FetchContent_MakeAvailable(pcre2s)
+# include(FetchContent)
+# FetchContent_Declare(pcre2s
+# 	GIT_REPOSITORY https://forge.hekkelman.net/maarten/pcre2s.git
+# 	GIT_TAG aa35901
+# 	EXCLUDE_FROM_ALL
+# )
+# FetchContent_MakeAvailable(pcre2s)
+add_subdirectory(pcre2-simple)
 
 # Using Eigen3 is a bit of a thing. We don't want to build it completely since
 # we only need a couple of header files. Nothing special. But often, eigen3 is
@@ -333,7 +334,7 @@ target_include_directories(
 
 target_link_libraries(cifpp
 	PUBLIC Threads::Threads ZLIB::ZLIB $<$<TARGET_EXISTS:std::atomic>:std::atomic>
-	PRIVATE pcre2s::pcre2)
+	PRIVATE $<BUILD_INTERFACE:pcre2s>)
 
 if(fmt_FOUND)
 	target_link_libraries(cifpp PUBLIC fmt)

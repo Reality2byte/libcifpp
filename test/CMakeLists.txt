@@ -1,7 +1,7 @@
 # We're using the older version 2 of Catch2
 
 if(NOT(Catch2_FOUND OR TARGET Catch2))
-	find_package(Catch2 QUIET)
+	find_package(Catch2 3 QUIET)
 
 	if(NOT Catch2_FOUND)
 		include(FetchContent)
@@ -9,11 +9,9 @@ if(NOT(Catch2_FOUND OR TARGET Catch2))
 		FetchContent_Declare(
 			Catch2
 			GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-			GIT_TAG v2.13.9)
+			GIT_TAG GIT_TAG v3.5.2)
 
 		FetchContent_MakeAvailable(Catch2)
-
-		set(Catch2_VERSION "2.13.9")
 	endif()
 endif()
 
@@ -35,24 +33,12 @@ add_library(test-main OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/test-main.cpp")
 
 target_link_libraries(test-main cifpp::cifpp Catch2::Catch2)
 
-if("${Catch2_VERSION}" VERSION_LESS 3.0.0)
-	target_compile_definitions(test-main PUBLIC CATCH22=1)
-else()
-	target_compile_definitions(test-main PUBLIC CATCH22=0)
-endif()
-
 foreach(CIFPP_TEST IN LISTS CIFPP_tests)
 	set(CIFPP_TEST "${CIFPP_TEST}-test")
 	set(CIFPP_TEST_SOURCE "${CMAKE_CURRENT_SOURCE_DIR}/${CIFPP_TEST}.cpp")
 
 	add_executable(
 		${CIFPP_TEST} ${CIFPP_TEST_SOURCE} $<TARGET_OBJECTS:test-main>)
-
-	if(${Catch2_VERSION} VERSION_GREATER_EQUAL 3.0.0)
-		target_compile_definitions(${CIFPP_TEST} PUBLIC CATCH22=0)
-	else()
-		target_compile_definitions(${CIFPP_TEST} PUBLIC CATCH22=1)
-	endif()
 
 	target_link_libraries(${CIFPP_TEST} PRIVATE cifpp::cifpp Catch2::Catch2)
 	target_include_directories(${CIFPP_TEST} PRIVATE "${EIGEN_INCLUDE_DIR}")

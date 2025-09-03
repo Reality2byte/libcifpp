@@ -188,7 +188,8 @@ endif()
 include(FetchContent)
 FetchContent_Declare(pcre2s
 	GIT_REPOSITORY https://forge.hekkelman.net/maarten/pcre2s.git
-	GIT_TAG f34c4cb
+	GIT_TAG 5f49cf1
+	EXCLUDE_FROM_ALL
 )
 FetchContent_MakeAvailable(pcre2s)
 

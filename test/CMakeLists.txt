@@ -27,7 +27,7 @@ list(
 	rename-compound
 	sugar
 	spinner
-	# reconstruction
+	reconstruction
 	validate-pdbx
 	)
 

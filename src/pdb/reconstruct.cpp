@@ -200,26 +200,28 @@ void createEntityIDs(datablock &db)
 	auto &atom_site = db["atom_site"];
 	auto &cf = compound_factory::instance();
 
-	std::vector<std::vector<residue_key_type>> entities;
+	std::vector<std::vector<row_handle>> entities;
 
 	std::string lastAsymID;
 	int lastSeqID = -1;
-	std::vector<residue_key_type> waters;
+	std::vector<row_handle> waters;
 
-	for (residue_key_type k : atom_site.rows<std::optional<std::string>,
+	for (auto rh : atom_site)
+	{
+		residue_key_type k = rh.get<std::optional<std::string>,
 			 std::optional<int>,
 			 std::optional<std::string>,
 			 std::optional<std::string>,
 			 std::optional<int>,
 			 std::optional<std::string>>(
 			 "auth_asym_id", "auth_seq_id", "auth_comp_id",
-			 "label_asym_id", "label_seq_id", "label_comp_id"))
-	{
+			 "label_asym_id", "label_seq_id", "label_comp_id");
+
 		std::string comp_id = get_comp_id(k);
 
 		if (cf.is_water(comp_id))
 		{
-			waters.emplace_back(k);
+			waters.emplace_back(rh);
 			continue;
 		}
 
@@ -234,7 +236,7 @@ void createEntityIDs(datablock &db)
 		if (asym_id != lastAsymID or (not is_monomer and lastSeqID != seq_id))
 			entities.push_back({});
 
-		entities.back().emplace_back(k);
+		entities.back().emplace_back(rh);
 
 		lastAsymID = asym_id;
 		lastSeqID = seq_id;
@@ -261,20 +263,17 @@ void createEntityIDs(datablock &db)
 
 	for (std::size_t ix = 0; auto &e : entities)
 	{
-		auto k = e.front();
 		const auto &entity_id = entity_ids[ix++];
 
-		std::string comp_id = get_comp_id(k);
-
-		for (auto &k2 : e)
-			atom_site.update_value(get_condition(k2), "label_entity_id", entity_id);
+		for (auto rh : e)
+			rh["label_entity_id"] = entity_id;
 	}
 
 	if (not waters.empty())
 	{
 		std::string waterEntityID = std::to_string(entities.size() + 1);
-		for (auto &k : waters)
-			atom_site.update_value(get_condition(k), "label_entity_id", waterEntityID);
+		for (auto rh : waters)
+			rh["label_entity_id"] = waterEntityID;
 	}
 }
 
@@ -740,8 +739,11 @@ void createEntity(datablock &db)
 			auto c = cf.create(first_comp_id);
 
 			type = "non-polymer";
-			desc = c->name();
-			weight = c->formula_weight();
+			if (c)
+			{
+				desc = c->name();
+				weight = c->formula_weight();
+			}
 		}
 		else
 		{

@@ -28,6 +28,7 @@
 
 #include <cif++.hpp>
 
+#include <filesystem>
 #include <iostream>
 #include <fstream>
 

@@ -740,8 +740,11 @@ void createEntity(datablock &db)
 			auto c = cf.create(first_comp_id);
 
 			type = "non-polymer";
-			desc = c->name();
-			weight = c->formula_weight();
+			if (c)
+			{
+				desc = c->name();
+				weight = c->formula_weight();
+			}
 		}
 		else
 		{

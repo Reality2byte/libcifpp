@@ -1,3 +1,6 @@
+Version 9.0.2
+- Fix code that reconstructs sequences, could throw a map::at
+
 Version 9.0.1
 - Use pcre2 from pkg-config if available, if not
   build a version from the original code.

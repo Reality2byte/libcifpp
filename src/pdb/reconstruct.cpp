@@ -25,6 +25,7 @@
  */
 
 #include "cif++.hpp"
+#include "cif++/compound.hpp"
 #include "cif++/row.hpp"
 
 // --------------------------------------------------------------------
@@ -811,28 +812,28 @@ void createEntityPoly(datablock &db)
 			if (type != "other")
 			{
 				std::string c_type;
-				if (cf.is_base(comp_id))
+				if (auto i = compound_factory::kBaseMap.find(comp_id); i != compound_factory::kBaseMap.end())
 				{
 					c_type = "polydeoxyribonucleotide";
-					letter_can = compound_factory::kBaseMap.at(comp_id);
+
+					letter_can = i->second;
+
 					if (comp_id.length() == 1)
 						letter = letter_can;
 					else
-						letter = '(' + letter_can + ')';
+						letter = '(' + comp_id + ')';
 				}
-				else if (cf.is_peptide(comp_id))
+				else if (auto i = compound_factory::kAAMap.find(comp_id); i != compound_factory::kAAMap.end())
 				{
 					c_type = "polypeptide(L)";
-					letter = letter_can = compound_factory::kAAMap.at(comp_id);
+
+					letter = letter_can = i->second;
 				}
 				else if (iequals(c->type(), "D-PEPTIDE LINKING"))
 				{
 					c_type = "polypeptide(D)";
 
 					letter_can = c->one_letter_code();
-					if (letter_can == 0)
-						letter_can = 'X';
-
 					letter = '(' + comp_id + ')';
 
 					non_std_linkage = true;
@@ -843,9 +844,6 @@ void createEntityPoly(datablock &db)
 					c_type = "polypeptide(L)";
 
 					letter_can = c->one_letter_code();
-					if (letter_can == 0)
-						letter_can = 'X';
-
 					letter = '(' + comp_id + ')';
 
 					non_std_monomer = true;
@@ -855,9 +853,6 @@ void createEntityPoly(datablock &db)
 					// c_type = "other";
 
 					letter_can = c->one_letter_code();
-					if (letter_can == 0)
-						letter_can = 'X';
-
 					letter = '(' + comp_id + ')';
 
 					non_std_monomer = true;
@@ -870,7 +865,7 @@ void createEntityPoly(datablock &db)
 			}
 
 			seq[auth_asym_id] += letter;
-			seq_can[auth_asym_id] += letter_can;
+			seq_can[auth_asym_id] += letter_can ? letter_can : 'X';
 
 			if (find(pdb_strand_ids.begin(), pdb_strand_ids.end(), auth_asym_id) == pdb_strand_ids.end())
 				pdb_strand_ids.emplace_back(auth_asym_id);

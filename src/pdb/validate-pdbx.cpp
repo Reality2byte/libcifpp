@@ -202,7 +202,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 					throw std::runtime_error("Mismatch between the hetero flag in the poly seq schemes and the number residues per seq_id");
 			}
 
-			// This code proved to take too much time:
+			// This code proved to take too much time ...
 
 			// for (const auto &[seq_id, mon_ids] : mon_per_seq_id)
 			// {
@@ -222,7 +222,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			// 	}
 			// }
 
-			// Using this instead, should be almost the same...
+			// ... so we're using this instead, should be almost the same...
 
 			for (const auto &[comp_id, seq_id] :
 				atom_site.find<std::string, int>("label_entity_id"_key == entity_id, "label_comp_id", "label_seq_id"))

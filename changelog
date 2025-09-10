@@ -1,5 +1,6 @@
 Version 9.0.2
 - Fix code that reconstructs sequences, could throw a map::at
+- Many optimisations in validation and reconstruction code.
 
 Version 9.0.1
 - Use pcre2 from pkg-config if available, if not

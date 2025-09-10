@@ -440,10 +440,39 @@ void checkAtomRecords(datablock &db)
 	// And negative seq_id values
 	if (atom_site.contains(key("label_seq_id") < 0))
 		fixNegativeSeqID(atom_site);
+	
+	std::set<std::string> polymer_entities;
+	if (db["entity"].empty())
+	{
+		// No entity, so we have to guess the types based on the content of atom_site
 
-	std::set<int> polymer_entities;
-	for (int id : db["entity"].find<int>("type"_key == "polymer", "id"))
-		polymer_entities.insert(id);
+		std::string last_entity_id;
+		std::optional<int> last_label_seq_id, last_auth_seq_id;
+
+		std::set<std::string> entityIDs;
+		for (auto &[entity_id, label_comp_id, label_seq_id, auth_comp_id, auth_seq_id] :
+			atom_site.rows<std::string, std::string, std::optional<int>, std::string, std::optional<int>>(
+				"label_entity_id", "label_comp_id", "label_seq_id", "auth_comp_id", "auth_seq_id"))
+		{
+			if (cf.is_water(label_comp_id) or cf.is_water(auth_comp_id))
+				continue;
+
+			if (polymer_entities.contains(entity_id))
+				continue;
+
+			if (last_entity_id == entity_id and (last_label_seq_id != label_seq_id or last_auth_seq_id != auth_seq_id))
+				polymer_entities.emplace(entity_id);
+
+			last_entity_id = entity_id;
+			last_label_seq_id = label_seq_id;
+			last_auth_seq_id = auth_seq_id;
+		}
+	}
+	else
+	{
+		for (std::string id : db["entity"].find<std::string>("type"_key == "polymer", "id"))
+			polymer_entities.insert(id);
+	}
 
 	std::set<std::string> missingCompounds;
 
@@ -480,7 +509,7 @@ void checkAtomRecords(datablock &db)
 		if (missingCompounds.contains(comp_id))
 			continue;
 
-		bool is_polymer = polymer_entities.contains(row["label_entity_id"].as<int>());
+		bool is_polymer = polymer_entities.contains(row["label_entity_id"].as<std::string>());
 		auto compound = cf.create(comp_id);
 
 		if (not compound)
@@ -534,15 +563,21 @@ void checkAtomRecords(datablock &db)
 		if (is_polymer and row["label_seq_id"].empty() and cf.is_monomer(comp_id))
 			row["label_seq_id"] = std::to_string(seq_id);
 
-		if (row["label_atom_id"].empty())
-			row["label_atom_id"] = row["auth_atom_id"].text();
 		if (row["label_asym_id"].empty())
 			row["label_asym_id"] = row["auth_asym_id"].text();
+		else if (row["auth_asym_id"].empty())
+			row["auth_asym_id"] = row["label_asym_id"].text();
+
 		if (row["label_comp_id"].empty())
 			row["label_comp_id"] = row["auth_comp_id"].text();
+		else if (row["auth_comp_id"].empty())
+			row["auth_comp_id"] = row["label_comp_id"].text();
+
 		if (row["label_atom_id"].empty())
 			row["label_atom_id"] = row["auth_atom_id"].text();
-
+		else if (row["auth_atom_id"].empty())
+			row["auth_atom_id"] = row["label_atom_id"].text();
+		
 		// Rewrite the coordinates and other items that look better in a fixed format
 		// Be careful not to nuke invalidly formatted data here
 		for (auto [item_name, prec] : std::vector<std::tuple<std::string_view, int>>{

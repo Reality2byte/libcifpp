@@ -28,6 +28,7 @@
 
 #include <filesystem>
 #include <fstream>
+#include <initializer_list>
 #include <iomanip>
 #include <numeric>
 #include <stack>
@@ -1898,13 +1899,12 @@ void structure::swap_atoms(atom a1, atom a2)
 		auto r1 = atomSites.find1(key("id") == a1.id());
 		auto r2 = atomSites.find1(key("id") == a2.id());
 
-		auto l1 = r1["label_atom_id"];
-		auto l2 = r2["label_atom_id"];
-		l1.swap(l2);
-
-		auto l3 = r1["auth_atom_id"];
-		auto l4 = r2["auth_atom_id"];
-		l3.swap(l4);
+		for (std::string fld : std::initializer_list<std::string>{ "label_atom_id", "auth_atom_id", "type_symbol" })
+		{
+			auto l1 = r1[fld];
+			auto l2 = r2[fld];
+			l1.swap(l2);
+		}
 	}
 	catch (const std::exception &ex)
 	{

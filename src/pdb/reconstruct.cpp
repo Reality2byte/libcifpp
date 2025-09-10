@@ -640,19 +640,24 @@ void checkAtomAnisotropRecords(datablock &db)
 
 	std::vector<row_handle> to_be_deleted;
 
+	std::map<int, row_handle> atoms;
+	for (auto rh : atom_site)
+		atoms[rh.get<int>("id")] = rh;
+
 	bool warnReplaceTypeSymbol = true;
 	for (auto row : atom_site_anisotrop)
 	{
-		auto parents = atom_site_anisotrop.get_parents(row, atom_site);
-		if (parents.size() != 1)
+		auto ai = atoms.find(row.get<int>("id"));
+
+		if (ai == atoms.end())
 		{
 			to_be_deleted.emplace_back(row);
 			continue;
 		}
 
-		// this happens sometimes (Phenix):
+		auto parent = ai->second;
 
-		auto parent = parents.front();
+		// this happens sometimes (Phenix):
 
 		if (row["type_symbol"].empty())
 			row["type_symbol"] = parent["type_symbol"].text();
@@ -673,8 +678,6 @@ void checkAtomAnisotropRecords(datablock &db)
 			row["pdbx_label_atom_id"] = parent["label_atom_id"].text();
 		if (row["pdbx_label_comp_id"].empty() and not parent["label_comp_id"].empty())
 			row["pdbx_label_comp_id"] = parent["label_comp_id"].text();
-		// if (row["pdbx_PDB_model_num"].empty() and not parent["pdbx_PDB_model_num"].empty())
-		// 	row["pdbx_PDB_model_num"] = parent["pdbx_PDB_model_num"].text();
 	}
 
 	if (not to_be_deleted.empty())

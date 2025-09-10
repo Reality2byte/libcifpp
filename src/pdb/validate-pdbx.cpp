@@ -69,7 +69,7 @@ bool is_valid_pdbx_file(const file &file, const validator &v)
 {
 	std::error_code ec;
 	bool result = is_valid_pdbx_file(file, v, ec);
-	return result and not (bool)ec;
+	return result and not(bool) ec;
 }
 
 bool is_valid_pdbx_file(const file &file, std::error_code &ec)
@@ -82,7 +82,7 @@ bool is_valid_pdbx_file(const file &file, std::error_code &ec)
 		result = is_valid_pdbx_file(file, validator_factory::instance().get(*ac), ec);
 	else
 		result = is_valid_pdbx_file(file, validator_factory::instance().get("mmcif_pdbx.dic"), ec);
-	
+
 	return result;
 }
 
@@ -167,7 +167,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 
 			const auto entity_poly_type = entity_poly.find1<std::string>("entity_id"_key == entity_id, "type");
 
-			std::map<int,std::set<std::string>> mon_per_seq_id;
+			std::map<int, std::set<std::string>> mon_per_seq_id;
 
 			for (const auto &[num, mon_id, hetero] : entity_poly_seq.find<int, std::string, bool>("entity_id"_key == entity_id, "num", "mon_id", "hetero"))
 			{
@@ -202,28 +202,37 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 					throw std::runtime_error("Mismatch between the hetero flag in the poly seq schemes and the number residues per seq_id");
 			}
 
-			for (const auto &[seq_id, mon_ids] : mon_per_seq_id)
-			{
-				for (auto asym_id : struct_asym.find<std::string>("entity_id"_key == entity_id, "id"))
-				{
-					condition cond;
-					
-					for (auto mon_id : mon_ids)
-						cond = std::move(cond) or "label_comp_id"_key == mon_id;
+			// This code proved to take too much time:
 
-					cond = "label_entity_id"_key == entity_id and
-						"label_asym_id"_key == asym_id and
-						"label_seq_id"_key == seq_id and not std::move(cond);
-					
-					if (atom_site.contains(std::move(cond)))
-						throw std::runtime_error("An atom_site record exists that has no parent in the poly seq scheme categories");
-				}
+			// for (const auto &[seq_id, mon_ids] : mon_per_seq_id)
+			// {
+			// 	for (auto asym_id : struct_asym.find<std::string>("entity_id"_key == entity_id, "id"))
+			// 	{
+			// 		condition cond;
+
+			// 		for (auto mon_id : mon_ids)
+			// 			cond = std::move(cond) or "label_comp_id"_key == mon_id;
+
+			// 		cond = "label_entity_id"_key == entity_id and
+			// 			"label_asym_id"_key == asym_id and
+			// 			"label_seq_id"_key == seq_id and not std::move(cond);
+
+			// 		if (atom_site.contains(std::move(cond)))
+			// 			throw std::runtime_error("An atom_site record exists that has no parent in the poly seq scheme categories");
+			// 	}
+			// }
+
+			// Using this instead, should be almost the same...
+
+			for (const auto &[comp_id, seq_id] :
+				atom_site.find<std::string, int>("label_entity_id"_key == entity_id, "label_comp_id", "label_seq_id"))
+			{
+				if (not mon_per_seq_id[seq_id].contains(comp_id))
+					throw std::runtime_error("An atom_site record exists that has no parent in the poly seq scheme categories");
 			}
 
 			auto &&[seq, seq_can] = entity_poly.find1<std::optional<std::string>, std::optional<std::string>>("entity_id"_key == entity_id,
 				"pdbx_seq_one_letter_code", "pdbx_seq_one_letter_code_can");
-			
-			std::string::const_iterator si, sci, se, sce;
 
 			auto seq_match = [&](bool can, std::string::const_iterator si, std::string::const_iterator se)
 			{
@@ -260,8 +269,8 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 							else
 								letter = '(' + comp_id + ')';
 						}
-						
-						if (iequals(std::string{si, si + letter.length()}, letter))
+
+						if (iequals(std::string{ si, si + letter.length() }, letter))
 						{
 							match = true;
 							si += letter.length();
@@ -285,7 +294,9 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			}
 			else
 			{
-				seq->erase(std::remove_if(seq->begin(), seq->end(), [](char ch) { return std::isspace(ch); }), seq->end());
+				seq->erase(std::remove_if(seq->begin(), seq->end(), [](char ch)
+							   { return std::isspace(ch); }),
+					seq->end());
 
 				if (not seq_match(false, seq->begin(), seq->end()))
 					throw std::runtime_error("Sequences do not match for entity " + entity_id);
@@ -298,7 +309,9 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			}
 			else
 			{
-				seq_can->erase(std::remove_if(seq_can->begin(), seq_can->end(), [](char ch) { return std::isspace(ch); }), seq_can->end());
+				seq_can->erase(std::remove_if(seq_can->begin(), seq_can->end(), [](char ch)
+								   { return std::isspace(ch); }),
+					seq_can->end());
 
 				if (not seq_match(true, seq_can->begin(), seq_can->end()))
 					throw std::runtime_error("Canonical sequences do not match for entity " + entity_id);
@@ -315,11 +328,10 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 		ec = make_error_code(validation_error::not_valid_pdbx);
 	}
 
-	if (not result and (bool)ec)
+	if (not result and (bool) ec)
 		ec = make_error_code(validation_error::not_valid_pdbx);
 
 	return result;
 }
 
 } // namespace cif::pdb
-  

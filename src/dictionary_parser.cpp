@@ -28,6 +28,9 @@
 #include "cif++/dictionary_parser.hpp"
 #include "cif++/file.hpp"
 #include "cif++/parser.hpp"
+#include <exception>
+#include <iomanip>
+#include <stdexcept>
 
 namespace cif
 {
@@ -46,7 +49,7 @@ class dictionary_parser : public parser
 	void load_dictionary()
 	{
 		std::unique_ptr<datablock> dict;
-		auto savedDatablock = m_datablock;
+		auto savedDatablock = std::exchange(m_datablock, nullptr);
 
 		try
 		{
@@ -74,6 +77,9 @@ class dictionary_parser : public parser
 		{
 			error(ex.what());
 		}
+
+		if (m_datablock == nullptr)
+			throw std::runtime_error("Dictionary file is empty?");
 
 		// store all validators
 		for (auto &ic : mCategoryValidators)

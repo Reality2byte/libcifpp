@@ -604,7 +604,7 @@ validator validator_factory::construct_validator(std::string_view name, std::opt
 		not v.matches_audit_conform(category{ "audit_conform", //
 			{ { "dict_name", name }, { "dict_version", version } } }))
 	{
-		std::clog << "Invalid dictionary?\n";
+		std::clog << "Loaded dictionary does not match name=" << name << " and version=" << version.value_or("''") << "\n";
 	}
 
 	return v;

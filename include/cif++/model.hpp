@@ -1065,6 +1065,16 @@ class structure
 	/// \param atom			The set of item data containing the data for the atoms.
 	void create_water(row_initializer atom);
 
+	/// \brief Create a link, a struct_conn record for two atoms.
+	///
+	/// \param a1			Atom 1
+	/// \param a2			Atom 2
+	/// \param link_type	The struct_conn_type ID for the link
+	/// \param role			The pdbx_role field value
+	/// \return 			The ID of the struct_conn record created
+
+	std::string create_link(atom a1, atom a2, const std::string &link_type, const std::string &role);
+
 	/// \brief Create a new and empty (sugar) branch
 	branch &create_branch();
 

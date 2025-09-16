@@ -1275,28 +1275,28 @@ void structure::load_atoms_for_model(structure_open_options options)
 	else
 	{
 		std::vector<cif::mm::atom> atoms;
-		std::map<std::tuple<std::string,int>, std::map<std::string, float>> alts;
-	
+		std::map<std::tuple<std::string, int>, std::map<std::string, float>> alts;
+
 		for (auto id : atom_site.find<std::string>(std::move(c), "id"))
 		{
 			auto a = atoms.emplace_back(std::make_shared<atom::atom_impl>(m_db, id));
-	
+
 			if (a.is_alternate())
 			{
 				auto key = std::make_tuple(a.get_label_asym_id(), a.get_label_seq_id());
 				auto alt_id = a.get_label_alt_id();
-	
+
 				if (auto i = alts.find(key); i != alts.end())
 					i->second[alt_id] += a.get_occupancy();
 				else
 					alts[key][alt_id] = a.get_occupancy();
 			}
 		}
-	
+
 		for (auto &&[key, value] : alts)
 		{
 			// const auto &[asym_id, seq_id] = key;
-	
+
 			// select highest occupancy for this residue's alternates
 			std::string alt_id;
 			float occupancy = options.occupancy_mode == occupancy_policy::MAX ? 0.f : std::numeric_limits<float>::max();
@@ -1319,11 +1319,11 @@ void structure::load_atoms_for_model(structure_open_options options)
 					}
 				}
 			}
-	
+
 			value.clear();
 			value.emplace(alt_id, occupancy);
 		}
-	
+
 		for (auto a : atoms)
 		{
 			if (a.is_alternate())
@@ -1335,10 +1335,8 @@ void structure::load_atoms_for_model(structure_open_options options)
 			}
 			else
 				emplace_atom(a);
-	
 		}
 	}
-
 }
 
 void structure::load_data()
@@ -2410,6 +2408,61 @@ void structure::create_water(row_initializer atom)
 		{ "pdb_strand_id", asym_id },
 		{ "pdb_ins_code", "." },
 	});
+}
+
+std::string structure::create_link(atom a1, atom a2, const std::string &link_type, const std::string &role)
+{
+	using namespace literals;
+
+	auto &struct_conn = m_db["struct_conn"];
+	auto &struct_conn_type = m_db["struct_conn_type"];
+
+	// This will validate link_type :-)
+	if (not struct_conn_type.contains("id"_key == link_type))
+		struct_conn_type.emplace({ { "id", link_type } });
+
+	std::string link_id = struct_conn.get_unique_id(link_type + '_');
+
+	item label_seq_id_1("ptnr1_label_seq_id");
+	if (int nr = a1.get_label_seq_id(); nr != 0)
+		label_seq_id_1.value(std::to_string(nr));
+
+	item label_seq_id_2("ptnr2_label_seq_id");
+	if (int nr = a2.get_label_seq_id(); nr != 0)
+		label_seq_id_2.value(std::to_string(nr));
+
+	struct_conn.emplace(
+		{ //
+			{ "id", link_id },
+			{ "conn_type_id", link_type },
+			{ "pdbx_leaving_atom_flag", "one" },
+
+			{ "ptnr1_label_asym_id", a1.get_label_asym_id() },
+			{ "ptnr1_label_comp_id", a1.get_label_comp_id() },
+			label_seq_id_1,
+			{ "ptnr1_label_atom_id", a1.get_label_atom_id() },
+			{ "pdbx_ptnr1_label_alt_id", a1.get_label_alt_id() },
+			{ "pdbx_ptnr1_PDB_ins_code", a1.get_pdb_ins_code() },
+			{ "ptnr1_auth_asym_id", a1.get_auth_asym_id() },
+			{ "ptnr1_auth_comp_id", a1.get_auth_comp_id() },
+			{ "ptnr1_auth_seq_id", a1.get_auth_seq_id() },
+			{ "ptnr1_symmetry", a1.symmetry() },
+
+			{ "ptnr2_label_asym_id", a2.get_label_asym_id() },
+			{ "ptnr2_label_comp_id", a2.get_label_comp_id() },
+			label_seq_id_2,
+			{ "ptnr2_label_atom_id", a2.get_label_atom_id() },
+			{ "pdbx_ptnr2_label_alt_id", a2.get_label_alt_id() },
+			{ "pdbx_ptnr2_PDB_ins_code", a2.get_pdb_ins_code() },
+			{ "ptnr2_auth_asym_id", a2.get_auth_asym_id() },
+			{ "ptnr2_auth_comp_id", a2.get_auth_comp_id() },
+			{ "ptnr2_auth_seq_id", a2.get_auth_seq_id() },
+			{ "ptnr2_symmetry", a2.symmetry() },
+
+			{ "pdbx_dist_value", distance(a1.get_location(), a2.get_location()), 3 },
+			{ "pdbx_role", role } });
+
+	return link_id;
 }
 
 branch &structure::create_branch()

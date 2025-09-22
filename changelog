@@ -1,3 +1,6 @@
+Version 9.0.3
+- Reconstruction fixed when some entity ids are missing
+
 Version 9.0.2
 - Fix code that reconstructs sequences, could throw a map::at
 - Many optimisations in validation and reconstruction code.

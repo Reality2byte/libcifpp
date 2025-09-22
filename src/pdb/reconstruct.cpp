@@ -28,6 +28,7 @@
 #include "cif++/compound.hpp"
 #include "cif++/row.hpp"
 
+#include <stdexcept>
 #include <string>
 
 // --------------------------------------------------------------------
@@ -189,6 +190,8 @@ void checkEntities(datablock &db)
 
 void createEntityIDs(datablock &db)
 {
+	using namespace literals;
+
 	// Suppose the file does not have entity ID's. We have to make up some
 
 	// walk the atoms. For each auth_asym_id we have a new struct_asym.
@@ -212,14 +215,17 @@ void createEntityIDs(datablock &db)
 	int nextEntityID;
 	try
 	{
-		nextEntityID = entity.find_max<int>("id") + 1;
+		if (entity.empty())
+			nextEntityID = 1;
+		else
+			nextEntityID = entity.find_max<int>("id") + 1;
 	}
 	catch (...)
 	{
 		nextEntityID = 1;
 	}
 
-	for (auto rh : atom_site.find(cif::key("label_entity_id") == cif::null))
+	for (auto rh : atom_site.find("label_entity_id"_key == cif::null))
 	{
 		residue_key_type k = rh.get<std::optional<std::string>,
 			std::optional<int>,
@@ -272,7 +278,7 @@ void createEntityIDs(datablock &db)
 		std::string comp_id = get_comp_id(k);
 
 		std::string entity_id;
-		if (auto v = db["pdbx_entity_nonpoly"].find_first(cif::key("comp_id") == comp_id); v)
+		if (auto v = db["pdbx_entity_nonpoly"].find_first("comp_id"_key == comp_id); v)
 			entity_id = v.get<std::string>("entity_id");
 		else if (auto i = newEntitiesForCompound.find(comp_id); i != newEntitiesForCompound.end())
 			entity_id = i->second;
@@ -734,23 +740,53 @@ void checkAtomAnisotropRecords(datablock &db)
 	}
 }
 
-void createStructAsym(datablock &db)
+void checkStructAsym(datablock &db)
 {
 	auto &atom_site = db["atom_site"];
 	auto &struct_asym = db["struct_asym"];
 
-	for (const auto &[label_asym_id, entity_id] : atom_site.rows<std::string, std::string>("label_asym_id", "label_entity_id"))
+	if (struct_asym.empty())
 	{
-		if (label_asym_id.empty())
-			throw std::runtime_error("File contains atom_site records without a label_asym_id");
-		if (struct_asym.count(key("id") == label_asym_id) == 0)
+		for (const auto &[label_asym_id, entity_id] : atom_site.rows<std::string, std::string>("label_asym_id", "label_entity_id"))
 		{
-			struct_asym.emplace({
-				// clang-format off
-				{ "id", label_asym_id },
-				{ "entity_id", entity_id }
-				//clang-format on
-			});
+			if (label_asym_id.empty())
+				throw std::runtime_error("File contains atom_site records without a label_asym_id");
+			if (struct_asym.count(key("id") == label_asym_id) == 0)
+			{
+				struct_asym.emplace({
+					// clang-format off
+					{ "id", label_asym_id },
+					{ "entity_id", entity_id }
+					//clang-format on
+				});
+			}
+		}
+	}
+	else
+	{
+		for (const auto &[label_asym_id, entity_id] :
+			atom_site.rows<std::string, std::string>("label_asym_id", "label_entity_id"))
+		{
+			if (label_asym_id.empty())
+				throw std::runtime_error("File contains atom_site records without a label_asym_id");
+			
+			auto sa = struct_asym.find_first(key("id") == label_asym_id);
+			if (sa)
+			{
+				if (sa["entity_id"].empty())
+					sa.assign("entity_id", entity_id, false, true);
+				else if (sa.get<std::string>("entity_id") != entity_id)
+					throw std::runtime_error("Inconsistent entity ID's in struct_asym");
+			}
+			else
+			{
+				struct_asym.emplace({
+					// clang-format off
+					{ "id", label_asym_id },
+					{ "entity_id", entity_id }
+					//clang-format on
+				});
+			}
 		}
 	}
 }
@@ -1613,9 +1649,8 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 		checkAtomAnisotropRecords(db);
 
 	// Now create any missing categories
-	// Next make sure we have struct_asym records
-	if (auto cat = db.get("struct_asym"); cat == nullptr or cat->empty())
-		createStructAsym(db);
+	// Next make sure we have good struct_asym records
+	checkStructAsym(db);
 
 	if (auto cat = db.get("entity"); cat == nullptr or cat->empty())
 		createEntity(db);
@@ -1724,9 +1759,8 @@ void fixup_pdbx(file &file, const validator &validator)
 	db.set_validator(&validator);
 
 	// Now create any missing categories
-	// Next make sure we have struct_asym records
-	if (auto cat = db.get("struct_asym"); cat == nullptr or cat->empty())
-		createStructAsym(db);
+	// Next make sure we have good struct_asym records
+	checkStructAsym(db);
 
 	if (auto cat = db.get("entity"); cat == nullptr or cat->empty())
 		createEntity(db);

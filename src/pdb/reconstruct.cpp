@@ -28,6 +28,8 @@
 #include "cif++/compound.hpp"
 #include "cif++/row.hpp"
 
+#include <string>
+
 // --------------------------------------------------------------------
 
 namespace cif::pdb
@@ -198,6 +200,7 @@ void createEntityIDs(datablock &db)
 	// that should cover it
 
 	auto &atom_site = db["atom_site"];
+	auto &entity = db["entity"];
 	auto &cf = compound_factory::instance();
 
 	std::vector<std::vector<row_handle>> entities;
@@ -206,16 +209,26 @@ void createEntityIDs(datablock &db)
 	int lastSeqID = -1;
 	std::vector<row_handle> waters;
 
-	for (auto rh : atom_site)
+	int nextEntityID;
+	try
+	{
+		nextEntityID = entity.find_max<int>("id") + 1;
+	}
+	catch (...)
+	{
+		nextEntityID = 1;
+	}
+
+	for (auto rh : atom_site.find(cif::key("label_entity_id") == cif::null))
 	{
 		residue_key_type k = rh.get<std::optional<std::string>,
-			 std::optional<int>,
-			 std::optional<std::string>,
-			 std::optional<std::string>,
-			 std::optional<int>,
-			 std::optional<std::string>>(
-			 "auth_asym_id", "auth_seq_id", "auth_comp_id",
-			 "label_asym_id", "label_seq_id", "label_comp_id");
+			std::optional<int>,
+			std::optional<std::string>,
+			std::optional<std::string>,
+			std::optional<int>,
+			std::optional<std::string>>(
+			"auth_asym_id", "auth_seq_id", "auth_comp_id",
+			"label_asym_id", "label_seq_id", "label_comp_id");
 
 		std::string comp_id = get_comp_id(k);
 
@@ -230,8 +243,8 @@ void createEntityIDs(datablock &db)
 
 		bool is_monomer = cf.is_monomer(comp_id);
 
-		if (lastAsymID == asym_id and lastSeqID == seq_id and not is_monomer)
-			continue;
+		// if (lastAsymID == asym_id and lastSeqID == seq_id and not is_monomer)
+		// 	continue;
 
 		if (asym_id != lastAsymID or (not is_monomer and lastSeqID != seq_id))
 			entities.push_back({});
@@ -243,6 +256,7 @@ void createEntityIDs(datablock &db)
 	}
 
 	std::map<std::size_t, std::string> entity_ids;
+	std::map<std::string, std::string> newEntitiesForCompound;
 
 	atom_site.add_item("label_entity_id");
 
@@ -251,7 +265,37 @@ void createEntityIDs(datablock &db)
 		if (entity_ids.contains(i))
 			continue;
 
-		auto entity_id = std::to_string(i + 1);
+		residue_key_type k = entities[i].front().get<std::optional<std::string>, std::optional<int>, std::optional<std::string>, std::optional<std::string>, std::optional<int>, std::optional<std::string>>(
+			"auth_asym_id", "auth_seq_id", "auth_comp_id",
+			"label_asym_id", "label_seq_id", "label_comp_id");
+
+		std::string comp_id = get_comp_id(k);
+
+		std::string entity_id;
+		if (auto v = db["pdbx_entity_nonpoly"].find_first(cif::key("comp_id") == comp_id); v)
+			entity_id = v.get<std::string>("entity_id");
+		else if (auto i = newEntitiesForCompound.find(comp_id); i != newEntitiesForCompound.end())
+			entity_id = i->second;
+		else
+		{
+			entity_id = std::to_string(nextEntityID++);
+
+			if (cf.is_monomer(comp_id))
+				entity.emplace({ //
+					{ "id", entity_id },
+					{ "type", "polymer" } });
+			else if (cf.is_water(comp_id))
+				entity.emplace({ //
+					{ "id", entity_id },
+					{ "type", "water" } });
+			else
+				entity.emplace({ //
+					{ "id", entity_id },
+					{ "type", "non-polymer" } });
+
+			newEntitiesForCompound[comp_id] = entity_id;
+		}
+
 		entity_ids[i] = entity_id;
 
 		for (std::size_t j = i + 1; j < entities.size(); ++j)
@@ -439,7 +483,7 @@ void checkAtomRecords(datablock &db)
 	// And negative seq_id values
 	if (atom_site.contains(key("label_seq_id") < 0))
 		fixNegativeSeqID(atom_site);
-	
+
 	std::set<std::string> polymer_entities;
 	if (db["entity"].empty())
 	{
@@ -576,7 +620,7 @@ void checkAtomRecords(datablock &db)
 			row["label_atom_id"] = row["auth_atom_id"].text();
 		else if (row["auth_atom_id"].empty())
 			row["auth_atom_id"] = row["label_atom_id"].text();
-		
+
 		// Rewrite the coordinates and other items that look better in a fixed format
 		// Be careful not to nuke invalidly formatted data here
 		for (auto [item_name, prec] : std::vector<std::tuple<std::string_view, int>>{
@@ -1425,7 +1469,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 	checkChemCompRecords(db);
 
 	// If the data is really horrible, it might not contain entities
-	if (not db["atom_site"].find_first(key("label_entity_id") != null))
+	if (db["atom_site"].find_first(key("label_entity_id") == null))
 		createEntityIDs(db);
 
 	// Now see if atom records make sense at all

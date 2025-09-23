@@ -34,6 +34,7 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <format>
 #include <fstream>
 #include <functional>
 #include <iomanip>
@@ -106,53 +107,157 @@ uint32_t get_terminal_width()
 
 struct progress_bar_impl
 {
-	progress_bar_impl(int64_t inMax, const std::string &inAction)
-		: m_max_value(inMax)
+	progress_bar_impl(uint64_t max_value, const std::string &message)
+		: m_max_value(max_value)
 		, m_consumed(0)
-		, m_action(inAction)
-		, m_message(inAction)
-		, m_thread(std::bind(&progress_bar_impl::run, this))
+		, m_action(message)
+		, m_message(message)
 	{
 	}
 
-	progress_bar_impl(const progress_bar_impl&) = delete;
-	progress_bar_impl &operator=(const progress_bar_impl &) = delete;
+	virtual ~progress_bar_impl() {}
 
-	~progress_bar_impl();
-
-	void run();
-
-	void consumed(int64_t n);
-	void progress(int64_t p);
-	void message(const std::string &msg);
-
-	void print_progress();
-	void print_done();
+	virtual void consumed(uint64_t n);
+	virtual void progress(uint64_t p);
+	virtual void message(const std::string &msg);
+	virtual void print_done();
 
 	using time_point = std::chrono::time_point<std::chrono::system_clock>;
 
-	int64_t m_max_value;
-	std::atomic<int64_t> m_consumed;
-	int64_t m_last_consumed = 0;
-	int m_spinner_index = 0;
+	uint64_t m_max_value;
+	std::atomic<uint64_t> m_consumed;
+	uint64_t m_last_consumed = 0;
 	std::string m_action, m_message;
-	std::mutex m_mutex;
-	std::thread m_thread;
 	time_point m_start = std::chrono::system_clock::now();
-	time_point m_last = std::chrono::system_clock::now();
-	bool m_stop = false;
 };
 
-progress_bar_impl::~progress_bar_impl()
+void progress_bar_impl::consumed(uint64_t n)
+{
+	m_consumed += n;
+}
+
+void progress_bar_impl::progress(uint64_t p)
+{
+	m_consumed = p;
+}
+
+void progress_bar_impl::message(const std::string &msg)
+{
+	m_message = msg;
+}
+
+void progress_bar_impl::print_done()
+{
+	std::chrono::duration<double> elapsed = std::chrono::system_clock::now() - m_start;
+	std::string days, hours, minutes, seconds;
+
+	uint64_t s = static_cast<uint64_t>(std::trunc(elapsed.count()));
+	if (s > 24 * 60 * 60)
+	{
+		days = std::format("{:d}d ", s / (24 * 60 * 60));
+		s %= 24 * 60 * 60;
+	}
+
+	if (s > 60 * 60)
+	{
+		hours = std::format("{:2d}h ", s / (60 * 60));
+		s %= 60 * 60;
+	}
+
+	if (s > 60)
+	{
+		minutes = std::format("{:2d}m ", s / 60);
+		s %= 60;
+	}
+
+	std::string msg = std::format("{} done in {}{}{}{:.1f}s", m_action, days, hours, minutes, s + 1e-6 * (elapsed.count() - s));
+
+	uint32_t width = get_terminal_width();
+
+	if (msg.length() < width)
+		msg += std::string(width - msg.length(), ' ');
+
+	std::cout << msg << '\n';
+}
+
+// --------------------------------------------------------------------
+
+struct simple_progress_bar_impl : public progress_bar_impl
+{
+	simple_progress_bar_impl(uint64_t max_value, const std::string &message)
+		: progress_bar_impl(max_value, message)
+	{
+	}
+
+	~simple_progress_bar_impl()
+	{
+		if (m_printed_any)
+			print_done();
+	}
+
+	void consumed(uint64_t n) override
+	{
+		progress_bar_impl::consumed(n);
+
+		// print at most 10 steps
+		int percentile = static_cast<int>(10.f * m_consumed / m_max_value);
+		if (percentile > m_last_percentile)
+		{
+			std::cout << std::format("{} {:d}0%\n", m_message, percentile) << std::flush;
+			m_last_percentile = percentile;
+			m_printed_any = true;
+		}
+	}
+
+	void progress(uint64_t p) override
+	{
+		consumed(p - m_consumed);
+	}
+
+	bool m_printed_any = false;
+	int m_last_percentile = 0;
+};
+
+// --------------------------------------------------------------------
+
+struct fancy_progress_bar_impl : public progress_bar_impl
+{
+	fancy_progress_bar_impl(uint64_t max_value, const std::string &message)
+		: progress_bar_impl(max_value, message)
+		, m_thread([this](std::stop_token stoken)
+			  { this->run(stoken); })
+	{
+	}
+
+	~fancy_progress_bar_impl();
+
+	void run(std::stop_token stoken);
+
+	void consumed(uint64_t n) override;
+	void progress(uint64_t p) override;
+	void message(const std::string &msg) override;
+
+	void print_progress();
+
+	std::mutex m_mutex;
+	std::condition_variable m_cv;
+	std::jthread m_thread;
+
+	float m_progress;
+	uint32_t m_width, m_bar_width;
+	uint32_t m_steps, m_last_steps = 0;
+};
+
+fancy_progress_bar_impl::~fancy_progress_bar_impl()
 {
 	using namespace std::literals;
 	assert(m_thread.joinable());
 
-	m_stop = true;
+	m_thread.request_stop();
 	m_thread.join();
 }
 
-void progress_bar_impl::run()
+void fancy_progress_bar_impl::run(std::stop_token stoken)
 {
 	using namespace std::literals;
 
@@ -160,25 +265,39 @@ void progress_bar_impl::run()
 
 	try
 	{
-		while (not m_stop)
+		for (;;)
 		{
+			std::unique_lock lock(m_mutex);
+
+			m_cv.wait_for(lock, 25ms);
+
+			if (stoken.stop_requested())
+				break;
+
 			auto now = std::chrono::system_clock::now();
 
-			if (now - m_start < 2s or now - m_last < 100ms)
-			{
-				std::this_thread::sleep_for(10ms);
+			if (m_consumed == m_last_consumed or now - m_start < 1s)
 				continue;
-			}
 
-			std::lock_guard lock(m_mutex);
+			m_last_consumed = m_consumed;
 
-			if (not printedAny and isatty(STDOUT_FILENO))
+			// See if we need to do work
+			m_width = get_terminal_width();
+			m_progress = static_cast<float>(m_consumed) / m_max_value;
+			m_bar_width = 7 * m_width / 10; // 70% of the width of the terminal
+			m_steps = static_cast<uint32_t>(std::ceil(m_progress * m_bar_width * 8));
+
+			if (m_steps == m_last_steps)
+				continue;
+
+			m_last_steps = m_steps;
+
+			if (not printedAny)
 				std::cout << "\x1b[?25l";
 
 			print_progress();
 
 			printedAny = true;
-			m_last = std::chrono::system_clock::now();
 		}
 	}
 	catch (...)
@@ -187,161 +306,115 @@ void progress_bar_impl::run()
 
 	if (printedAny)
 	{
+		std::cout << "\r\x1b[?25h";
 		print_done();
-		if (isatty(STDOUT_FILENO))
-			std::cout << "\x1b[?25h";
 	}
 }
 
-void progress_bar_impl::consumed(int64_t n)
+void fancy_progress_bar_impl::consumed(uint64_t n)
 {
-	m_consumed += n;
+	progress_bar_impl::consumed(n);
+	// m_cv.notify_one();
 }
 
-void progress_bar_impl::progress(int64_t p)
+void fancy_progress_bar_impl::progress(uint64_t p)
 {
-	m_consumed = p;
+	progress_bar_impl::progress(p);
+	// m_cv.notify_one();
 }
 
-void progress_bar_impl::message(const std::string &msg)
+void fancy_progress_bar_impl::message(const std::string &msg)
 {
 	std::unique_lock lock(m_mutex);
-	m_message = msg;
+	progress_bar_impl::message(msg);
+	// m_cv.notify_one();
 }
-
-const char* kSpinner[] = {
-	// ".", "o", "O", "0", "O", "o", ".", " "
-	// "⢄", "⢂", "⢁", "⡁", "⡈", "⡐", "⡠"
-	 ".", "o", "O", "0", "@", "*", " "
-};
-
-const std::size_t kSpinnerCount = sizeof(kSpinner) / sizeof(char*);
-
-const int kSpinnerTimeInterval = 100;
 
 const uint32_t kMinBarWidth = 40, kMinMsgWidth = 12;
 
-void progress_bar_impl::print_progress()
+void fancy_progress_bar_impl::print_progress()
 {
 	const char *kBlocks[] = {
-		// "▯", // 0
-		// "▮", // 1
-		"=",
-		"-"
+		" ",
+		"▏",
+		"▎",
+		"▍",
+		"▌",
+		"▋",
+		"▊",
+		"▉",
+		"█",
 	};
 
-	uint32_t width = get_terminal_width();
-
-	float progress = static_cast<float>(m_consumed) / m_max_value;
-	
-	if (width < kMinBarWidth)
-		std::cout << (100 * progress) << "%\n";
+	if (m_bar_width < kMinBarWidth)
+		std::cout << (100 * m_progress) << "%\n";
 	else
 	{
-		uint32_t bar_width = 7 * width / 10;
-		uint32_t pct_width = 7;
-		uint32_t msg_width = width - bar_width - pct_width - 1;
+		const uint32_t pct_width = 5;
+		uint32_t msg_width = m_width - m_bar_width - pct_width - 1;
 
 		if (msg_width < kMinMsgWidth)
 		{
-			bar_width += kMinMsgWidth - msg_width;
+			m_bar_width += kMinMsgWidth - msg_width;
 			msg_width = kMinMsgWidth;
 		}
 
-		std::ostringstream msg;
+		std::string bar;
+		bar.reserve(m_bar_width * 4);
 
-		if (m_message.length() <= msg_width)
+		for (uint32_t i = 0; i < m_bar_width; ++i)
 		{
-			msg << m_message;
-			if (m_message.length() < msg_width)
-				msg << std::string(msg_width - m_message.length(), ' ');
+			if (i * 8 <= m_steps)
+				bar += kBlocks[8];
+			else if (i * 8 > m_steps + 8)
+				bar += kBlocks[0];
+			else
+				bar += kBlocks[1 + m_steps % 8];
 		}
-		else
-			msg << m_message.substr(0, msg_width - 3) << "...";
 
-		msg << ' ';
+		// make the bar more colorfull
+		struct color_type
+		{
+			uint8_t r, g, b;
+		} fg{ 0, 3, 5 }, bg{ 0, 1, 2 };
 
-		uint32_t pi = static_cast<uint32_t>(std::ceil(progress * bar_width));
+		auto esc_1 = std::format("\x1b[38;5;{}m\x1b[48;5;{}m",
+			16 + (fg.r * 36) + (fg.g * 6) + fg.b,
+			16 + (bg.r * 36) + (bg.g * 6) + bg.b);
+		std::string esc_2("\x1b[0m");
 
-		for (uint32_t i = 0; i < bar_width; ++i)
-			msg << kBlocks[i > pi ? 1 : 0];
+		bar = esc_1 + bar + esc_2;
 
-		msg << ' ';
+		std::string msg = m_message.length() <= msg_width ? m_message : m_message.substr(0, msg_width - 3) + "...";
 
-		msg << std::setw(3) << static_cast<int>(std::ceil(progress * 100)) << "% ";
-
-		auto now = std::chrono::system_clock::now();
-		m_spinner_index = (std::chrono::duration_cast<std::chrono::milliseconds>(now - m_start).count() / kSpinnerTimeInterval) % kSpinnerCount;
-
-		msg << kSpinner[m_spinner_index];
-
-		std::cout << '\r' << msg.str();
-		std::cout.flush();
+		std::cout << std::format("{:{}} {} {:3d}%\r",
+						 msg, msg_width,
+						 bar,
+						 static_cast<int>(std::ceil(m_progress * 100)))
+				  << std::flush;
 	}
 }
 
-namespace
-{
+// --------------------------------------------------------------------
 
-	std::ostream &operator<<(std::ostream &os, const std::chrono::duration<double> &t)
-	{
-		uint64_t s = static_cast<uint64_t>(std::trunc(t.count()));
-		if (s > 24 * 60 * 60)
-		{
-			auto days = s / (24 * 60 * 60);
-			os << days << "d ";
-			s %= 24 * 60 * 60;
-		}
-
-		if (s > 60 * 60)
-		{
-			auto hours = s / (60 * 60);
-			os << hours << "h ";
-			s %= 60 * 60;
-		}
-
-		if (s > 60)
-		{
-			auto minutes = s / 60;
-			os << minutes << "m ";
-			s %= 60;
-		}
-
-		double ss = s + 1e-6 * (t.count() - s);
-
-		os << std::fixed << std::setprecision(1) << ss << 's';
-
-		return os;
-	}
-
-} // namespace
-
-void progress_bar_impl::print_done()
-{
-	std::chrono::duration<double> elapsed = std::chrono::system_clock::now() - m_start;
-
-	std::ostringstream msgstr;
-	msgstr << m_action << " done in " << elapsed << " seconds";
-	auto msg = msgstr.str();
-
-	uint32_t width = get_terminal_width();
-
-	if (msg.length() < width)
-		msg += std::string(width - msg.length(), ' ');
-
-	std::cout << '\r' << msg << '\n';
-}
-
-progress_bar::progress_bar(int64_t inMax, const std::string &inAction)
+progress_bar::progress_bar(int64_t max_value, const std::string &message)
 	: m_impl(nullptr)
 {
-	if (isatty(STDOUT_FILENO) and VERBOSE >= 0)
-		m_impl = new progress_bar_impl(inMax, inAction);
+	if (isatty(STDOUT_FILENO) /*  and VERBOSE >= 0 */)
+		m_impl = new fancy_progress_bar_impl(max_value, message);
+	else
+		m_impl = new simple_progress_bar_impl(max_value, message);
 }
 
 progress_bar::~progress_bar()
 {
-	delete m_impl;
+	// flush();
+
+	if (m_impl)
+	{
+		delete m_impl;
+		m_impl = nullptr;
+	}
 }
 
 void progress_bar::consumed(int64_t inConsumed)
@@ -350,17 +423,26 @@ void progress_bar::consumed(int64_t inConsumed)
 		m_impl->consumed(inConsumed);
 }
 
-void progress_bar::progress(int64_t inProgress)
+void progress_bar::progress(int64_t value)
 {
 	if (m_impl != nullptr)
-		m_impl->progress(inProgress);
+		m_impl->progress(value);
 }
 
-void progress_bar::message(const std::string &inMessage)
+void progress_bar::message(const std::string &message)
 {
 	if (m_impl != nullptr)
-		m_impl->message(inMessage);
+		m_impl->message(message);
 }
+
+// void progress_bar::flush()
+// {
+// 	if (m_impl)
+// 	{
+// 		delete m_impl;
+// 		m_impl = nullptr;
+// 	}
+// }
 
 } // namespace cif
 

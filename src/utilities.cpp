@@ -36,13 +36,13 @@
 #include <deque>
 #include <format>
 #include <fstream>
-#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <mutex>
 #include <sstream>
 #include <thread>
+#include <utility>
 
 namespace fs = std::filesystem;
 
@@ -203,15 +203,23 @@ struct simple_progress_bar_impl : public progress_bar_impl
 		int percentile = static_cast<int>(10.f * m_consumed / m_max_value);
 		if (percentile > m_last_percentile)
 		{
-			std::cout << std::format("{} {:d}0%\n", m_message, percentile) << std::flush;
+			if (not std::exchange(m_printed_any, true))
+				std::cout << m_action << ": ";
+
+			std::cout << std::format("...{:d}0%", percentile) << std::flush;
 			m_last_percentile = percentile;
-			m_printed_any = true;
 		}
 	}
 
 	void progress(uint64_t p) override
 	{
 		consumed(p - m_consumed);
+	}
+
+	void print_done() override
+	{
+		std::cout << '\n';
+		progress_bar_impl::print_done();
 	}
 
 	bool m_printed_any = false;
@@ -385,11 +393,11 @@ void fancy_progress_bar_impl::print_progress()
 
 		bar = esc_1 + bar + esc_2;
 
-		std::string msg = m_message.length() <= msg_width ? m_message : m_message.substr(0, msg_width - 3) + "...";
+		std::string msg = m_message.length() <= msg_width
+		                      ? m_message
+		                      : m_message.substr(0, msg_width - 3) + "...";
 
-		std::cout << std::format("{:{}} {} {:3d}%\r",
-						 msg, msg_width,
-						 bar,
+		std::cout << std::format("{:{}} {} {:3d}%\r", msg, msg_width, bar,
 						 static_cast<int>(std::ceil(m_progress * 100)))
 				  << std::flush;
 	}

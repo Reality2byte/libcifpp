@@ -197,17 +197,27 @@ struct simple_progress_bar_impl : public progress_bar_impl
 
 	void consumed(uint64_t n) override
 	{
+		using namespace std::literals;
+
 		progress_bar_impl::consumed(n);
 
-		// print at most 10 steps
-		int percentile = static_cast<int>(10.f * m_consumed / m_max_value);
-		if (percentile > m_last_percentile)
-		{
-			if (not std::exchange(m_printed_any, true))
-				std::cout << m_action << ": ";
+		// print at most 10 steps, but only if it took long enough
 
-			std::cout << std::format("...{:d}0%", percentile) << std::flush;
-			m_last_percentile = percentile;
+		auto now = std::chrono::system_clock::now();
+
+		if (m_consumed > m_last_consumed or now - m_start >= 1s)
+		{
+			m_last_consumed = m_consumed;
+
+			int percentile = static_cast<int>(10.f * m_consumed / m_max_value);
+			if (percentile > m_last_percentile)
+			{
+				if (not std::exchange(m_printed_any, true))
+					std::cout << m_action << ": ";
+	
+				std::cout << std::format("...{:d}0%", percentile) << std::flush;
+				m_last_percentile = percentile;
+			}
 		}
 	}
 
@@ -218,8 +228,11 @@ struct simple_progress_bar_impl : public progress_bar_impl
 
 	void print_done() override
 	{
-		std::cout << '\n';
-		progress_bar_impl::print_done();
+		if (m_printed_any)
+		{
+			std::cout << '\n';
+			progress_bar_impl::print_done();
+		}
 	}
 
 	bool m_printed_any = false;
@@ -416,13 +429,7 @@ progress_bar::progress_bar(int64_t max_value, const std::string &message)
 
 progress_bar::~progress_bar()
 {
-	// flush();
-
-	if (m_impl)
-	{
-		delete m_impl;
-		m_impl = nullptr;
-	}
+	flush();
 }
 
 void progress_bar::consumed(int64_t inConsumed)
@@ -443,14 +450,14 @@ void progress_bar::message(const std::string &message)
 		m_impl->message(message);
 }
 
-// void progress_bar::flush()
-// {
-// 	if (m_impl)
-// 	{
-// 		delete m_impl;
-// 		m_impl = nullptr;
-// 	}
-// }
+void progress_bar::flush()
+{
+	if (m_impl)
+	{
+		delete m_impl;
+		m_impl = nullptr;
+	}
+}
 
 } // namespace cif
 

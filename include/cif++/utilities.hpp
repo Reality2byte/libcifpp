@@ -296,6 +296,11 @@ class progress_bar
 	 */
 	void message(const std::string &inMessage);
 
+	/**
+	 * @brief Flush the progress bar to the output stream
+	 */
+	void flush();
+
   private:
 	progress_bar(const progress_bar &) = delete;
 	progress_bar &operator=(const progress_bar &) = delete;

@@ -41,6 +41,7 @@
 #include <map>
 #include <mutex>
 #include <sstream>
+#include <string>
 #include <thread>
 #include <utility>
 
@@ -78,8 +79,31 @@ namespace cif
 uint32_t get_terminal_width()
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-	return csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	return ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi)
+		? csbi.srWindow.Right - csbi.srWindow.Left + 1
+		: 80;
+}
+
+void write_to_console(const std::string &s)
+{
+	auto h = ::GetStdHandle(STD_OUTPUT_HANDLE);
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+
+	if (auto l = ::MultiByteToWideChar(CP_UTF8, 0, s.data(), s.length(), nullptr, 0);
+		l > 0 and ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+	{
+		std::u16string ws(l, 0);
+
+		::MultiByteToWideChar(CP_UTF8, 0, s.data(), s.length(), (LPWSTR)ws.data(), l);
+
+		DWORD w;
+		::WriteConsoleW(h, ws.data(), ws.length(), &w, nullptr);
+	}
+	else
+	{
+		std::cout.write(s.data(), s.length());
+		std::cout.flush();
+	}
 }
 
 #else
@@ -99,6 +123,11 @@ uint32_t get_terminal_width()
 		result = w.ws_col;
 	}
 	return result;
+}
+
+inline void write_to_console(const std::string &s)
+{
+	std::cout << s << std::flush;
 }
 
 #endif
@@ -176,7 +205,7 @@ void progress_bar_impl::print_done()
 	if (msg.length() < width)
 		msg += std::string(width - msg.length(), ' ');
 
-	std::cout << msg << '\n';
+	write_to_console(msg += '\n');
 }
 
 // --------------------------------------------------------------------
@@ -206,9 +235,9 @@ struct simple_progress_bar_impl : public progress_bar_impl
 		if (percentile > m_last_percentile and (m_printed_any or std::chrono::system_clock::now() - m_start >= 1s))
 		{
 			if (not std::exchange(m_printed_any, true))
-				std::cout << m_action << ": ";
+				write_to_console(m_action + ": ");
 
-			std::cout << std::format("...{:d}0%", percentile) << std::flush;
+			write_to_console(std::format("...{:d}0%", percentile));
 			m_last_percentile = percentile;
 		}
 	}
@@ -222,7 +251,7 @@ struct simple_progress_bar_impl : public progress_bar_impl
 	{
 		if (m_printed_any)
 		{
-			std::cout << '\n';
+			write_to_console("\n");
 			progress_bar_impl::print_done();
 		}
 	}
@@ -262,6 +291,20 @@ struct fancy_progress_bar_impl : public progress_bar_impl
 	uint64_t m_last_consumed = 0;
 };
 
+const char *kBlocks[] = {
+	" ",
+	"▏",
+	"▎",
+	"▍",
+	"▌",
+	"▋",
+	"▊",
+	"▉",
+	"█",
+};
+
+const size_t kBlockCount = sizeof(kBlocks) / sizeof(void*) - 1;
+
 fancy_progress_bar_impl::~fancy_progress_bar_impl()
 {
 	using namespace std::literals;
@@ -299,7 +342,7 @@ void fancy_progress_bar_impl::run(std::stop_token stoken)
 			m_width = get_terminal_width();
 			m_progress = static_cast<float>(m_consumed) / m_max_value;
 			m_bar_width = 7 * m_width / 10; // 70% of the width of the terminal
-			m_steps = static_cast<uint32_t>(std::ceil(m_progress * m_bar_width * 8));
+			m_steps = static_cast<uint32_t>(std::ceil(m_progress * m_bar_width * kBlockCount));
 
 			if (m_steps == m_last_steps)
 				continue;
@@ -307,7 +350,7 @@ void fancy_progress_bar_impl::run(std::stop_token stoken)
 			m_last_steps = m_steps;
 
 			if (not printedAny)
-				std::cout << "\x1b[?25l";
+				write_to_console("\x1b[?25l");
 
 			print_progress();
 
@@ -320,7 +363,7 @@ void fancy_progress_bar_impl::run(std::stop_token stoken)
 
 	if (printedAny)
 	{
-		std::cout << "\r\x1b[?25h";
+		write_to_console("\r\x1b[?25h");
 		print_done();
 	}
 }
@@ -348,65 +391,47 @@ const uint32_t kMinBarWidth = 40, kMinMsgWidth = 12;
 
 void fancy_progress_bar_impl::print_progress()
 {
-	const char *kBlocks[] = {
-		" ",
-		"▏",
-		"▎",
-		"▍",
-		"▌",
-		"▋",
-		"▊",
-		"▉",
-		"█",
-	};
+	const uint32_t pct_width = 5;
+	uint32_t msg_width = m_width - m_bar_width - pct_width - 1;
 
-	if (m_bar_width < kMinBarWidth)
-		std::cout << (100 * m_progress) << "%\n";
-	else
+	if (msg_width < kMinMsgWidth)
 	{
-		const uint32_t pct_width = 5;
-		uint32_t msg_width = m_width - m_bar_width - pct_width - 1;
-
-		if (msg_width < kMinMsgWidth)
-		{
-			m_bar_width += kMinMsgWidth - msg_width;
-			msg_width = kMinMsgWidth;
-		}
-
-		std::string bar;
-		bar.reserve(m_bar_width * 4);
-
-		for (uint32_t i = 0; i < m_bar_width; ++i)
-		{
-			if (i * 8 <= m_steps)
-				bar += kBlocks[8];
-			else if (i * 8 > m_steps + 8)
-				bar += kBlocks[0];
-			else
-				bar += kBlocks[1 + m_steps % 8];
-		}
-
-		// make the bar more colorfull
-		struct color_type
-		{
-			uint8_t r, g, b;
-		} fg{ 0, 3, 5 }, bg{ 0, 1, 2 };
-
-		auto esc_1 = std::format("\x1b[38;5;{}m\x1b[48;5;{}m",
-			16 + (fg.r * 36) + (fg.g * 6) + fg.b,
-			16 + (bg.r * 36) + (bg.g * 6) + bg.b);
-		std::string esc_2("\x1b[0m");
-
-		bar = esc_1 + bar + esc_2;
-
-		std::string msg = m_message.length() <= msg_width
-		                      ? m_message
-		                      : m_message.substr(0, msg_width - 3) + "...";
-
-		std::cout << std::format("{:{}} {} {:3d}%\r", msg, msg_width, bar,
-						 static_cast<int>(std::ceil(m_progress * 100)))
-				  << std::flush;
+		m_bar_width += kMinMsgWidth - msg_width;
+		msg_width = kMinMsgWidth;
 	}
+
+	std::string bar;
+	bar.reserve(m_bar_width * 4);
+
+	for (uint32_t i = 0; i < m_bar_width; ++i)
+	{
+		if (i * kBlockCount <= m_steps)
+			bar += kBlocks[kBlockCount];
+		else if (i * kBlockCount > m_steps + kBlockCount)
+			bar += kBlocks[0];
+		else
+			bar += kBlocks[1 + m_steps % kBlockCount];
+	}
+
+	// make the bar more colorfull
+	struct color_type
+	{
+		uint8_t r, g, b;
+	} fg{ 0, 3, 5 }, bg{ 0, 1, 2 };
+
+	auto esc_1 = std::format("\x1b[38;5;{}m\x1b[48;5;{}m",
+		16 + (fg.r * 36) + (fg.g * 6) + fg.b,
+		16 + (bg.r * 36) + (bg.g * 6) + bg.b);
+	std::string esc_2("\x1b[0m");
+
+	bar = esc_1 + bar + esc_2;
+
+	std::string msg = m_message.length() <= msg_width
+							? m_message
+							: m_message.substr(0, msg_width - 3) + "...";
+
+	write_to_console(std::format("{:{}} {} {:3d}%\r", msg, msg_width, bar,
+						static_cast<int>(std::ceil(m_progress * 100))));
 }
 
 // --------------------------------------------------------------------

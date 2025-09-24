@@ -66,27 +66,26 @@ std::string get_version_nr()
 
 #if defined(_WIN32) or defined(__MINGW32__)
 }
-#include <windows.h>
-#include <libloaderapi.h>
-#include <wincon.h>
-
-#include <codecvt>
+# include <codecvt>
+# include <libloaderapi.h>
+# include <wincon.h>
+# include <windows.h>
 
 namespace cif
 {
 
 uint32_t get_terminal_width()
 {
-    CONSOLE_SCREEN_BUFFER_INFO csbi;
-    ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
-    return csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi);
+	return csbi.srWindow.Right - csbi.srWindow.Left + 1;
 }
 
 #else
 
-#include <sys/ioctl.h>
-#include <termios.h>
-#include <limits.h>
+# include <limits.h>
+# include <sys/ioctl.h>
+# include <termios.h>
 
 uint32_t get_terminal_width()
 {
@@ -126,7 +125,6 @@ struct progress_bar_impl
 
 	uint64_t m_max_value;
 	std::atomic<uint64_t> m_consumed;
-	uint64_t m_last_consumed = 0;
 	std::string m_action, m_message;
 	time_point m_start = std::chrono::system_clock::now();
 };
@@ -203,21 +201,14 @@ struct simple_progress_bar_impl : public progress_bar_impl
 
 		// print at most 10 steps, but only if it took long enough
 
-		auto now = std::chrono::system_clock::now();
-
-		if (m_consumed > m_last_consumed or now - m_start >= 1s)
+		int percentile = static_cast<int>(std::floor(10.f * m_consumed / m_max_value));
+		if (percentile > m_last_percentile and (m_printed_any or std::chrono::system_clock::now() - m_start >= 1s))
 		{
-			m_last_consumed = m_consumed;
+			if (not std::exchange(m_printed_any, true))
+				std::cout << m_action << ": ";
 
-			int percentile = static_cast<int>(10.f * m_consumed / m_max_value);
-			if (percentile > m_last_percentile)
-			{
-				if (not std::exchange(m_printed_any, true))
-					std::cout << m_action << ": ";
-	
-				std::cout << std::format("...{:d}0%", percentile) << std::flush;
-				m_last_percentile = percentile;
-			}
+			std::cout << std::format("...{:d}0%", percentile) << std::flush;
+			m_last_percentile = percentile;
 		}
 	}
 
@@ -267,6 +258,7 @@ struct fancy_progress_bar_impl : public progress_bar_impl
 	float m_progress;
 	uint32_t m_width, m_bar_width;
 	uint32_t m_steps, m_last_steps = 0;
+	uint64_t m_last_consumed = 0;
 };
 
 fancy_progress_bar_impl::~fancy_progress_bar_impl()
@@ -484,13 +476,13 @@ struct rsrc_imp
 
 #if _WIN32
 
-#if __MINGW32__
+# if __MINGW32__
 
 extern "C" __attribute__((weak, alias("gResourceIndexDefault"))) const mrsrc::rsrc_imp gResourceIndex[];
 extern "C" __attribute__((weak, alias("gResourceDataDefault"))) const char gResourceData[];
 extern "C" __attribute__((weak, alias("gResourceNameDefault"))) const char gResourceName[];
 
-#else
+# else
 
 extern "C" const mrsrc::rsrc_imp *gResourceIndexDefault[1] = {};
 extern "C" const char *gResourceDataDefault[1] = {};
@@ -500,11 +492,11 @@ extern "C" const mrsrc::rsrc_imp gResourceIndex[];
 extern "C" const char gResourceData[];
 extern "C" const char gResourceName[];
 
-#pragma comment(linker, "/alternatename:gResourceIndex=gResourceIndexDefault")
-#pragma comment(linker, "/alternatename:gResourceData=gResourceDataDefault")
-#pragma comment(linker, "/alternatename:gResourceName=gResourceNameDefault")
+#  pragma comment(linker, "/alternatename:gResourceIndex=gResourceIndexDefault")
+#  pragma comment(linker, "/alternatename:gResourceData=gResourceDataDefault")
+#  pragma comment(linker, "/alternatename:gResourceName=gResourceNameDefault")
 
-#endif
+# endif
 
 #else
 extern const __attribute__((weak)) mrsrc::rsrc_imp gResourceIndex[];

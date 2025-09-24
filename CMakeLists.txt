@@ -174,7 +174,7 @@ find_file(FMT NAME format)
 if(FMT EQUAL "FMT-NOTFOUND")
 	if(NOT (fmt_FOUND OR TARGET fmt))
 		find_package(fmt REQUIRED)
-		message(FATAL_ERROR "fmt not found, compiler too old, you're out of luck")
+		message(FATAL_ERROR "cifpp: <format> not found and neither was libfmt, compiler too old, you're out of luck")
 	endif()
 endif()
 
@@ -189,10 +189,6 @@ include(FindPkgConfig)
 
 if(PKG_CONFIG_FOUND)
 	pkg_check_modules(PCRE2 IMPORTED_TARGET libpcre2-8)
-
-	if(PCRE2_FOUND)
-		message(STATUS "Using pcre2 found using pkg-config")
-	endif()
 endif()
 
 if(NOT PCRE2_FOUND)

@@ -66,10 +66,11 @@ std::string get_version_nr()
 
 #if defined(_WIN32) or defined(__MINGW32__)
 }
-# include <codecvt>
+// clang-format off
+# include <windows.h>
 # include <libloaderapi.h>
 # include <wincon.h>
-# include <windows.h>
+// clang-format on
 
 namespace cif
 {

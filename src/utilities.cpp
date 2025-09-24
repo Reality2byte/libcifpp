@@ -45,6 +45,10 @@
 #include <thread>
 #include <utility>
 
+#if __cpp_lib_jthread >= 201911L
+#include <stop_token>
+#endif
+
 namespace fs = std::filesystem;
 
 // --------------------------------------------------------------------
@@ -80,8 +84,8 @@ uint32_t get_terminal_width()
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	return ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi)
-		? csbi.srWindow.Right - csbi.srWindow.Left + 1
-		: 80;
+	           ? csbi.srWindow.Right - csbi.srWindow.Left + 1
+	           : 80;
 }
 
 void write_to_console(const std::string &s)
@@ -266,14 +270,25 @@ struct fancy_progress_bar_impl : public progress_bar_impl
 {
 	fancy_progress_bar_impl(uint64_t max_value, const std::string &message)
 		: progress_bar_impl(max_value, message)
-		, m_thread([this](std::stop_token stoken)
-			  { this->run(stoken); })
+		, m_thread(
+#if __cpp_lib_jthread >= 201911L
+			  [this](std::stop_token stoken)
+			  { this->run(stoken); }
+#else
+			  [this]()
+			  { this->run(); }
+#endif
+		  )
 	{
 	}
 
 	~fancy_progress_bar_impl();
 
+#if __cpp_lib_jthread >= 201911L
 	void run(std::stop_token stoken);
+#else
+	void run();
+#endif
 
 	void consumed(uint64_t n) override;
 	void progress(uint64_t p) override;
@@ -283,12 +298,17 @@ struct fancy_progress_bar_impl : public progress_bar_impl
 
 	std::mutex m_mutex;
 	std::condition_variable m_cv;
-	std::jthread m_thread;
 
 	float m_progress;
 	uint32_t m_width, m_bar_width;
 	uint32_t m_steps, m_last_steps = 0;
 	uint64_t m_last_consumed = 0;
+#if __cpp_lib_jthread >= 201911L
+	std::jthread m_thread;
+#else
+	std::thread m_thread;
+	bool m_stop = false;
+#endif
 };
 
 const char *kBlocks[] = {
@@ -303,18 +323,26 @@ const char *kBlocks[] = {
 	"█",
 };
 
-const size_t kBlockCount = sizeof(kBlocks) / sizeof(void*) - 1;
+const size_t kBlockCount = sizeof(kBlocks) / sizeof(void *) - 1;
 
 fancy_progress_bar_impl::~fancy_progress_bar_impl()
 {
 	using namespace std::literals;
 	assert(m_thread.joinable());
 
+#if __cpp_lib_jthread >= 201911L
 	m_thread.request_stop();
+#else
+	m_stop = true;
+#endif
 	m_thread.join();
 }
 
+#if __cpp_lib_jthread >= 201911L
 void fancy_progress_bar_impl::run(std::stop_token stoken)
+#else
+void fancy_progress_bar_impl::run()
+#endif
 {
 	using namespace std::literals;
 
@@ -328,8 +356,13 @@ void fancy_progress_bar_impl::run(std::stop_token stoken)
 
 			m_cv.wait_for(lock, 25ms);
 
+#if __cpp_lib_jthread >= 201911L
 			if (stoken.stop_requested())
 				break;
+#else
+			if (m_stop)
+				break;
+#endif
 
 			auto now = std::chrono::system_clock::now();
 
@@ -427,11 +460,11 @@ void fancy_progress_bar_impl::print_progress()
 	bar = esc_1 + bar + esc_2;
 
 	std::string msg = m_message.length() <= msg_width
-							? m_message
-							: m_message.substr(0, msg_width - 3) + "...";
+	                      ? m_message
+	                      : m_message.substr(0, msg_width - 3) + "...";
 
 	write_to_console(std::format("{:{}} {} {:3d}%\r", msg, msg_width, bar,
-						static_cast<int>(std::ceil(m_progress * 100))));
+		static_cast<int>(std::ceil(m_progress * 100))));
 }
 
 // --------------------------------------------------------------------
@@ -439,10 +472,13 @@ void fancy_progress_bar_impl::print_progress()
 progress_bar::progress_bar(int64_t max_value, const std::string &message)
 	: m_impl(nullptr)
 {
-	if (isatty(STDOUT_FILENO) /*  and VERBOSE >= 0 */)
-		m_impl = new fancy_progress_bar_impl(max_value, message);
-	else
-		m_impl = new simple_progress_bar_impl(max_value, message);
+	if (VERBOSE >= 0)
+	{
+		if (isatty(STDOUT_FILENO) and get_terminal_width() > kMinBarWidth)
+			m_impl = new fancy_progress_bar_impl(max_value, message);
+		else
+			m_impl = new simple_progress_bar_impl(max_value, message);
+	}
 }
 
 progress_bar::~progress_bar()

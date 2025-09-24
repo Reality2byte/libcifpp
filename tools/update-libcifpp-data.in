@@ -63,7 +63,7 @@ update_dictionary() {
 
 update_dictionary "@CIFPP_CACHE_DIR@/components.cif" "https://files.wwpdb.org/pub/pdb/data/monomers/components.cif.gz"
 update_dictionary "@CIFPP_CACHE_DIR@/mmcif_pdbx.dic" "https://mmcif.wwpdb.org/dictionaries/ascii/mmcif_pdbx_v50.dic.gz"
-update_dictionary "@CIFPP_CACHE_DIR@/mmcif_ma.dic" "https://github.com/ihmwg/ModelCIF/raw/master/dist/mmcif_ma.dic"
+update_dictionary "@CIFPP_CACHE_DIR@/mmcif_ma.dic" "https://mmcif.wwpdb.org/dictionaries/ascii/mmcif_ma.dic"
 
 # notify subscribers, using find instead of run-parts to make it work on FreeBSD as well
 

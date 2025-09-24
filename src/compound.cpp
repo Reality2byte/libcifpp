@@ -784,7 +784,7 @@ void compound_factory::report_missing_compound(std::string_view compound_id)
 				  << "in /var/cache/libcifpp using the following commands:\n\n"
 				  << "curl -o " << CACHE_DIR << "/components.cif https://files.wwpdb.org/pub/pdb/data/monomers/components.cif\n"
 				  << "curl -o " << CACHE_DIR << "/mmcif_pdbx.dic https://mmcif.wwpdb.org/dictionaries/ascii/mmcif_pdbx_v50.dic\n"
-				  << "curl -o " << CACHE_DIR << "/mmcif_ma.dic https://github.com/ihmwg/ModelCIF/raw/master/dist/mmcif_ma.dic\n\n";
+				  << "curl -o " << CACHE_DIR << "/mmcif_ma.dic https://mmcif.wwpdb.org/dictionaries/ascii/mmcif_ma.dic\n\n";
 #endif
 
 		if (m_impl)

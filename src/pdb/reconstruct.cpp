@@ -280,8 +280,8 @@ void createEntityIDs(datablock &db)
 		std::string entity_id;
 		if (auto v = db["pdbx_entity_nonpoly"].find_first("comp_id"_key == comp_id); v)
 			entity_id = v.get<std::string>("entity_id");
-		else if (auto i = newEntitiesForCompound.find(comp_id); i != newEntitiesForCompound.end())
-			entity_id = i->second;
+		else if (auto i2 = newEntitiesForCompound.find(comp_id); i2 != newEntitiesForCompound.end())
+			entity_id = i2->second;
 		else
 		{
 			entity_id = std::to_string(nextEntityID++);
@@ -943,11 +943,11 @@ void createEntityPoly(datablock &db)
 					else
 						letter = '(' + comp_id + ')';
 				}
-				else if (auto i = compound_factory::kAAMap.find(comp_id); i != compound_factory::kAAMap.end())
+				else if (auto i2 = compound_factory::kAAMap.find(comp_id); i2 != compound_factory::kAAMap.end())
 				{
 					c_type = "polypeptide(L)";
 
-					letter = letter_can = i->second;
+					letter = letter_can = i2->second;
 				}
 				else if (iequals(c->type(), "D-PEPTIDE LINKING"))
 				{

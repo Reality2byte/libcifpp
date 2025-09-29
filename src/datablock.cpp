@@ -25,7 +25,10 @@
  */
 
 #include "cif++/datablock.hpp"
+
 #include "cif++/validate.hpp"
+
+#include <exception>
 
 namespace cif
 {
@@ -42,7 +45,16 @@ datablock::datablock(const datablock &db)
 void datablock::load_dictionary()
 {
 	if (auto *audit_conform = get("audit_conform"); audit_conform and not audit_conform->empty())
-		set_validator(&validator_factory::instance().get(*audit_conform));
+	{
+		try
+		{
+			set_validator(&validator_factory::instance().get(*audit_conform));
+		}
+		catch (const std::exception &ex)
+		{
+			std::clog << ex.what() << '\n';
+		}
+	}
 }
 
 void datablock::set_validator(const validator *v)
@@ -96,7 +108,8 @@ bool datablock::strip()
 	bool result = true;
 
 	// remove all categories that have no validator
-	erase(std::remove_if(begin(), end(), [](category &c) {
+	erase(std::remove_if(begin(), end(), [](category &c)
+			  {
 		bool result = false;
 		if (c.get_cat_validator() == nullptr)
 		{
@@ -104,8 +117,8 @@ bool datablock::strip()
 				std::clog << "Dropping category " << c.name() << '\n';
 			result = true;
 		}
-		return result;
-	}), end());
+		return result; }),
+		end());
 
 	// then strip the remaining categories
 	for (auto &cat : *this)

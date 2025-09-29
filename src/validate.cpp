@@ -561,8 +561,10 @@ const validator &validator_factory::get(const category &audit_conform)
 	// If the audit conform contains only one record, this is easy
 	if (audit_conform.size() == 1)
 	{
-		const auto &[name, version] = audit_conform.front().get<std::string, std::optional<std::string>>("dict_name", "dict_version");
-		return m_validators.emplace_back(construct_validator(name, version));
+		const auto &[name, version] =
+			audit_conform.front().get<std::string, std::optional<std::string>>("dict_name", "dict_version");
+		if (not name.empty())
+			return m_validators.emplace_back(construct_validator(name, version));
 	}
 
 	// A new, merged dictionary
@@ -570,6 +572,9 @@ const validator &validator_factory::get(const category &audit_conform)
 	std::optional<validator> v;
 	for (const auto &[name, version] : audit_conform.rows<std::string, std::optional<std::string>>("dict_name", "dict_version"))
 	{
+		if (name.empty())
+			continue;
+
 		if (not v)
 			v = construct_validator(name, version);
 		else

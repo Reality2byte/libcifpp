@@ -295,11 +295,13 @@ void createEntityIDs(datablock &db)
 					{ "id", entity_id },
 					{ "type", "water" } });
 			else
+			{
 				entity.emplace({ //
 					{ "id", entity_id },
 					{ "type", "non-polymer" } });
 
-			newEntitiesForCompound[comp_id] = entity_id;
+				newEntitiesForCompound[comp_id] = entity_id;
+			}
 		}
 
 		entity_ids[i] = entity_id;

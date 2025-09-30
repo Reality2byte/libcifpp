@@ -1,3 +1,6 @@
+Version 9.0.4
+- Fix various stopping and reconstruction errors
+
 Version 9.0.3
 - Reconstruction fixed when some entity ids are missing
 

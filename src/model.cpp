@@ -2898,8 +2898,8 @@ static int compare_numbers(std::string_view a, std::string_view b)
 
 	std::from_chars_result ra, rb;
 
-	ra = selected_charconv<double>::from_chars(a.data(), a.data() + a.length(), da);
-	rb = selected_charconv<double>::from_chars(b.data(), b.data() + b.length(), db);
+	ra = from_chars(a.data(), a.data() + a.length(), da);
+	rb = from_chars(b.data(), b.data() + b.length(), db);
 
 	if (not(bool) ra.ec and not(bool) rb.ec)
 	{

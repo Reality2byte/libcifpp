@@ -650,7 +650,7 @@ void checkAtomRecords(datablock &db)
 			{
 				char b[12];
 
-				if (auto [ptr, ec] = cif::to_chars(b, b + sizeof(b), v, cif::chars_format::fixed, prec); ec == std::errc{})
+				if (auto [ptr, ec] = std::to_chars(b, b + sizeof(b), v, std::chars_format::fixed, prec); ec == std::errc{})
 					row.assign(item_name, { b, static_cast<std::string::size_type>(ptr - b) }, false, false);
 			}
 		}

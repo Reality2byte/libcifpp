@@ -53,12 +53,12 @@ namespace cif
 // --------------------------------------------------------------------
 /** @brief item is a transient class that is used to pass data into rows
  * but it also takes care of formatting data.
- * 
- * 
- * 
+ *
+ *
+ *
  * The class cif::item is often used implicitly when creating a row in a category
  * using the emplace function.
- * 
+ *
  * @code{.cpp}
  * cif::category cat("my-cat");
  * cat.emplace({
@@ -68,12 +68,12 @@ namespace cif
  *   { "item-4", std::make_optional<int>(42) },   // <- stores an item with value 42
  *   { "item-5" }                                 // <- stores an item with value .
  * });
- * 
+ *
  * std::cout << cat << '\n';
  * @endcode
- * 
+ *
  * Will result in:
- * 
+ *
  * @code{.txt}
  * _my-cat.item-1 1
  * _my-cat.item-2 1.00
@@ -176,7 +176,7 @@ class item
 
 	/// \brief constructor for an item with name \a name and as
 	/// content value \a value
-	template<typename T, std::enable_if_t<std::is_same_v<T, std::string>, int> = 0>
+	template <typename T, std::enable_if_t<std::is_same_v<T, std::string>, int> = 0>
 	item(const std::string_view name, T &&value)
 		: m_name(name)
 		, m_value(std::move(value))
@@ -221,8 +221,8 @@ class item
 	item &operator=(item &&rhs) noexcept = default;
 	/** @endcond */
 
-	std::string_view name() const { return m_name; }   ///< Return the name of the item
-	std::string_view value() const & { return m_value; } ///< Return the value of the item
+	std::string_view name() const { return m_name; }            ///< Return the name of the item
+	std::string_view value() const & { return m_value; }        ///< Return the value of the item
 	std::string value() const && { return std::move(m_value); } ///< Return the value of the item
 
 	/// \brief replace the content of the stored value with \a v
@@ -560,7 +560,9 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_arithmetic_v<T> an
 			auto b = txt.data();
 			auto e = txt.data() + txt.size();
 
-			std::from_chars_result r = (b + 1 < e and *b == '+' and std::isdigit(b[1])) ? selected_charconv<value_type>::from_chars(b + 1, e, result) : selected_charconv<value_type>::from_chars(b, e, result);
+			std::from_chars_result r = (b + 1 < e and *b == '+' and std::isdigit(b[1])) //
+			                               ? from_chars(b + 1, e, result)
+			                               : from_chars(b, e, result);
 
 			if ((bool)r.ec or r.ptr != e)
 			{
@@ -595,7 +597,9 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_arithmetic_v<T> an
 			auto b = txt.data();
 			auto e = txt.data() + txt.size();
 
-			std::from_chars_result r = (b + 1 < e and *b == '+' and std::isdigit(b[1])) ? selected_charconv<value_type>::from_chars(b + 1, e, v) : selected_charconv<value_type>::from_chars(b, e, v);
+			std::from_chars_result r = (b + 1 < e and *b == '+' and std::isdigit(b[1]))
+			                               ? from_chars(b + 1, e, v)
+			                               : from_chars(b, e, v);
 
 			if ((bool)r.ec or r.ptr != e)
 			{

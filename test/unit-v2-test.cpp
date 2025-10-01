@@ -155,8 +155,8 @@ TEST_CASE("cc_2")
 
 	for (const auto &[val, prec, test] : tests)
 	{
-		char buffer[64];
-		const auto &[ptr, ec] = cif::to_chars(buffer, buffer + sizeof(buffer), val, cif::chars_format::fixed, prec);
+		char buffer[64] = {};
+		const auto &[ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), val, std::chars_format::fixed, prec);
 
 		CHECK_FALSE((bool)ec);
 

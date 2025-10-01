@@ -355,279 +355,35 @@ std::string cif_id_for_number(int number);
 std::vector<std::string> word_wrap(const std::string &text, std::size_t width);
 
 // --------------------------------------------------------------------
-/// \brief std::from_chars for floating point types.
-///
-/// These are optional, there's a selected_charconv class below that selects
-/// the best option to use based on support by the stl library.
-///
-/// I.e. that in case of GNU < 12 (or something) the cif implementation will
-/// be used, all other cases will use the stl version.
 
-template <typename FloatType, std::enable_if_t<std::is_floating_point_v<FloatType>, int> = 0>
-std::from_chars_result from_chars(const char *first, const char *last, FloatType &value)
-{
-	std::from_chars_result result{ first, {} };
-
-	enum State
-	{
-		IntegerSign,
-		Integer,
-		Fraction,
-		ExponentSign,
-		Exponent
-	} state = IntegerSign;
-	int sign = 1;
-	unsigned long long vi = 0;
-	int fl = 0, tz = 0;
-	int exponent_sign = 1;
-	int exponent = 0;
-	bool done = false;
-
-	while (not done and not (bool)result.ec)
-	{
-		char ch = result.ptr != last ? *result.ptr : 0;
-		++result.ptr;
-
-		switch (state)
-		{
-			case IntegerSign:
-				if (ch == '-')
-				{
-					sign = -1;
-					state = Integer;
-				}
-				else if (ch == '+')
-					state = Integer;
-				else if (ch >= '0' and ch <= '9')
-				{
-					vi = ch - '0';
-					state = Integer;
-				}
-				else if (ch == '.')
-					state = Fraction;
-				else
-					result.ec = std::errc::invalid_argument;
-				break;
-
-			case Integer:
-				if (ch >= '0' and ch <= '9')
-					vi = 10 * vi + (ch - '0');
-				else if (ch == 'e' or ch == 'E')
-					state = ExponentSign;
-				else if (ch == '.')
-					state = Fraction;
-				else
-				{
-					done = true;
-					--result.ptr;
-				}
-				break;
-
-			case Fraction:
-				if (ch >= '0' and ch <= '9')
-				{
-					vi = 10 * vi + (ch - '0');
-
-					if (ch == '0')
-						tz += 1;
-					else
-					{
-						fl += tz + 1;
-						tz = 0;
-					}
-				}
-				else if (ch == 'e' or ch == 'E')
-					state = ExponentSign;
-				else
-				{
-					done = true;
-					--result.ptr;
-				}
-				break;
-
-			case ExponentSign:
-				if (ch == '-')
-				{
-					exponent_sign = -1;
-					state = Exponent;
-				}
-				else if (ch == '+')
-					state = Exponent;
-				else if (ch >= '0' and ch <= '9')
-				{
-					exponent = ch - '0';
-					state = Exponent;
-				}
-				else
-					result.ec = std::errc::invalid_argument;
-				break;
-
-			case Exponent:
-				if (ch >= '0' and ch <= '9')
-					exponent = 10 * exponent + (ch - '0');
-				else
-				{
-					done = true;
-					--result.ptr;
-				}
-				break;
-		}
-	}
-
-	if (not (bool)result.ec)
-	{
-		while (tz-- > 0)
-			vi /= 10;
-
-		long double v = std::pow(10, -fl) * vi * sign;
-		if (exponent != 0)
-			v *= std::pow(10, exponent * exponent_sign);
-
-		if (std::isnan(v))
-			result.ec = std::errc::invalid_argument;
-		else if (std::abs(v) > std::numeric_limits<FloatType>::max())
-			result.ec = std::errc::result_out_of_range;
-
-		value = static_cast<FloatType>(v);
-	}
-
-	return result;
-}
-
-/// \brief duplication of std::chars_format for deficient STL implementations
-enum class chars_format
-{
-	scientific = 1,
-	fixed = 2,
-	// hex,
-	general = fixed | scientific
-};
-
-/// \brief a simplistic implementation of std::to_chars for old STL implementations
-template <typename FloatType, std::enable_if_t<std::is_floating_point_v<FloatType>, int> = 0>
-std::to_chars_result to_chars(char *first, char *last, FloatType &value, chars_format fmt)
-{
-	int size = static_cast<int>(last - first);
-	int r = 0;
-
-	switch (fmt)
-	{
-		case chars_format::scientific:
-			if constexpr (std::is_same_v<FloatType, long double>)
-				r = snprintf(first, last - first, "%le", value);
-			else
-				r = snprintf(first, last - first, "%e", value);
-			break;
-
-		case chars_format::fixed:
-			if constexpr (std::is_same_v<FloatType, long double>)
-				r = snprintf(first, last - first, "%lf", value);
-			else
-				r = snprintf(first, last - first, "%f", value);
-			break;
-
-		case chars_format::general:
-			if constexpr (std::is_same_v<FloatType, long double>)
-				r = snprintf(first, last - first, "%lg", value);
-			else
-				r = snprintf(first, last - first, "%g", value);
-			break;
-	}
-
-	std::to_chars_result result;
-	if (r < 0 or r >= size)
-		result = { first, std::errc::value_too_large };
-	else
-		result = { first + r, std::errc() };
-
-	return result;
-}
-
-/// \brief a simplistic implementation of std::to_chars for old STL implementations
-template <typename FloatType, std::enable_if_t<std::is_floating_point_v<FloatType>, int> = 0>
-std::to_chars_result to_chars(char *first, char *last, FloatType &value, chars_format fmt, int precision)
-{
-	int size = static_cast<int>(last - first);
-	int r = 0;
-
-	switch (fmt)
-	{
-		case chars_format::scientific:
-			if constexpr (std::is_same_v<FloatType, long double>)
-				r = snprintf(first, last - first, "%.*le", precision, value);
-			else
-				r = snprintf(first, last - first, "%.*e", precision, value);
-			break;
-
-		case chars_format::fixed:
-			if constexpr (std::is_same_v<FloatType, long double>)
-				r = snprintf(first, last - first, "%.*lf", precision, value);
-			else
-				r = snprintf(first, last - first, "%.*f", precision, value);
-			break;
-
-		case chars_format::general:
-			if constexpr (std::is_same_v<FloatType, long double>)
-				r = snprintf(first, last - first, "%.*lg", precision, value);
-			else
-				r = snprintf(first, last - first, "%.*g", precision, value);
-			break;
-	}
-
-	std::to_chars_result result;
-	if (r < 0 or r >= size)
-		result = { first, std::errc::value_too_large };
-	else
-		result = { first + r, std::errc() };
-
-	return result;
-}
-
-/// \brief class that uses our implementation of std::from_chars and std::to_chars
 template <typename T>
-struct my_charconv
-{
-	/// @brief Simply call our version of std::from_chars
-	static std::from_chars_result from_chars(const char *a, const char *b, T &d)
-	{
-		return cif::from_chars(a, b, d);
-	}
+using from_chars_function = decltype(std::from_chars(std::declval<const char *>(), std::declval<const char *>(), std::declval<T &>()));
 
-	/// @brief Simply call our version of std::to_chars
-	static std::to_chars_result to_chars(char *first, char *last, T &value, chars_format fmt)
-	{
-		return cif::to_chars(first, last, value, fmt);
-	}
-};
-
-/// \brief class that uses the STL implementation of std::from_chars and std::to_chars
 template <typename T>
 struct std_charconv
 {
-	/// @brief Simply call std::from_chars
 	static std::from_chars_result from_chars(const char *a, const char *b, T &d)
 	{
 		return std::from_chars(a, b, d);
 	}
-
-	/// @brief Simply call std::to_chars
-	static std::to_chars_result to_chars(char *first, char *last, T &value, chars_format fmt)
-	{
-		return std::to_chars(first, last, value, fmt);
-	}
 };
 
-/// \brief helper to find a from_chars function
-template <typename T>
-using from_chars_function = decltype(std::from_chars(std::declval<const char *>(), std::declval<const char *>(), std::declval<T &>()));
+template <typename T, typename = void>
+struct ff_charconv;
 
-/**
- * @brief Helper to select the best implementation of charconv based on availability of the
- * function in the std:: namespace
- *
- * @tparam T The type for which we want to find a from_chars/to_chars function
- */
 template <typename T>
-using selected_charconv = typename std::conditional_t<std_experimental::is_detected_v<from_chars_function, T>, std_charconv<T>, my_charconv<T>>;
+struct ff_charconv<T, typename std::enable_if_t<std::is_floating_point_v<T>>>
+{
+	static std::from_chars_result from_chars(const char *a, const char *b, T &v);
+};
+
+template <typename T>
+using charconv = typename std::conditional_t<std_experimental::is_detected_v<from_chars_function, T>, std_charconv<T>, ff_charconv<T>>;
+
+template <typename T>
+constexpr auto from_chars(const char *s, const char *e, T &v)
+{
+	return charconv<T>::from_chars(s, e, v);
+}
 
 } // namespace cif

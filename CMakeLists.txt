@@ -184,10 +184,9 @@ endif()
 
 if(NOT STD_CHARCONV_COMPILING)
 	message(NOTICE "libcifpp: Using fast_float for std::from_chars")
-	FetchContent_Declare(
-		fastfloat
-		GIT_REPOSITORY "https://github.com/fastfloat/fast_float.git"
-		GIT_TAG v8.1.0)
+	FetchContent_Declare(fastfloat
+		GIT_REPOSITORY "https://github.com/fastfloat/fast_float"
+		GIT_TAG v8.0.2)
 	FetchContent_MakeAvailable(fastfloat)
 endif()
 
@@ -354,6 +353,10 @@ if(PCRE2_FOUND)
 	target_link_libraries(cifpp PRIVATE ${PCRE2_LINK_LIBRARIES})
 else()
 	target_link_libraries(cifpp PRIVATE $<BUILD_INTERFACE:pcre2s>)
+endif()
+
+if(NOT STD_CHARCONV_COMPILING)
+	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
 endif()
 
 if(fmt_FOUND)

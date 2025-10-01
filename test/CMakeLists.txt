@@ -26,8 +26,6 @@ if(NOT (Catch2_FOUND OR TARGET Catch2))
 	find_package(Catch2 3 QUIET)
 
 	if(NOT Catch2_FOUND)
-		include(FetchContent)
-
 		FetchContent_Declare(
 			Catch2
 			GIT_REPOSITORY https://github.com/catchorg/Catch2.git

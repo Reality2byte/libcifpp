@@ -29,6 +29,11 @@
 #include <algorithm>
 #include <cassert>
 
+#if __has_include("fast_float/fast_float.h")
+#include "fast_float/fast_float.h"
+#endif
+
+
 namespace cif
 {
 
@@ -513,7 +518,6 @@ std::vector<std::string> word_wrap(const std::string &text, std::size_t width)
 }
 
 #if __has_include("fast_float/fast_float.h")
-#	include "fast_float/fast_float.h"
 
 template<>
 std::from_chars_result ff_charconv<float>::from_chars(const char *a, const char *b, float &v)

@@ -179,8 +179,8 @@ if(FMT EQUAL "FMT-NOTFOUND")
 endif()
 
 # Using fast_float for float parsing, but only if needed
-# try_compile(STD_CHARCONV_COMPILING
-# 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-charconv.cpp)
+try_compile(STD_CHARCONV_COMPILING
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-charconv.cpp)
 
 if(NOT STD_CHARCONV_COMPILING)
 	message(NOTICE "libcifpp: Using fast_float for std::from_chars")

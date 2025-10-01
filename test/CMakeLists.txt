@@ -51,6 +51,7 @@ list(
 	spinner
 	reconstruction
 	validate-pdbx
+	cql
 )
 
 add_library(test-main OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/test-main.cpp")

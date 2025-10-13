@@ -29,6 +29,7 @@
 #include "cif++/atom_type.hpp"
 #include "cif++/datablock.hpp"
 #include "cif++/point.hpp"
+#include "cif++/row.hpp"
 
 #include <memory>
 #include <numeric>
@@ -134,14 +135,20 @@ class atom
 
 		row_handle row_aniso()
 		{
+			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
-			return cat ? cat->operator[]({ { "id", m_id } }) : row_handle{};
+			if (cat)
+				result = cat->operator[]({ { "id", m_id } });
+			return result;
 		}
 
 		const row_handle row_aniso() const
 		{
+			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
-			return cat ? cat->operator[]({ { "id", m_id } }) : row_handle{};
+			if (cat)
+				result = cat->operator[]({ { "id", m_id } });
+			return result;
 		}
 
 		const datablock &m_db;

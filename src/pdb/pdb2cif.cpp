@@ -3142,7 +3142,6 @@ void PDBFileParser::ParseRemark350()
 	std::map<std::string, std::string> values;
 	std::vector<std::string> asymIdList;
 	std::smatch m;
-	cif::row_handle genR;
 
 	std::vector<double> mat, vec;
 

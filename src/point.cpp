@@ -25,17 +25,17 @@
  */
 
 #include "cif++/point.hpp"
-#include "cif++/matrix.hpp"
 
-#include <cassert>
-#include <random>
+#include "cif++/matrix.hpp" // for matrix_subtraction, matrix_cofactors
+
+#include <random> // for uniform_real_distribution, normal_distri...
 
 namespace cif
 {
 
 // --------------------------------------------------------------------
 
-template<typename T>
+template <typename T>
 quaternion_type<T> normalize(quaternion_type<T> q)
 {
 	std::valarray<double> t(4);
@@ -126,10 +126,9 @@ quaternion construct_for_dihedral_angle(point p1, point p2, point p3, point p4,
 	p4 -= p3;
 	p3 -= p3;
 
-	quaternion q;
 	auto axis = -p2;
-
 	float dh = dihedral_angle(p1, p2, p3, p4);
+
 	return construct_from_angle_axis(angle - dh, axis);
 }
 
@@ -293,9 +292,9 @@ quaternion align_points(const std::vector<point> &pa, const std::vector<point> &
 	}
 
 	quaternion q(
-		static_cast<float>(cf(maxR, 0)), 
-		static_cast<float>(cf(maxR, 1)), 
-		static_cast<float>(cf(maxR, 2)), 
+		static_cast<float>(cf(maxR, 0)),
+		static_cast<float>(cf(maxR, 1)),
+		static_cast<float>(cf(maxR, 2)),
 		static_cast<float>(cf(maxR, 3)));
 	q = normalize(q);
 

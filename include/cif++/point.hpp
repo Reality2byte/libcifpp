@@ -30,6 +30,7 @@
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <format>
 #include <functional>
 #include <valarray>
 
@@ -365,9 +366,16 @@ class quaternion_type
 	}
 
 	/// \brief test for all zero values
-	constexpr operator bool() const
+	constexpr explicit operator bool() const
 	{
 		return a != 0 or b != 0 or c != 0 or d != 0;
+	}
+
+	/// \brief for debugging e.g.
+	friend std::ostream &operator<<(std::ostream &os, const quaternion_type &rhs)
+	{
+		os << std::format("{{ a: {}, b: {}, c: {}, d: {} }}", rhs.a, rhs.b, rhs.c, rhs.d);
+		return os;
 	}
 
   private:

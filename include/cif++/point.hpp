@@ -32,6 +32,7 @@
 #include <cstdint>
 #include <format>
 #include <functional>
+#include <optional>
 #include <valarray>
 
 #if __has_include(<clipper/core/coords.h>)

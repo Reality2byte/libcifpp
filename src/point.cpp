@@ -28,6 +28,7 @@
 
 #include "cif++/matrix.hpp" // for matrix_subtraction, matrix_cofactors
 
+#include <initializer_list>
 #include <random> // for uniform_real_distribution, normal_distri...
 
 namespace cif
@@ -324,6 +325,252 @@ point nudge(point p, float offset)
 	r *= randomOffset(rng);
 
 	return p + r;
+}
+
+// --------------------------------------------------------------------
+
+
+std::tuple<point, float> smallest_sphere_around_points(point p1, point p2)
+{
+	return { (p1 + p2) / 2, distance(p1, p2) / 2 };
+}
+
+std::tuple<point, float> smallest_sphere_around_points(point p1, point p2, point p3)
+{
+	// Find two bisectors
+	auto vz = cross_product(p2 - p1, p3 - p1);
+
+	auto bs1 = cross_product(vz, p2 - p1);
+	bs1.normalize();
+
+	auto v1 = (p2 - p1);
+	v1.normalize();
+
+	auto s1 = p1 + (distance(p2, p1) / 2) * v1;
+
+	auto bs2 = cross_product(vz, p3 - p1);
+	bs2.normalize();
+
+	auto v2 = (p3 - p1);
+	v2.normalize();
+
+	auto s2 = p1 + (distance(p3, p1) / 2) * v2;
+
+	auto c = line_line_intersection(s1, s1 + bs1, s2, s2 + bs2);
+	if (c)
+		return { *c, distance(*c, p1) };
+
+	// Colinear points I guess, try something else
+	auto l1 = distance_squared(p1, p2);
+	auto l2 = distance_squared(p1, p3);
+	auto l3 = distance_squared(p2, p3);
+
+	if (l1 > l2 and l1 > l3)
+		return smallest_sphere_around_points(p1, p2);
+	else if (l2 > l1 and l2 > l3)
+		return smallest_sphere_around_points(p1, p3);
+	else
+		return smallest_sphere_around_points(p2, p3);
+}
+
+std::tuple<point, float> smallest_sphere_around_points(point p1, point p2, point p3, point p4)
+{
+	auto t0 = -norm_squared(p1);
+	auto t1 = -norm_squared(p2);
+	auto t2 = -norm_squared(p3);
+	auto t3 = -norm_squared(p4);
+
+	// clang-format off
+	matrix4x4<float> Tm({
+		p1.m_x, p1.m_y, p1.m_z, 1,
+		p2.m_x, p2.m_y, p2.m_z, 1,
+		p3.m_x, p3.m_y, p3.m_z, 1,
+		p4.m_x, p4.m_y, p4.m_z, 1
+	});
+	auto T = determinant(Tm);
+
+	if (T != 0)
+	{
+		matrix4x4<float> Dm({
+			t0, p1.m_y, p1.m_z, 1,
+			t1, p2.m_y, p2.m_z, 1,
+			t2, p3.m_y, p3.m_z, 1,
+			t3, p4.m_y, p4.m_z, 1
+		});
+		auto D = determinant(Dm) / T;
+		
+		matrix4x4<float> Em({
+			p1.m_x, t0, p1.m_z, 1,
+			p2.m_x, t1, p2.m_z, 1,
+			p3.m_x, t2, p3.m_z, 1,
+			p4.m_x, t3, p4.m_z, 1
+		});
+		auto E = determinant(Em) / T;
+		
+		matrix4x4<float> Fm({
+			p1.m_x, p1.m_y, t0, 1,
+			p2.m_x, p2.m_y, t1, 1,
+			p3.m_x, p3.m_y, t2, 1,
+			p4.m_x, p4.m_y, t3, 1
+		});
+		
+		auto F = determinant(Fm) / T;
+		
+		matrix4x4<float> Gm({
+			p1.m_x, p1.m_y, p1.m_z, t0,
+			p2.m_x, p2.m_y, p2.m_z, t1,
+			p3.m_x, p3.m_y, p3.m_z, t2,
+			p4.m_x, p4.m_y, p4.m_z, t3
+		});
+		auto G = determinant(Gm) / T;
+		
+		point center{ -D / 2, -E / 2, -F / 2 };
+		float radius = std::sqrt(D * D + E * E + F * F - 4 * G) / 2;
+
+		// clang-format on
+
+		return { center, radius };
+	}
+
+	// Perhaps some colinear points, try something else:
+
+	// for (auto ix : std::initializer_list<std::array<size_t, 4>>{
+	// 		{ 1, 2, 3, 0 },
+	// 		{ 0, 2, 3, 1 },
+	// 		{ 0, 1, 3, 2 },
+	// 		{ 0, 1, 2, 3 },
+	// 	})
+	// {
+	// 	auto [center, radius] =
+	// 		smallest_sphere_around_3_points(pts[ix[0]], pts[ix[1]], pts[ix[2]]);
+
+	// 	if (distance(pts[ix[3]], center) <= radius)
+	// 		return { center, radius };
+	// }
+
+	assert(false);
+	exit(1);
+}
+
+std::tuple<point, float> smallest_sphere_around_all_points(std::vector<point> P, std::vector<point> R)
+{
+	if (P.empty() or R.size() == 4)
+	{
+		switch (R.size())
+		{
+			case 1:
+				return { R[0], 0 };
+
+			case 2:
+				return smallest_sphere_around_points(R[0], R[1]);
+
+			case 3:
+				return smallest_sphere_around_points(R[0], R[1], R[2]);
+
+			case 4:
+				return smallest_sphere_around_points(R[0], R[1], R[2], R[3]);
+
+			default:
+				assert(false);
+		}
+	}
+
+	auto p = P.back();
+	P.pop_back();
+
+	auto [c, r] = smallest_sphere_around_all_points(P, R);
+	assert(not std::isnan(r));
+	if (distance(c, p) <= r)
+		return { c, r };
+
+	R.emplace_back(p);
+	return smallest_sphere_around_all_points(P, R);
+}
+
+bool point_in_circle(point p, std::vector<point> c)
+{
+	switch (c.size())
+	{
+		case 0:
+			return false;
+
+		case 1:
+			return p == c.front();
+
+		case 2:
+		{
+			auto [center, radius] = smallest_sphere_around_points(c[0], c[1]);
+			return cif::distance_squared(p, center) <= radius * radius;
+		}
+
+		case 3:
+		{
+			auto [center, radius] = smallest_sphere_around_points(c[0], c[1], c[2]);
+			return cif::distance_squared(p, center) <= radius * radius;
+		}
+
+		case 4:
+		{
+			auto [center, radius] = smallest_sphere_around_points(c[0], c[1], c[2], c[3]);
+			return cif::distance_squared(p, center) <= radius * radius;
+		}
+
+		default:
+			assert(false);
+	}
+}
+
+std::tuple<point, float> smallest_sphere_around_points(std::vector<point> pts)
+{
+	std::random_device rd;
+	std::mt19937 g(rd());
+
+	std::shuffle(pts.begin(), pts.end(), g);
+
+	std::vector<size_t> cix;
+
+	auto cirle_points = [&]()
+	{
+		std::vector<point> result;
+		for (auto ix : cix)
+			result.emplace_back(pts[ix]);
+		return result;
+	};
+
+	size_t i = 0;
+	while (i < pts.size())
+	{
+		if (std::find(cix.begin(), cix.end(), i) != cix.end() or
+			point_in_circle(pts[i], cirle_points()))
+		{
+			++i;
+		}
+		else
+		{
+			cix.erase(std::remove_if(cix.begin(), cix.end(), [i](size_t j)
+									 { return j < i; }),
+				cix.end());
+			cix.push_back(i);
+			if (cix.size() < 4)
+				i = 0;
+			else
+			 	++i;
+		}
+	}
+
+	switch (cix.size())
+	{
+		case 1:
+			return { pts[cix[0]], 0 };
+		case 2:
+			return smallest_sphere_around_points(pts[cix[0]], pts[cix[1]]);
+		case 3:
+			return smallest_sphere_around_points(pts[cix[0]], pts[cix[1]], pts[cix[2]]);
+		case 4:
+			return smallest_sphere_around_points(pts[cix[0]], pts[cix[1]], pts[cix[2]], pts[cix[3]]);
+		default:
+			assert(false);
+	}
 }
 
 } // namespace cif

@@ -85,17 +85,19 @@ TEST_CASE("m4")
 		}
 	};
 
-	std::cout << m << "\n\n";
+	// std::cout << m << "\n\n";
 
-	std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 0)) << "\n\n";
-	std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 1)) << "\n\n";
-	std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 2)) << "\n\n";
-	std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 3)) << "\n\n";
+	// std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 0)) << "\n\n";
+	// std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 1)) << "\n\n";
+	// std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 2)) << "\n\n";
+	// std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 3)) << "\n\n";
 
-	std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 0))) << "\n\n";
-	std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 1))) << "\n\n";
-	std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 2))) << "\n\n";
-	std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 3))) << "\n\n";
+	// std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 0))) << "\n\n";
+	// std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 1))) << "\n\n";
+	// std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 2))) << "\n\n";
+	// std::cout << cif::determinant(cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 3))) << "\n\n";
 
 	CHECK(cif::determinant(m) == 332);
 }
+
+

@@ -30,6 +30,7 @@
 
 #include <initializer_list>
 #include <random> // for uniform_real_distribution, normal_distri...
+#include <stdexcept>
 
 namespace cif
 {
@@ -517,6 +518,7 @@ bool point_in_circle(point p, std::vector<point> c)
 
 		default:
 			assert(false);
+			throw std::runtime_error("Error finding smallest sphere");
 	}
 }
 
@@ -570,6 +572,7 @@ std::tuple<point, float> smallest_sphere_around_points(std::vector<point> pts)
 			return smallest_sphere_around_points(pts[cix[0]], pts[cix[1]], pts[cix[2]], pts[cix[3]]);
 		default:
 			assert(false);
+			throw std::runtime_error("Error finding smallest sphere");
 	}
 }
 

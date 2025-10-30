@@ -168,16 +168,6 @@ if(MSVC)
 	endforeach()
 endif()
 
-# First check if <format> is available
-find_file(FMT NAME format)
-
-if(FMT EQUAL "FMT-NOTFOUND")
-	if(NOT (fmt_FOUND OR TARGET fmt))
-		find_package(fmt REQUIRED)
-		message(FATAL_ERROR "cifpp: <format> not found and neither was libfmt, compiler too old, you're out of luck")
-	endif()
-endif()
-
 # Using fast_float for float parsing, but only if needed
 try_compile(STD_CHARCONV_COMPILING
 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-charconv.cpp)
@@ -359,10 +349,6 @@ if(NOT STD_CHARCONV_COMPILING)
 	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
 endif()
 
-if(fmt_FOUND)
-	target_link_libraries(cifpp PUBLIC fmt)
-endif()
-
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)
 endif(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
@@ -499,7 +485,6 @@ if(CIFPP_DATA_DIR AND CIFPP_DOWNLOAD_CCD)
 endif()
 
 set(CONFIG_TEMPLATE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cifpp-config.cmake.in)
-set(REQUIRE_FMT ${fmt_FOUND})
 
 configure_package_config_file(
 	${CONFIG_TEMPLATE_FILE} ${CMAKE_CURRENT_BINARY_DIR}/cifpp/cifpp-config.cmake

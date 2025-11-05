@@ -24,6 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/model.hpp"
 #include "cif++.hpp"
 
 #include <filesystem>
@@ -32,6 +33,7 @@
 #include <iomanip>
 #include <numeric>
 #include <stack>
+#include <stdexcept>
 
 namespace fs = std::filesystem;
 
@@ -2344,6 +2346,36 @@ std::string structure::create_non_poly(const std::string &entity_id, std::vector
 	});
 
 	return asym_id;
+}
+
+std::string structure::create_non_poly(const std::string &compound_id, bool skip_hydrogen)
+{
+	auto compound = cif::compound_factory::instance().create(compound_id);
+	if (compound == nullptr)
+		throw std::runtime_error(std::format("{} is not a known compound", compound_id));
+	
+	std::vector<cif::row_initializer> atoms;
+	for (auto a : compound->atoms())
+	{
+		// We skip H-atoms, as fitting without H-atoms works better and we avoid conflicts in protonation states between CCD and MONLIB
+		if (skip_hydrogen and cif::atom_type_traits(a.type_symbol).symbol() == "H")
+			continue;
+
+		auto ax = a.get_location().get_x();
+		auto ay = a.get_location().get_y();
+		auto az = a.get_location().get_z();
+
+		atoms.emplace_back(cif::row_initializer{
+			{ "type_symbol", cif::atom_type_traits(a.type_symbol).symbol() },
+			{ "label_atom_id", a.id },
+			{ "auth_atom_id", a.id },
+			{ "Cartn_x", ax },
+			{ "Cartn_y", ay },
+			{ "Cartn_z", az },
+			{ "B_iso_or_equiv", 30.00 } });
+	}
+
+	return create_non_poly(create_non_poly_entity(compound_id), atoms);
 }
 
 void structure::create_water(row_initializer atom)

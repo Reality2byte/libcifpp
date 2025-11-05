@@ -1,6 +1,7 @@
 Version 9.0.5
 - Added exists to compound_factory
 - Added sub_matrix, fix and extend determinant calculation
+- Added yet another structure::create_non_poly
 
 Version 9.0.4
 - Fix various stopping and reconstruction errors

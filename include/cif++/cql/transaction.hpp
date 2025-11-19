@@ -29,6 +29,10 @@
 #include "cif++/datablock.hpp"
 #include "cif++/item.hpp"
 #include "cif++/row.hpp"
+#include "cif++/validate.hpp"
+
+#include <stdexcept>
+#include <vector>
 
 // --------------------------------------------------------------------
 
@@ -41,15 +45,24 @@ class transaction;
 
 // --------------------------------------------------------------------
 
-class field
+class field : private cif::item_handle
 {
   public:
+	std::string_view name() const &;
+	// DDL_PrimitiveType type() const;
+
+	constexpr size_t num() const noexcept;
+
+	std::string_view text() const &
+	{
+		return cif::item_handle::text();
+	}
 
 	/** Return the contents of this item as type @tparam T */
 	template <typename T = std::string>
 	auto as() const -> T
 	{
-		return m_item.as<T>();
+		return cif::item_handle::as<T>();
 	}
 
 	/** Return the contents of this item as type @tparam T or, if not
@@ -58,11 +71,16 @@ class field
 	template <typename T>
 	auto value_or(const T &dv) const
 	{
-		return m_item.value_or(dv);
-	}    
+		return cif::item_handle::value_or(dv);
+	}
 
-  private:
-    cif::item_handle m_item;
+  protected:
+	friend class row;
+
+	field(cif::item_handle ih)
+		: cif::item_handle(ih)
+	{
+	}
 };
 
 // --------------------------------------------------------------------
@@ -70,36 +88,86 @@ class field
 class row
 {
   public:
+	row() = default;
+	row(row const &rhs) = default;
+	row(row &&rhs) = default;
+	row &operator=(row const &rhs) noexcept = default;
+	row &operator=(row &&rhs) noexcept = default;
 
+	field operator[](size_t ix) const;
 
+  protected:
+	friend class result;
 
+	row(row_handle rh, std::vector<int> cols) noexcept
+		: m_row(rh)
+		, m_cols(cols)
+	{
+	}
+
+	row_handle m_row;
+	std::vector<int> m_cols;
 };
 
 // --------------------------------------------------------------------
 
-class result
+class const_row_iterator : public row
 {
   public:
 
-    row &one_row();
+	using row::operator[];
+};
+
+class result
+{
+  public:
+	result();
+	result(result const &rhs) noexcept = default;
+	result(result &&rhs) noexcept = default;
+	result &operator=(result const &rhs) noexcept = default;
+	result &operator=(result &&rhs) noexcept = default;
+
+	row one_row() const;
+	field one_field() const;
+
+	size_t size() const;
+
+	size_t columns() const;
+
+
 
 
   private:
-    friend class transaction;
+	friend class transaction;
+	friend class SelectStatement;
 
-    result();
+	result(std::string query,
+		std::vector<row_handle> rows, std::vector<int> columns);
 
+	result expect_columns(size_t cols) const
+	{
+		if (auto actual = columns(); cols != actual)
+			throw std::runtime_error("Unexpected number of columns");
+		return *this;
+	}
+
+	std::shared_ptr<struct result_impl> m_impl;
 };
-
 
 // --------------------------------------------------------------------
 
 class transaction
 {
   public:
-    transaction(const datablock &db);
+	transaction(const datablock &db)
+		: m_db(const_cast<datablock &>(db))
+	{
+	}
 
-    result exec(std::string_view query);
+	result exec(std::string_view query);
+
+  private:
+	datablock &m_db;
 };
 
-}
+} // namespace cif::cql

@@ -218,10 +218,6 @@ else()
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
 
-# Create a revision file, containing the current git version info
-include(VersionString)
-write_version_header(${CMAKE_CURRENT_SOURCE_DIR}/src/ LIB_NAME "LibCIFPP")
-
 # SymOp data table
 if(CIFPP_RECREATE_SYMOP_DATA)
 	# The tool to create the table
@@ -303,6 +299,10 @@ set(project_headers
 
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
+
+# Create a revision file, containing the current git version info
+include(VersionString)
+add_version_header(cifpp "${CMAKE_CURRENT_SOURCE_DIR}/src/revision.hpp" LIB_NAME "LibCIFPP")
 
 if(TARGET my-eigen3)
 	add_dependencies(cifpp my-eigen3)

@@ -30,7 +30,9 @@
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <format>
 #include <functional>
+#include <optional>
 #include <valarray>
 
 #if __has_include(<clipper/core/coords.h>)
@@ -365,9 +367,16 @@ class quaternion_type
 	}
 
 	/// \brief test for all zero values
-	constexpr operator bool() const
+	constexpr explicit operator bool() const
 	{
 		return a != 0 or b != 0 or c != 0 or d != 0;
+	}
+
+	/// \brief for debugging e.g.
+	friend std::ostream &operator<<(std::ostream &os, const quaternion_type &rhs)
+	{
+		os << std::format("{{ a: {}, b: {}, c: {}, d: {} }}", rhs.a, rhs.b, rhs.c, rhs.d);
+		return os;
 	}
 
   private:
@@ -743,6 +752,55 @@ inline constexpr auto cross_product(const point_type<F1> &a, const point_type<F2
 		a.m_x * b.m_y - b.m_x * a.m_y);
 }
 
+/// \brief return the squared norm of point @a p
+template <typename F>
+constexpr F norm_squared(const point_type<F> &p)
+{
+	return p.m_x * p.m_x + p.m_y * p.m_y + p.m_z * p.m_z;
+}
+
+/// \brief return the norm of point @a p
+template <typename F>
+constexpr point_type<F> norm(const point_type<F> &p)
+{
+	return std::sqrt(norm_squared(p));
+}
+
+/// \brief return the point where two lines intersect, or an empty value if they don't intersect at all
+template <typename F>
+std::optional<cif::point> line_line_intersection(const point_type<F> &p1,
+	const point_type<F> &p2, const point_type<F> &p3, const point_type<F> &p4)
+{
+	auto p13 = p1 - p3;
+	auto p43 = p4 - p3;
+	if (std::abs(p43.m_x) < std::numeric_limits<F>::epsilon() and std::abs(p43.m_y) < std::numeric_limits<F>::epsilon() and std::abs(p43.m_z) < std::numeric_limits<F>::epsilon())
+		return {};
+
+	auto p21 = p2 - p1;
+	if (std::abs(p21.m_x) < std::numeric_limits<F>::epsilon() and std::abs(p21.m_y) < std::numeric_limits<F>::epsilon() and std::abs(p21.m_z) < std::numeric_limits<F>::epsilon())
+		return {};
+
+	auto d1343 = cif::dot_product(p43, p13);
+	auto d4321 = cif::dot_product(p43, p21);
+	auto d1321 = cif::dot_product(p13, p21);
+	auto d4343 = cif::dot_product(p43, p43);
+	auto d2121 = cif::dot_product(p21, p21);
+
+	auto denom = d2121 * d4343 - d4321 * d4321;
+	if (std::abs(denom) < std::numeric_limits<F>::epsilon())
+		return {};
+
+	auto numer = d1343 * d4321 - d1321 * d4343;
+
+	auto mua = numer / denom;
+	auto mub = (d1343 + d4321 * mua) / d4343;
+
+	auto pa = p1 + mua * p21;
+	auto pb = p3 + mub * p43;
+
+	return { (pa + pb) / 2 };
+}
+
 /// \brief return the angle in degrees between the vectors from point @a p2 to @a p1 and @a p2 to @a p3
 template <typename F>
 constexpr auto angle(const point_type<F> &p1, const point_type<F> &p2, const point_type<F> &p3)
@@ -805,6 +863,9 @@ constexpr auto distance_point_to_line(const point_type<F> &l1, const point_type<
 	auto cross = cross_product(p_to_l1, p_to_l2);
 	return cross.length() / line.length();
 }
+
+/// \brief return the smallest sphere around the points in @a pts
+std::tuple<point, float> smallest_sphere_around_points(std::vector<point> pts);
 
 // --------------------------------------------------------------------
 /**

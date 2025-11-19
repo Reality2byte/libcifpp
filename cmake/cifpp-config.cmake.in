@@ -8,8 +8,5 @@ include(CMakeFindDependencyMacro)
 
 find_dependency(Threads)
 find_dependency(ZLIB REQUIRED)
-if(@REQUIRE_FMT@)
-    find_dependency(fmt REQUIRED)
-endif()
 
 check_required_components(cifpp)

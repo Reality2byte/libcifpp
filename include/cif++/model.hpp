@@ -29,6 +29,7 @@
 #include "cif++/atom_type.hpp"
 #include "cif++/datablock.hpp"
 #include "cif++/point.hpp"
+#include "cif++/row.hpp"
 
 #include <memory>
 #include <numeric>
@@ -134,14 +135,20 @@ class atom
 
 		row_handle row_aniso()
 		{
+			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
-			return cat ? cat->operator[]({ { "id", m_id } }) : row_handle{};
+			if (cat)
+				result = cat->operator[]({ { "id", m_id } });
+			return result;
 		}
 
 		const row_handle row_aniso() const
 		{
+			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
-			return cat ? cat->operator[]({ { "id", m_id } }) : row_handle{};
+			if (cat)
+				result = cat->operator[]({ { "id", m_id } });
+			return result;
 		}
 
 		const datablock &m_db;
@@ -1058,6 +1065,14 @@ class structure
 	/// \param atoms		The array of sets of item data containing the data for the atoms.
 	/// \return				The newly create asym ID
 	std::string create_non_poly(const std::string &entity_id, std::vector<row_initializer> atoms);
+
+	/// \brief Create a new NonPolymer struct_asym for a compound of type \a compound_id, returns asym_id.
+	/// This method creates new atom records filled with info from the CCD compound info.
+	///
+	/// \param compound_id	 The compound ID of the new nonpoly
+	/// \param skip_hydrogen Do not create hydrogen atoms when true
+	/// \return				 The newly create asym ID
+	std::string create_non_poly(const std::string &compound_id, bool skip_hydrogen);
 
 	/// \brief Create a new water with atom constructed from info in \a atom_info
 	/// This method creates a new atom record filled with info from the info.

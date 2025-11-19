@@ -32,7 +32,7 @@ endif()
 # set the project name
 project(
 	libcifpp
-	VERSION 9.0.4
+	VERSION 9.0.5
 	LANGUAGES CXX C)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
@@ -168,19 +168,9 @@ if(MSVC)
 	endforeach()
 endif()
 
-# First check if <format> is available
-find_file(FMT NAME format)
-
-if(FMT EQUAL "FMT-NOTFOUND")
-	if(NOT (fmt_FOUND OR TARGET fmt))
-		find_package(fmt REQUIRED)
-		message(FATAL_ERROR "cifpp: <format> not found and neither was libfmt, compiler too old, you're out of luck")
-	endif()
-endif()
-
 # Using fast_float for float parsing, but only if needed
-# try_compile(STD_CHARCONV_COMPILING
-# 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-charconv.cpp)
+try_compile(STD_CHARCONV_COMPILING
+	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-charconv.cpp)
 
 if(NOT STD_CHARCONV_COMPILING)
 	message(NOTICE "libcifpp: Using fast_float for std::from_chars")
@@ -227,10 +217,6 @@ else()
 	ExternalProject_Get_Property(my-eigen3 SOURCE_DIR)
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
-
-# Create a revision file, containing the current git version info
-include(VersionString)
-write_version_header(${CMAKE_CURRENT_SOURCE_DIR}/src/ LIB_NAME "LibCIFPP")
 
 # SymOp data table
 if(CIFPP_RECREATE_SYMOP_DATA)
@@ -314,6 +300,10 @@ set(project_headers
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
 
+# Create a revision file, containing the current git version info
+include(VersionString)
+add_version_header(cifpp "${CMAKE_CURRENT_SOURCE_DIR}/src/revision.hpp" LIB_NAME "LibCIFPP")
+
 if(TARGET my-eigen3)
 	add_dependencies(cifpp my-eigen3)
 endif()
@@ -357,10 +347,6 @@ endif()
 
 if(NOT STD_CHARCONV_COMPILING)
 	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
-endif()
-
-if(fmt_FOUND)
-	target_link_libraries(cifpp PUBLIC fmt)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
@@ -499,7 +485,6 @@ if(CIFPP_DATA_DIR AND CIFPP_DOWNLOAD_CCD)
 endif()
 
 set(CONFIG_TEMPLATE_FILE ${CMAKE_CURRENT_SOURCE_DIR}/cmake/cifpp-config.cmake.in)
-set(REQUIRE_FMT ${fmt_FOUND})
 
 configure_package_config_file(
 	${CONFIG_TEMPLATE_FILE} ${CMAKE_CURRENT_BINARY_DIR}/cifpp/cifpp-config.cmake

@@ -124,6 +124,23 @@ class matrix_expression
 
 		return os;
 	}
+
+	template <typename M2>
+	constexpr bool operator==(const matrix_expression<M2> &m) const
+	{
+		bool same = false;
+		if (dim_m() == m.dim_m() and dim_n() == m.dim_n())
+		{
+			same = true;
+			for (std::size_t i = 0; same and i < m.dim_m(); ++i)
+			{
+				for (std::size_t j = 0; same and j < m.dim_n(); ++j)
+					same = operator()(i, j) == m(i, j);
+			}
+		}
+
+		return same;
+	}
 };
 
 // --------------------------------------------------------------------
@@ -594,6 +611,35 @@ auto operator*(const matrix_expression<M1> &m1, const matrix_expression<M2> &m2)
 
 // --------------------------------------------------------------------
 
+template <typename M2>
+class sub_matrix : public matrix_expression<sub_matrix<M2>>
+{
+  public:
+	sub_matrix(const M2 &m, int i, int j)
+		: m_m(m)
+		, m_i(i)
+		, m_j(j)
+	{
+	}
+
+	constexpr std::size_t dim_m() const { return m_m.dim_m() - 1; } ///< Return dimension m
+	constexpr std::size_t dim_n() const { return m_m.dim_n() - 1; } ///< Return dimension n
+
+	/** Access to the value of element [ @a i, @a j ] */
+	constexpr auto operator()(std::size_t i, std::size_t j) const
+	{
+		return m_m(
+			i >= m_i ? i + 1 : i,
+			j >= m_j ? j + 1 : j);
+	}
+
+  private:
+	const M2 &m_m;
+	std::size_t m_i, m_j;
+};
+
+// --------------------------------------------------------------------
+
 /** Generic routine to calculate the determinant of a matrix
  * 
  * @note This is currently only implemented for fixed matrices of size 3x3
@@ -605,10 +651,22 @@ auto determinant(const M &m);
 template <typename F = float>
 auto determinant(const matrix3x3<F> &m)
 {
-	return (m(0, 0) * (m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1)) +
-			m(0, 1) * (m(1, 2) * m(2, 0) - m(1, 0) * m(2, 2)) +
-			m(0, 2) * (m(1, 0) * m(2, 1) - m(1, 1) * m(2, 0)));
+	return (m(0, 0) * ((m(1, 1) * m(2, 2) - m(1, 2) * m(2, 1))) +
+			m(0, 1) * ((m(1, 2) * m(2, 0) - m(1, 0) * m(2, 2))) +
+			m(0, 2) * ((m(1, 0) * m(2, 1) - m(1, 1) * m(2, 0))));
 }
+
+/** Implementation of the determinant function for fixed size matrices of size 4x4 */
+template <typename F = float>
+F determinant(const matrix4x4<F> &m)
+{
+	return m(0, 0) * determinant(matrix3x3<F>(sub_matrix<decltype(m)>(m, 0, 0))) -
+	       m(0, 1) * determinant(matrix3x3<F>(sub_matrix<decltype(m)>(m, 0, 1))) +
+	       m(0, 2) * determinant(matrix3x3<F>(sub_matrix<decltype(m)>(m, 0, 2))) -
+	       m(0, 3) * determinant(matrix3x3<F>(sub_matrix<decltype(m)>(m, 0, 3)));
+}
+
+// --------------------------------------------------------------------
 
 /** Generic routine to calculate the inverse of a matrix
  * 

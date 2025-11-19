@@ -43,7 +43,7 @@ namespace cif
 
 /**
  * @brief A datablock is a list of category objects with some additional features
- * 
+ *
  */
 
 class datablock : public std::list<category>
@@ -53,7 +53,7 @@ class datablock : public std::list<category>
 
 	/**
 	 * @brief Construct a new datablock object with name @a name
-	 * 
+	 *
 	 * @param name The name for the new datablock
 	 */
 	datablock(std::string_view name)
@@ -80,7 +80,7 @@ class datablock : public std::list<category>
 	{
 		std::swap(a.m_name, b.m_name);
 		std::swap(a.m_validator, b.m_validator);
-		std::swap(static_cast<std::list<category>&>(a), static_cast<std::list<category>&>(b));
+		std::swap(static_cast<std::list<category> &>(a), static_cast<std::list<category> &>(b));
 	}
 
 	// --------------------------------------------------------------------
@@ -92,7 +92,7 @@ class datablock : public std::list<category>
 
 	/**
 	 * @brief Set the name of this datablock to @a name
-	 * 
+	 *
 	 * @param name The new name
 	 */
 	void set_name(std::string_view name)
@@ -102,27 +102,27 @@ class datablock : public std::list<category>
 
 	/**
 	 * @brief Attempt to load the dictionary specified in audit_conform category
-	 * 
+	 *
 	 */
 	void load_dictionary();
 
 	/**
 	 * @brief Set the validator object to @a v
-	 * 
+	 *
 	 * @param v The new validator object, may be null
 	 */
 	void set_validator(const validator *v);
 
 	/**
 	 * @brief Get the validator object
-	 * 
+	 *
 	 * @return const validator* The validator or nullptr if there is none
 	 */
 	const validator *get_validator() const;
 
 	/**
 	 * @brief Validates the content of this datablock and all its content
-	 * 
+	 *
 	 * @return true If the content is valid
 	 * @return false If the content is not valid
 	 */
@@ -131,7 +131,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Validates all contained data for valid links between parents and children
 	 * as defined in the validator
-	 * 
+	 *
 	 * @return true If all links are valid
 	 * @return false If all links are not valid
 	 */
@@ -140,7 +140,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Strip removes all categories and items that are invalid according
 	 * to the assigned validator. Will also add a valid audit_conform block.
-	 * 
+	 *
 	 * @return true if the remaining datablock is valid
 	 */
 	bool strip();
@@ -150,7 +150,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Return the category named @a name, will create a new and empty
 	 * category named @a name if it does not exist.
-	 * 
+	 *
 	 * @param name The name of the category to return
 	 * @return category& Reference to the named category
 	 */
@@ -159,7 +159,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Return the const category named @a name, will return a reference
 	 * to a static empty category if it was not found.
-	 * 
+	 *
 	 * @param name The name of the category to return
 	 * @return category& Reference to the named category
 	 */
@@ -168,7 +168,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Return a pointer to the category named @a name or nullptr if
 	 * it does not exist.
-	 * 
+	 *
 	 * @param name The name of the category
 	 * @return category* Pointer to the category found or nullptr
 	 */
@@ -177,12 +177,11 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Return a pointer to the category named @a name or nullptr if
 	 * it does not exist.
-	 * 
+	 *
 	 * @param name The name of the category
 	 * @return category* Pointer to the category found or nullptr
 	 */
 	const category *get(std::string_view name) const;
-
 
 	/**
 	 * @brief Return true if this datablock contains a non-empty category
@@ -197,7 +196,7 @@ class datablock : public std::list<category>
 	 * new one if it is not found. The result is a tuple of an iterator
 	 * pointing to the category and a boolean indicating whether the category
 	 * was created or not.
-	 * 
+	 *
 	 * @param name The name for the category
 	 * @return std::tuple<iterator, bool> A tuple containing an iterator pointing
 	 * at the category and a boolean indicating whether the category was newly

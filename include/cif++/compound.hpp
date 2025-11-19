@@ -179,7 +179,7 @@ class compound
 	friend class compound_factory_impl;
 	friend class local_compound_factory_impl;
 
-	compound(cif::datablock &db);
+	compound(datablock &db);
 
 	std::string m_id;
 	std::string m_name;
@@ -270,10 +270,14 @@ class compound_factory
 		return is_std_base(res_name) or is_std_peptide(res_name);
 	}
 
+	/// Return whether @a res_name is water
 	bool is_water(std::string_view res_name) const
 	{
 		return res_name == "HOH" or res_name == "H2O" or res_name == "WAT";
 	}
+
+	/// Return whether @a res_name already exists, without creating it.
+	bool exists(std::string_view res_name) const;
 
 	/// \brief Create the compound object for \a id
 	///
@@ -331,14 +335,14 @@ class compound_factory
 class compound_source
 {
   public:
-	compound_source(const cif::file &file)
+	compound_source(const file &file)
 	{
-		cif::compound_factory::instance().push_dictionary(file);
+		compound_factory::instance().push_dictionary(file);
 	}
 
 	~compound_source()
 	{
-		cif::compound_factory::instance().pop_dictionary();
+		compound_factory::instance().pop_dictionary();
 	}
 };
 

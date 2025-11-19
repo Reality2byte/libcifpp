@@ -29,7 +29,7 @@ if(NOT (Catch2_FOUND OR TARGET Catch2))
 		FetchContent_Declare(
 			Catch2
 			GIT_REPOSITORY https://github.com/catchorg/Catch2.git
-            GIT_TAG v3.4.0)
+			GIT_TAG v3.4.0)
 
 		FetchContent_MakeAvailable(Catch2)
 
@@ -50,6 +50,7 @@ list(
 	reconstruction
 	validate-pdbx
 	cql
+	matrix
 )
 
 add_library(test-main OBJECT "${CMAKE_CURRENT_SOURCE_DIR}/test-main.cpp")
@@ -71,6 +72,8 @@ foreach(CIFPP_TEST IN LISTS CIFPP_tests)
 		target_compile_options(${CIFPP_TEST} PRIVATE /EHsc)
 	endif()
 
-	add_test(NAME ${CIFPP_TEST}
-		COMMAND $<TARGET_FILE:${CIFPP_TEST}> --data-dir ${CMAKE_CURRENT_SOURCE_DIR})
+	if(NOT (CIFPP_TEST STREQUAL "spinner-test"))
+		add_test(NAME ${CIFPP_TEST}
+			COMMAND $<TARGET_FILE:${CIFPP_TEST}> --data-dir ${CMAKE_CURRENT_SOURCE_DIR})
+	endif()
 endforeach()

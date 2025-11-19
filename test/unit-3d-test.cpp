@@ -24,15 +24,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/point.hpp"
 #include "test-main.hpp"
 
+#include <catch2/catch_test_macros.hpp>
+#include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <cif++.hpp>
 #include <stdexcept>
 
-#include <cif++.hpp>
-
 #if defined(_MSC_VER)
-#pragma warning (disable : 5054)	// warning C5054: operator '&': deprecated between enumerations of different types
-#pragma warning (disable : 4127)	// conditional expression is constant
+# pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types
+# pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
 #include <Eigen/Eigenvalues>
@@ -315,8 +317,7 @@ TEST_CASE("m2q_0a")
 		cif::point p2 = p1;
 		p2.rotate(q);
 
-		cif::matrix3x3<float> rot_c({
-			static_cast<float>(d[0]),
+		cif::matrix3x3<float> rot_c({ static_cast<float>(d[0]),
 			static_cast<float>(d[1]),
 			static_cast<float>(d[2]),
 			static_cast<float>(d[3]),
@@ -324,8 +325,7 @@ TEST_CASE("m2q_0a")
 			static_cast<float>(d[5]),
 			static_cast<float>(d[6]),
 			static_cast<float>(d[7]),
-			static_cast<float>(d[8])
-		});
+			static_cast<float>(d[8]) });
 
 		cif::point p3 = rot_c * p1;
 
@@ -609,4 +609,41 @@ TEST_CASE("volume_3bwh_1")
 	cif::crystal c(db);
 
 	CHECK_THAT(c.get_cell().get_volume(), Catch::Matchers::WithinRel(741009.625f, 0.01f));
+}
+
+// --------------------------------------------------------------------
+
+TEST_CASE("smallest_sphere-1")
+{
+	std::vector<cif::point> pts{
+		{ 0.9295, 4.9006, 46.9706 },
+		{ -0.1215, 5.5936, 46.0726 },
+		{ -0.7975, 4.7046, 45.0796 },
+		{ -1.4875, 3.5486, 45.7196 },
+		{ -0.6535, 2.8816, 46.8186 },
+		{ 0.3825, 3.5156, 47.4496 },
+		{ 1.1995, 2.9206, 48.5286 },
+		{ 0.8255, 2.0466, 49.4716 },
+		{ 1.6625, 1.5036, 50.5176 },
+		{ 1.1165, 0.6056, 51.3626 },
+		{ 1.8325, -0.0064, 52.4656 },
+		{ 1.1945, -0.9044, 53.2216 },
+		{ 1.8135, -1.5534, 54.3566 },
+		{ 1.0925, -2.4574, 55.0656 },
+		{ 1.5205, -3.2204, 56.2476 },
+		{ 1.1955, 5.8066, 48.1796 },
+		{ 2.2495, 4.6896, 46.1796 },
+		{ -1.2515, 1.5186, 47.1786 },
+		{ 3.1385, 1.9106, 50.6166 },
+		{ 3.2605, -1.1834, 54.7206 },
+		{ 2.5975, -3.8554, 56.2096 },
+		{ 0.7975, -3.2184, 57.2686 }
+	};
+
+	for (int i = 0; i < 1000; ++i)
+	{
+		auto [c, r] = cif::smallest_sphere_around_points(pts);
+		CHECK_THAT(cif::distance(c, cif::point{ 0, 0.743099928, 51.1741028 }), Catch::Matchers::WithinAbs(0.f, 0.01f));
+		CHECK_THAT(r, Catch::Matchers::WithinAbs(7.31248331f, 0.01f));
+	}
 }

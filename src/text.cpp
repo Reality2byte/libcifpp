@@ -28,11 +28,11 @@
 
 #include <algorithm>
 #include <cassert>
+#include <charconv>
 
 #if __has_include("fast_float/fast_float.h")
 #include "fast_float/fast_float.h"
 #endif
-
 
 namespace cif
 {
@@ -519,19 +519,29 @@ std::vector<std::string> word_wrap(const std::string &text, std::size_t width)
 
 #if __has_include("fast_float/fast_float.h")
 
-template<>
-std::from_chars_result ff_charconv<float>::from_chars(const char *a, const char *b, float &v)
+template <typename T>
+std::from_chars_result ff_charconv<T, typename std::enable_if_t<std::is_floating_point_v<T>>>::from_chars(const char *a, const char *b, T &v)
 {
 	auto r = fast_float::from_chars(a, b, v);
 	return { r.ptr, r.ec };
 }
 
-template<>
-std::from_chars_result ff_charconv<double>::from_chars(const char *a, const char *b, double &v)
-{
-	auto r = fast_float::from_chars(a, b, v);
-	return { r.ptr, r.ec };
-}
+template struct ff_charconv<float>;
+template struct ff_charconv<double>;
+// template struct ff_charconv<long double>;
+
+#ifdef __STDCPP_FLOAT64_T__
+template struct ff_charconv<std::float64_t>;
+#endif
+#ifdef __STDCPP_FLOAT32_T__
+template struct ff_charconv<std::float32_t>;
+#endif
+#ifdef __STDCPP_FLOAT16_T__
+template struct ff_charconv<std::float16_t>;
+#endif
+#ifdef __STDCPP_BFLOAT16_T__
+template struct ff_charconv<std::bfloat16_t>;
+#endif
 
 #endif
 

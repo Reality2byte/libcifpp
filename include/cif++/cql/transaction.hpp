@@ -45,24 +45,27 @@ class transaction;
 
 // --------------------------------------------------------------------
 
-class field : private cif::item_handle
+class field_ref
 {
   public:
 	std::string_view name() const &;
 	// DDL_PrimitiveType type() const;
 
-	constexpr size_t num() const noexcept;
+	constexpr size_t num() const noexcept
+	{
+		return m_index;
+	}
 
 	std::string_view text() const &
 	{
-		return cif::item_handle::text();
+		return m_row[m_index].text();
 	}
 
 	/** Return the contents of this item as type @tparam T */
 	template <typename T = std::string>
 	auto as() const -> T
 	{
-		return cif::item_handle::as<T>();
+		return m_row[m_index].as<T>();
 	}
 
 	/** Return the contents of this item as type @tparam T or, if not
@@ -71,75 +74,245 @@ class field : private cif::item_handle
 	template <typename T>
 	auto value_or(const T &dv) const
 	{
-		return cif::item_handle::value_or(dv);
+		return m_row[m_index].value_or(dv);
 	}
 
-  protected:
-	friend class row;
-
-	field(cif::item_handle ih)
-		: cif::item_handle(ih)
-	{
-	}
-};
-
-// --------------------------------------------------------------------
-
-class row
-{
-  public:
-	row() = default;
-	row(row const &rhs) = default;
-	row(row &&rhs) = default;
-	row &operator=(row const &rhs) noexcept = default;
-	row &operator=(row &&rhs) noexcept = default;
-
-	field operator[](size_t ix) const;
-
-  protected:
-	friend class result;
-
-	row(row_handle rh, std::vector<int> cols) noexcept
+	field_ref(row_handle rh, size_t index)
 		: m_row(rh)
-		, m_cols(cols)
+		, m_index(index)
 	{
 	}
 
+	field_ref(const field_ref &) = default;
+	field_ref(field_ref &&) = default;
+
+	field_ref &operator=(const field_ref &) = default;
+	field_ref &operator=(field_ref &&) = default;
+
+  private:
 	row_handle m_row;
-	std::vector<int> m_cols;
+	size_t m_index = 0;
 };
 
 // --------------------------------------------------------------------
 
-class const_row_iterator : public row
+class row_ref final
 {
   public:
+	class const_field_iterator
+	{
+	  public:
+		friend class result;
 
-	using row::operator[];
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = const field_ref;
+		using difference_type = std::ptrdiff_t;
+		using pointer = value_type *;
+		using reference = value_type &;
+
+		const_field_iterator(const const_field_iterator &) = default;
+		const_field_iterator(const_field_iterator &&) = default;
+
+		const_field_iterator &operator=(const const_field_iterator &) = default;
+		const_field_iterator &operator=(const_field_iterator &&) = default;
+
+		reference operator*()
+		{
+			return m_current;
+		}
+
+		pointer operator->()
+		{
+			return &m_current;
+		}
+
+		const_field_iterator &operator++()
+		{
+			if (m_row)
+			{
+				++m_index;
+				m_current = field_ref(m_row, m_index);
+			}
+
+			return *this;
+		}
+
+		const_field_iterator operator++(int)
+		{
+			const_field_iterator result(*this);
+			this->operator++();
+			return result;
+		}
+
+		bool operator==(const const_field_iterator &rhs) const
+		{
+			return m_row == rhs.m_row and m_index == rhs.m_index;
+		}
+
+		bool operator!=(const const_field_iterator &rhs) const
+		{
+			return m_row != rhs.m_row or m_index != rhs.m_index;
+		}
+
+	  private:
+		friend class row_ref;
+
+		const_field_iterator(const row_handle &row, std::vector<int> field_indices, size_t index = 0)
+			: m_row(row)
+			, m_field_indices(field_indices)
+			, m_index(index)
+			, m_current(m_row, m_field_indices[m_index])
+		{
+		}
+
+		row_handle m_row;
+		std::vector<int> m_field_indices;
+		size_t m_index = 0;
+		field_ref m_current;
+	};
+
+	// --------------------------------------------------------------------
+
+	row_ref(row_handle rh, const std::vector<int> &cols)
+		: m_row(rh)
+		, m_cols(&cols)
+	{
+	}
+
+	row_ref(const row_ref &) = default;
+	row_ref &operator=(const row_ref &) = default;
+
+	// --------------------------------------------------------------------
+
+	const_field_iterator cbegin() const noexcept { return const_field_iterator(m_row, *m_cols, m_cols->front()); }
+	const_field_iterator begin() const noexcept { return const_field_iterator(m_row, *m_cols, m_cols->front()); }
+	const_field_iterator cend() const noexcept { return const_field_iterator(m_row, *m_cols, m_cols->back()); }
+	const_field_iterator end() const noexcept { return const_field_iterator(m_row, *m_cols, m_cols->back()); }
+
+	field_ref front() const noexcept { return field_ref(m_row, m_cols->front()); }
+	field_ref back() const noexcept { return field_ref(m_row, m_cols->back()); }
+
+	size_t size() const noexcept { return m_cols->size(); }
+	bool empty() const noexcept { return m_cols->empty(); }
+
+	field_ref operator[](size_t index) const noexcept;
+	field_ref operator[](std::string_view name) const noexcept;
+
+	// --------------------------------------------------------------------
+
+	bool operator==(const row_ref &rhs) const { return m_row == rhs.m_row and m_cols == rhs.m_cols; }
+	bool operator!=(const row_ref &rhs) const { return m_row != rhs.m_row or m_cols != rhs.m_cols; }
+
+  private:
+    row_handle m_row;
+	const std::vector<int> *m_cols;
 };
+
+// --------------------------------------------------------------------
 
 class result
 {
   public:
+	// --------------------------------------------------------------------
+
+	class const_row_iterator
+	{
+	  public:
+		friend class result;
+
+		using iterator_category = std::forward_iterator_tag;
+		using value_type = const row_ref;
+		using difference_type = std::ptrdiff_t;
+		using pointer = value_type *;
+		using reference = value_type &;
+
+		const_row_iterator() = default;
+
+		const_row_iterator(const const_row_iterator &) = default;
+		const_row_iterator(const_row_iterator &&) = default;
+
+		const_row_iterator &operator=(const const_row_iterator &) = default;
+		const_row_iterator &operator=(const_row_iterator &&) = default;
+
+		reference operator*()
+		{
+			return m_current;
+		}
+
+		pointer operator->()
+		{
+			return &m_current;
+		}
+
+		const_row_iterator &operator++()
+		{
+			++m_index;
+			if (m_index < m_result.m_rows.size())
+				m_current = row_ref(m_result.m_rows[m_index], m_result.m_columns);
+			return *this;
+		}
+
+		const_row_iterator operator++(int)
+		{
+			const_row_iterator result(*this);
+			this->operator++();
+			return result;
+		}
+
+		bool operator==(const const_row_iterator &rhs) const
+		{
+			return &m_result == &rhs.m_result and m_index == rhs.m_index;
+		}
+
+		bool operator!=(const const_row_iterator &rhs) const
+		{
+			return &m_result != &rhs.m_result or m_index != rhs.m_index;
+		}
+
+	  private:
+		const_row_iterator(const result &result, size_t index = 0)
+			: m_result(result)
+			, m_index(index)
+			, m_current(index < m_result.m_rows.size() ? m_result.m_rows[index] : row_handle{}, m_result.m_columns)
+		{
+		}
+
+		const result &m_result;
+		size_t m_index = 0;
+		row_ref m_current;
+	};
+
+	// --------------------------------------------------------------------
+
 	result();
 	result(result const &rhs) noexcept = default;
 	result(result &&rhs) noexcept = default;
 	result &operator=(result const &rhs) noexcept = default;
 	result &operator=(result &&rhs) noexcept = default;
 
-	row one_row() const;
-	field one_field() const;
+	row_ref one_row() const;
+	field_ref one_field() const;
 
-	size_t size() const;
+	// --------------------------------------------------------------------
+
+	const_row_iterator begin() const noexcept { return const_row_iterator(*this, 0); }
+	const_row_iterator cbegin() const noexcept { return const_row_iterator(*this, 0); }
+	
+	const_row_iterator end() const noexcept { return const_row_iterator(*this, size()); }
+	const_row_iterator cend() const noexcept { return const_row_iterator(*this, size()); }
+
+	row_ref front() const noexcept { return row_ref(m_rows.front(), m_columns); }
+	row_ref back() const noexcept { return row_ref(m_rows.back(), m_columns); }
+
+	size_t size() const noexcept { return m_rows.size(); }
+	bool empty() const noexcept { return m_rows.empty(); }
 
 	size_t columns() const;
-
-
-
 
   private:
 	friend class transaction;
 	friend class SelectStatement;
+	friend class const_row_iterator;
 
 	result(std::string query,
 		std::vector<row_handle> rows, std::vector<int> columns);
@@ -151,7 +324,11 @@ class result
 		return *this;
 	}
 
-	std::shared_ptr<struct result_impl> m_impl;
+	row_ref at(size_t index) const;
+
+	std::vector<row_handle> m_rows;
+	std::vector<int> m_columns;
+	std::string m_query;
 };
 
 // --------------------------------------------------------------------
@@ -170,4 +347,4 @@ class transaction
 	datablock &m_db;
 };
 
-} // namespace cif::cql
+} // namespace cql

@@ -35,45 +35,58 @@ namespace cif::cql
 
 // --------------------------------------------------------------------
 
-field row::operator[](size_t ix) const
+std::string_view field_ref::name() const &
 {
-	return field(m_row.operator[](m_cols[ix]));
+	return m_row ? m_row.get_category().get_item_name(m_index) : "";
 }
 
 // --------------------------------------------------------------------
 
-struct result_impl
+field_ref row_ref::operator[](size_t ix) const noexcept
 {
-	std::vector<row_handle> m_rows;
-	std::vector<int> m_columns;
-	std::string m_query;
-};
+	return field_ref(m_row, ix < m_cols->size() ? m_cols->at(ix) : 0);
+}
+
+field_ref row_ref::operator[](std::string_view name) const noexcept
+{
+	if (m_row)
+	{
+		auto &cat = m_row.get_category();
+
+		for (auto col : *m_cols)
+		{
+			if (cat.get_item_name(col) == name)
+				return field_ref(m_row, col);
+		}
+	}
+
+	return field_ref(m_row, 0);
+}
+
+// --------------------------------------------------------------------
 
 result::result(std::string query, std::vector<row_handle> rows, std::vector<int> columns)
-	: m_impl(new result_impl{ std::move(rows), std::move(columns), std::move(query) })
+	: m_rows(rows)
+	, m_columns(columns)
+	, m_query(query)
 {
 }
 
 size_t result::columns() const
 {
-	return m_impl->m_columns.size();
+	return m_columns.size();
 }
 
-size_t result::size() const
-{
-	return m_impl->m_rows.size();
-}
-
-row result::one_row() const
+row_ref result::one_row() const
 {
 	if (auto sz = size(); sz != 1)
 		throw std::runtime_error("Unexpected number of rows");
 
-	return row(m_impl->m_rows[0], m_impl->m_columns);
+	return row_ref(m_rows[0], m_columns);
 	// return front();
 }
 
-field result::one_field() const
+field_ref result::one_field() const
 {
 	expect_columns(1);
 	return one_row()[0];
@@ -486,6 +499,9 @@ Parser::Token Parser::GetNextToken()
 				{
 					case 0:
 						token = Token::EOLN;
+						break;
+					case '*':
+						token = Token::ASTERISK;
 						break;
 					case '(':
 						token = Token::BRACE_OPEN;

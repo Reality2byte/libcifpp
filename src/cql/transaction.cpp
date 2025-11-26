@@ -25,8 +25,12 @@
  */
 
 #include "cif++/cql/transaction.hpp"
+#include "cif++/category.hpp"
 #include "cif++/row.hpp"
 
+#include <algorithm>
+#include <iterator>
+#include <numeric>
 #include <stdexcept>
 #include <unordered_set>
 
@@ -64,6 +68,12 @@ field_ref row_ref::operator[](std::string_view name) const noexcept
 }
 
 // --------------------------------------------------------------------
+
+result::result(std::vector<row_handle> rows, std::vector<int> columns)
+	: m_rows(rows)
+	, m_columns(columns)
+{
+}
 
 result::result(std::string query, std::vector<row_handle> rows, std::vector<int> columns)
 	: m_rows(rows)
@@ -159,57 +169,89 @@ class Statement
 // 	std::vector<StatementPtr> mStatements;
 // };
 
-// -----------------------------------------------------------------------
+// --------------------------------------------------------------------
 
-class SelectStatement : public Statement
+class FromStatement : public Statement
 {
   public:
-	SelectStatement(cif::category &category, bool distinct, std::vector<std::string> &&items, cif::condition &&where)
-		: mCategory(category)
-		, mDistinct(distinct)
-		, mItems(std::move(items))
-		, mWhere(std::move(where))
-	{
-	}
+	FromStatement(cif::category);
 
 	virtual result Execute()
 	{
-		std::vector<std::string> fields(mItems.size());
-		std::unordered_set<std::string> seen;
-
 		std::vector<row_handle> rows;
+		std::copy(mCategory.begin(), mCategory.end(), std::back_inserter(rows));
 
-		// TODO: optimise this code please... duh
-		for (auto r : mCategory.find(std::move(mWhere)))
-		{
-			transform(mItems.begin(), mItems.end(), fields.begin(),
-				[r](auto item)
-				{
-					return r[item].template as<std::string>();
-				});
-
-			std::string line = cif::join(fields, "\t");
-			bool seenLine = seen.count(line);
-
-			if (not mDistinct or not seenLine)
-			{
-				rows.emplace_back(r);
-				seen.insert(line);
-			}
-		}
-
-		std::vector<int> cols;
-		for (auto col : mItems)
-			cols.emplace_back(mCategory.get_item_ix(col));
+		std::vector<int> cols(mCategory.get_items().size());
+		std::iota(cols.begin(), cols.end(), 0);
 
 		return result("", std::move(rows), std::move(cols));
 	}
 
   private:
 	cif::category &mCategory;
-	bool mDistinct;
-	std::vector<std::string> mItems;
-	cif::condition mWhere;
+};
+
+// -----------------------------------------------------------------------
+
+class SelectStatement : public Statement
+{
+  public:
+	SelectStatement(StatementPtr inStatement, const std::vector<std::string> &inColumns)
+		: mView(inStatement)
+		, mColumns(inColumns)
+	{
+	}
+
+	virtual result Execute()
+	{
+		auto result = mView->Execute();
+
+		
+
+		return result;
+	}
+
+	StatementPtr mView;
+	std::vector<std::string> mColumns;
+
+// 	virtual result Execute()
+// 	{
+// 		std::vector<std::string> fields(mItems.size());
+// 		std::unordered_set<std::string> seen;
+
+// 		std::vector<row_handle> rows;
+
+// 		// TODO: optimise this code please... duh
+// 		for (auto r : mCategory.find(std::move(mWhere)))
+// 		{
+// 			transform(mItems.begin(), mItems.end(), fields.begin(),
+// 				[r](auto item)
+// 				{
+// 					return r[item].template as<std::string>();
+// 				});
+
+// 			std::string line = cif::join(fields, "\t");
+// 			bool seenLine = seen.count(line);
+
+// 			if (not mDistinct or not seenLine)
+// 			{
+// 				rows.emplace_back(r);
+// 				seen.insert(line);
+// 			}
+// 		}
+
+// 		std::vector<int> cols;
+// 		for (auto col : mItems)
+// 			cols.emplace_back(mCategory.get_item_ix(col));
+
+// 		return result("", std::move(rows), std::move(cols));
+// 	}
+
+//   private:
+// 	cif::category &mCategory;
+// 	bool mDistinct;
+// 	std::vector<std::string> mItems;
+// 	cif::condition mWhere;
 };
 
 // // -----------------------------------------------------------------------
@@ -499,9 +541,6 @@ Parser::Token Parser::GetNextToken()
 				{
 					case 0:
 						token = Token::EOLN;
-						break;
-					case '*':
-						token = Token::ASTERISK;
 						break;
 					case '(':
 						token = Token::BRACE_OPEN;

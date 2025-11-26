@@ -226,13 +226,13 @@ class result
 		using pointer = value_type *;
 		using reference = value_type &;
 
-		const_row_iterator() = default;
+		// const_row_iterator() = default;
 
 		const_row_iterator(const const_row_iterator &) = default;
 		const_row_iterator(const_row_iterator &&) = default;
 
-		const_row_iterator &operator=(const const_row_iterator &) = default;
-		const_row_iterator &operator=(const_row_iterator &&) = default;
+		// const_row_iterator &operator=(const const_row_iterator &) = default;
+		// const_row_iterator &operator=(const_row_iterator &&) = default;
 
 		reference operator*()
 		{
@@ -290,6 +290,11 @@ class result
 	result &operator=(result const &rhs) noexcept = default;
 	result &operator=(result &&rhs) noexcept = default;
 
+	result(std::vector<row_handle> rows, std::vector<int> columns);
+
+	result(std::string query,
+		std::vector<row_handle> rows, std::vector<int> columns);
+
 	row_ref one_row() const;
 	field_ref one_field() const;
 
@@ -313,9 +318,6 @@ class result
 	friend class transaction;
 	friend class SelectStatement;
 	friend class const_row_iterator;
-
-	result(std::string query,
-		std::vector<row_handle> rows, std::vector<int> columns);
 
 	result expect_columns(size_t cols) const
 	{

@@ -43,6 +43,7 @@ include(GenerateExportHeader)
 include(CTest)
 include(ExternalProject)
 include(FetchContent)
+include(VersionString)
 
 # When building with ninja-multiconfig, build both debug and release by default
 if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
@@ -239,6 +240,9 @@ if(CIFPP_RECREATE_SYMOP_DATA)
 		"$ENV{CLIBD}/symop.lib")
 endif()
 
+# Create a revision file, containing the current git version info
+write_version_header("${CMAKE_CURRENT_SOURCE_DIR}/src/" LIB_NAME "LibCIFPP")
+
 # Sources
 set(project_sources
 	${CMAKE_CURRENT_SOURCE_DIR}/src/category.cpp
@@ -299,10 +303,6 @@ set(project_headers
 
 add_library(cifpp)
 add_library(cifpp::cifpp ALIAS cifpp)
-
-# Create a revision file, containing the current git version info
-include(VersionString)
-add_version_header(cifpp "${CMAKE_CURRENT_SOURCE_DIR}/src/revision.hpp" LIB_NAME "LibCIFPP")
 
 if(TARGET my-eigen3)
 	add_dependencies(cifpp my-eigen3)

@@ -176,7 +176,8 @@ if(NOT STD_CHARCONV_COMPILING)
 	message(NOTICE "libcifpp: Using fast_float for std::from_chars")
 	FetchContent_Declare(fastfloat
 		GIT_REPOSITORY "https://github.com/fastfloat/fast_float"
-		GIT_TAG v8.0.2)
+		GIT_TAG v8.0.2
+		EXCLUDE_FROM_ALL)
 	FetchContent_MakeAvailable(fastfloat)
 endif()
 

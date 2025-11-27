@@ -43,6 +43,7 @@ include(GenerateExportHeader)
 include(CTest)
 include(ExternalProject)
 include(FetchContent)
+include(VersionString)
 
 # When building with ninja-multiconfig, build both debug and release by default
 if(CMAKE_GENERATOR STREQUAL "Ninja Multi-Config")
@@ -219,10 +220,6 @@ else()
 	set(EIGEN_INCLUDE_DIR ${SOURCE_DIR})
 endif()
 
-# Create a revision file, containing the current git version info
-include(VersionString)
-write_version_header(${CMAKE_CURRENT_SOURCE_DIR}/src/ LIB_NAME "LibCIFPP")
-
 # SymOp data table
 if(CIFPP_RECREATE_SYMOP_DATA)
 	# The tool to create the table
@@ -243,6 +240,9 @@ if(CIFPP_RECREATE_SYMOP_DATA)
 		DEPENDS symop-map-generator "$ENV{CLIBD}/syminfo.lib"
 		"$ENV{CLIBD}/symop.lib")
 endif()
+
+# Create a revision file, containing the current git version info
+write_version_header("${CMAKE_CURRENT_SOURCE_DIR}/src/" LIB_NAME "LibCIFPP")
 
 # Sources
 set(project_sources

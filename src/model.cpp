@@ -26,6 +26,7 @@
 
 #include "cif++/model.hpp"
 #include "cif++.hpp"
+#include "cif++/point.hpp"
 
 #include <filesystem>
 #include <fstream>
@@ -351,17 +352,7 @@ std::tuple<point, float> residue::center_and_radius() const
 	for (auto &a : m_atoms)
 		pts.push_back(a.get_location());
 
-	auto center = centroid(pts);
-	float radius = 0;
-
-	for (auto &pt : pts)
-	{
-		float d = static_cast<float>(distance(pt, center));
-		if (radius < d)
-			radius = d;
-	}
-
-	return std::make_tuple(center, radius);
+	return smallest_sphere_around_points(pts);
 }
 
 bool residue::has_alternate_atoms() const

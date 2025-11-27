@@ -169,6 +169,8 @@ if(MSVC)
 	endforeach()
 endif()
 
+set(CMAKE_CXX_STANDARD 20)
+
 # Using fast_float for float parsing, but only if needed
 try_compile(STD_CHARCONV_COMPILING
 	SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/cmake/test-charconv.cpp)
@@ -177,7 +179,8 @@ if(NOT STD_CHARCONV_COMPILING)
 	message(NOTICE "libcifpp: Using fast_float for std::from_chars")
 	FetchContent_Declare(fastfloat
 		GIT_REPOSITORY "https://github.com/fastfloat/fast_float"
-		GIT_TAG v8.0.2)
+		GIT_TAG v8.0.2
+		EXCLUDE_FROM_ALL)
 	FetchContent_MakeAvailable(fastfloat)
 endif()
 
@@ -346,7 +349,7 @@ else()
 endif()
 
 if(NOT STD_CHARCONV_COMPILING)
-	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
+	target_link_libraries(cifpp PRIVATE FastFloat::fast_float)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")

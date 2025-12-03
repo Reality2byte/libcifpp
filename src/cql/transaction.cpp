@@ -25,11 +25,13 @@
  */
 
 #include "cif++/cql/transaction.hpp"
+
 #include "cif++/category.hpp"
 #include "cif++/row.hpp"
 
 #include <algorithm>
 #include <iterator>
+#include <memory>
 #include <numeric>
 #include <stdexcept>
 #include <unordered_set>
@@ -39,52 +41,36 @@ namespace cif::cql
 
 // --------------------------------------------------------------------
 
-std::string_view field_ref::name() const &
-{
-	return m_row ? m_row.get_category().get_item_name(m_index) : "";
-}
-
-// --------------------------------------------------------------------
-
 field_ref row_ref::operator[](size_t ix) const noexcept
 {
-	return field_ref(m_row, ix < m_cols->size() ? m_cols->at(ix) : 0);
+	return field_ref(m_row, m_cols->begin() + ix);
 }
 
 field_ref row_ref::operator[](std::string_view name) const noexcept
 {
 	if (m_row)
 	{
-		auto &cat = m_row.get_category();
-
-		for (auto col : *m_cols)
+		for (auto col = m_cols->begin(); col != m_cols->end(); ++col)
 		{
-			if (cat.get_item_name(col) == name)
+			if (col->name == name)
 				return field_ref(m_row, col);
 		}
 	}
 
-	return field_ref(m_row, 0);
+	return field_ref(m_row, m_cols->end());
 }
 
 // --------------------------------------------------------------------
 
-result::result(std::vector<row_handle> rows, std::vector<int> columns)
-	: m_rows(rows)
-	, m_columns(columns)
+result::result(view &vw, const std::string &query)
+	: m_query(query)
+	, m_view(vw.shared_from_this())
 {
 }
 
-result::result(std::string query, std::vector<row_handle> rows, std::vector<int> columns)
-	: m_rows(rows)
-	, m_columns(columns)
-	, m_query(query)
+size_t result::column_count() const
 {
-}
-
-size_t result::columns() const
-{
-	return m_columns.size();
+	return m_view->columns().size();
 }
 
 row_ref result::one_row() const
@@ -92,8 +78,7 @@ row_ref result::one_row() const
 	if (auto sz = size(); sz != 1)
 		throw std::runtime_error("Unexpected number of rows");
 
-	return row_ref(m_rows[0], m_columns);
-	// return front();
+	return front();
 }
 
 field_ref result::one_field() const
@@ -101,6 +86,169 @@ field_ref result::one_field() const
 	expect_columns(1);
 	return one_row()[0];
 }
+
+view::const_row_iterator result::begin() const noexcept
+{
+	return m_view->begin();
+}
+
+view::const_row_iterator result::cbegin() const noexcept
+{
+	return m_view->cbegin();
+}
+
+view::const_row_iterator result::end() const noexcept
+{
+	return m_view->end();
+}
+
+view::const_row_iterator result::cend() const noexcept
+{
+	return m_view->cend();
+}
+
+row_ref result::front() const noexcept
+{
+	return m_view->front();
+}
+
+row_ref result::back() const noexcept
+{
+	return m_view->back();
+}
+
+size_t result::size() const noexcept
+{
+	return m_view->size();
+}
+
+bool result::empty() const noexcept
+{
+	return m_view->empty();
+}
+
+row_ref result::at(size_t index) const
+{
+	return m_view->at(index);
+}
+
+// --------------------------------------------------------------------
+
+row_ref simple_view::front() const noexcept
+{
+	return row_ref{ m_cat.front(), m_columns };
+}
+
+row_ref simple_view::back() const noexcept
+{
+	return row_ref{ m_cat.back(), m_columns };
+}
+
+column_list simple_view::get_column_list_for_category(const category &cat)
+{
+	column_list result;
+	for (int ix = 0; auto &item : cat.get_items())
+		result.emplace_back(item, ix++);
+	return result;
+}
+
+row_ref simple_view::at(size_t index) const
+{
+	// auto i = std::advance(m_cat.begin(), index);
+	auto i = m_cat.begin();
+	while (index--)
+		++i;
+	return { *i, m_columns };
+}
+
+// --------------------------------------------------------------------
+
+class row_handle_view : public view
+{
+  public:
+	row_handle_view(std::vector<row_handle> &&rows)
+		: view(get_column_list_for_rows(rows))
+		, m_rows(std::forward<std::vector<row_handle>>(rows))
+	{
+	}
+
+	row_handle_view(const row_handle_view &) = default;
+	row_handle_view(row_handle_view &&) = default;
+
+	virtual size_t size() const noexcept override { return m_rows.size(); }
+
+	virtual row_ref front() const noexcept override
+	{
+		return row_ref{ m_rows.front(), m_columns };
+	}
+
+	virtual row_ref back() const noexcept override
+	{
+		return row_ref{ m_rows.back(), m_columns };
+	}
+
+	virtual row_ref at(size_t index) const override
+	{
+		return { m_rows.at(index), m_columns };
+	}
+
+	static column_list get_column_list_for_rows(const std::vector<row_handle> &rows)
+	{
+		column_list result;
+		if (not rows.empty())
+		{
+			for (int ix = 0; auto &item : rows.front().get_category().get_items())
+				result.emplace_back(item, ix++);
+		}
+		return result;
+	}
+
+  protected:
+	std::vector<row_handle> m_rows;
+};
+
+// --------------------------------------------------------------------
+
+class select_view : public view
+{
+  public:
+	select_view(std::shared_ptr<view> vw, const column_list &cols)
+		: view(cols)
+		, m_subview(vw)
+	{
+	}
+
+	select_view(std::shared_ptr<view> vw, column_list &&cols)
+		: view(std::forward<column_list>(cols))
+		, m_subview(vw)
+	{
+	}
+
+	select_view(const select_view &) = default;
+	select_view(select_view &&) = default;
+
+	virtual size_t size() const noexcept override { return m_subview->size(); }
+
+	virtual row_ref front() const noexcept override
+	{
+		return row_ref{ m_subview->front(), m_columns };
+	}
+
+	virtual row_ref back() const noexcept override
+	{
+		return row_ref{ m_subview->back(), m_columns };
+	}
+
+	virtual row_ref at(size_t index) const override
+	{
+		return row_ref{ m_subview->at(index), m_columns };
+	}
+
+  protected:
+	std::shared_ptr<view> m_subview;
+};
+
+// --------------------------------------------------------------------
 
 // --------------------------------------------------------------------
 
@@ -141,7 +289,7 @@ class Statement
 
 	virtual ~Statement() = default;
 
-	virtual result Execute() = 0;
+	virtual std::shared_ptr<view> Execute() = 0;
 
   protected:
 	Statement() = default;
@@ -159,7 +307,7 @@ class Statement
 // 		mStatements.emplace_back(stmt);
 // 	}
 
-// 	virtual result Execute()
+// 	virtual std::shared_ptr<view> Execute() override
 // 	{
 // 		for (auto stmt : mStatements)
 // 			stmt->Execute();
@@ -174,21 +322,18 @@ class Statement
 class FromStatement : public Statement
 {
   public:
-	FromStatement(cif::category);
-
-	virtual result Execute()
+	FromStatement(cif::category &cat)
+		: m_category(cat)
 	{
-		std::vector<row_handle> rows;
-		std::copy(mCategory.begin(), mCategory.end(), std::back_inserter(rows));
+	}
 
-		std::vector<int> cols(mCategory.get_items().size());
-		std::iota(cols.begin(), cols.end(), 0);
-
-		return result("", std::move(rows), std::move(cols));
+	virtual std::shared_ptr<view> Execute() override
+	{
+		return std::make_shared<simple_view>(m_category);
 	}
 
   private:
-	cif::category &mCategory;
+	cif::category &m_category;
 };
 
 // -----------------------------------------------------------------------
@@ -196,62 +341,64 @@ class FromStatement : public Statement
 class SelectStatement : public Statement
 {
   public:
-	SelectStatement(StatementPtr inStatement, const std::vector<std::string> &inColumns)
-		: mView(inStatement)
-		, mColumns(inColumns)
+	SelectStatement(std::shared_ptr<view> view, const column_list &cols)
+		: m_view(view)
+		, m_columns(cols)
 	{
 	}
 
-	virtual result Execute()
+	SelectStatement(std::shared_ptr<view> view, column_list &&cols)
+		: m_view(view)
+		, m_columns(std::forward<column_list>(cols))
 	{
-		auto result = mView->Execute();
-
-		
-
-		return result;
 	}
 
-	StatementPtr mView;
-	std::vector<std::string> mColumns;
+	virtual std::shared_ptr<view> Execute() override
+	{
+		return std::make_shared<select_view>(m_view, m_columns);
+	}
 
-// 	virtual result Execute()
-// 	{
-// 		std::vector<std::string> fields(mItems.size());
-// 		std::unordered_set<std::string> seen;
+	std::shared_ptr<view> m_view;
+	column_list m_columns;
 
-// 		std::vector<row_handle> rows;
+	// 	virtual std::shared_ptr<view> Execute() override
+	// 	{
+	// 		std::vector<std::string> fields(mItems.size());
+	// 		std::unordered_set<std::string> seen;
 
-// 		// TODO: optimise this code please... duh
-// 		for (auto r : mCategory.find(std::move(mWhere)))
-// 		{
-// 			transform(mItems.begin(), mItems.end(), fields.begin(),
-// 				[r](auto item)
-// 				{
-// 					return r[item].template as<std::string>();
-// 				});
+	// 		std::vector<row_handle> rows;
 
-// 			std::string line = cif::join(fields, "\t");
-// 			bool seenLine = seen.count(line);
+	// 		// TODO: optimise this code please... duh
+	// 		for (auto r : mCategory.find(std::move(mWhere)))
+	// 		{
+	// 			transform(mItems.begin(), mItems.end(), fields.begin(),
+	// 				[r](auto item)
+	// 				{
+	// 					return r[item].template as<std::string>();
+	// 				});
 
-// 			if (not mDistinct or not seenLine)
-// 			{
-// 				rows.emplace_back(r);
-// 				seen.insert(line);
-// 			}
-// 		}
+	// 			std::string line = cif::join(fields, "\t");
+	// 			bool seenLine = seen.count(line);
 
-// 		std::vector<int> cols;
-// 		for (auto col : mItems)
-// 			cols.emplace_back(mCategory.get_item_ix(col));
+	// 			if (not mDistinct or not seenLine)
+	// 			{
+	// 				rows.emplace_back(r);
+	// 				seen.insert(line);
+	// 			}
+	// 		}
 
-// 		return result("", std::move(rows), std::move(cols));
-// 	}
+	// 		std::vector<int> cols;
+	// 		for (auto col : mItems)
+	// 			cols.emplace_back(mCategory.get_item_ix(col));
 
-//   private:
-// 	cif::category &mCategory;
-// 	bool mDistinct;
-// 	std::vector<std::string> mItems;
-// 	cif::condition mWhere;
+	// 		return result("", std::move(rows), std::move(cols));
+	// 	}
+
+	//   private:
+	// 	cif::category &mCategory;
+	// 	bool mDistinct;
+	// 	std::vector<std::string> mItems;
+	// 	cif::condition mWhere;
 };
 
 // // -----------------------------------------------------------------------
@@ -876,15 +1023,15 @@ StatementPtr Parser::ParseStatement()
 			result = ParseSelect();
 			break;
 
-		// case Token::DELETE:
-		// 	Match(Token::DELETE);
-		// 	result = ParseDelete();
-		// 	break;
+			// case Token::DELETE:
+			// 	Match(Token::DELETE);
+			// 	result = ParseDelete();
+			// 	break;
 
-		// case Token::UPDATE:
-		// 	Match(Token::UPDATE);
-		// 	result = ParseUpdate();
-		// 	break;
+			// case Token::UPDATE:
+			// 	Match(Token::UPDATE);
+			// 	result = ParseUpdate();
+			// 	break;
 
 		default:
 			// force error
@@ -916,44 +1063,70 @@ StatementPtr Parser::ParseSelect()
 
 	auto category = mDb.get(cat);
 	if (category == nullptr)
-		throw std::runtime_error("Category " + cat + " is not defined in this file");
+		throw std::runtime_error("Category " + cat + " is not defined in this datablock");
+
+	std::vector<std::string> cat_items;
 
 	auto cv = category->get_cat_validator();
 	if (cv != nullptr)
 	{
-		std::vector<std::string> nItems;
+		transform(cv->m_item_validators.begin(), cv->m_item_validators.end(), back_inserter(cat_items),
+			[cat](auto iv)
+			{ return iv.m_item_name; });
+	}
+	else
+	{
+		for (auto &item : category->get_items())
+			cat_items.emplace_back(item);
+	}
 
-		for (auto item : items)
-		{
-			if (item == "*")
-				transform(cv->m_item_validators.begin(), cv->m_item_validators.end(), back_inserter(nItems),
-					[cat](auto iv)
-					{ return iv.m_item_name; });
-			else
-				nItems.push_back(item);
-		}
+	std::vector<std::string> nItems;
 
-		swap(items, nItems);
+	for (auto item : items)
+	{
+		if (item == "*")
+			nItems.insert(nItems.end(), cat_items.begin(), cat_items.end());
+		else
+			nItems.push_back(item);
+	}
 
-		items.erase(remove_if(items.begin(), items.end(), [category](auto item)
-						{ return not category->has_item(item); }),
-			items.end());
+	swap(items, nItems);
 
+	items.erase(remove_if(items.begin(), items.end(), [category](auto item)
+					{ return not category->has_item(item); }),
+		items.end());
+
+	if (cv)
+	{
 		for (auto item : items)
 		{
 			auto iv = cv->get_validator_for_item(item);
 			if (iv == nullptr)
-				throw std::runtime_error("Item " + item + " is not defined in the PDBx dictionary for category " + cat);
+				throw std::runtime_error("Item " + item + " is not defined in the dictionary for category " + cat);
 		}
 	}
+
+	column_list columns;
+
+	for (auto &item : items)
+		columns.emplace_back(item, category->get_item_ix(item));
+
+	std::shared_ptr<view> view;
 
 	if (mLookahead == Token::WHERE)
 	{
 		Match(Token::WHERE);
-		return StatementPtr{ new SelectStatement(*category, distinct, std::move(items), ParseNotWhereClause(*category)) };
+
+		std::vector<row_handle> rows;
+		for (auto rh : category->find(ParseNotWhereClause(*category)))
+			rows.emplace_back(rh);
+
+		view.reset(new row_handle_view(std::move(rows)));
 	}
 	else
-		return StatementPtr{ new SelectStatement(*category, distinct, std::move(items), cif::all()) };
+		view.reset(new simple_view(*category));
+
+	return std::make_shared<SelectStatement>(view, std::move(columns));
 }
 
 // // -----------------------------------------------------------------------
@@ -1192,8 +1365,7 @@ result transaction::exec(std::string_view query)
 
 	Parser p(m_db);
 	auto stmt = p.Parse(&buffer);
-	return stmt->Execute();
+	return { *stmt->Execute() };
 }
-
 
 } // namespace cif::cql

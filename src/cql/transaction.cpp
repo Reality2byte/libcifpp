@@ -29,6 +29,7 @@
 #include "cif++/category.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
+#include "cif++/validate.hpp"
 
 #include <algorithm>
 #include <iterator>
@@ -249,8 +250,6 @@ class select_view : public view
 
 // --------------------------------------------------------------------
 
-// --------------------------------------------------------------------
-
 inline std::string to_hex(uint32_t i)
 {
 	char s[sizeof(i) * 2 + 3];
@@ -270,8 +269,6 @@ inline std::string to_hex(uint32_t i)
 
 	return p;
 }
-
-using cif::iequals;
 
 // --------------------------------------------------------------------
 
@@ -293,6 +290,65 @@ class Statement
   protected:
 	Statement() = default;
 };
+
+// --------------------------------------------------------------------
+
+class ValueExpression : public std::enable_shared_from_this<ValueExpression>
+{
+  public:
+	ValueExpression(const ValueExpression &) = delete;
+	ValueExpression &operator=(const ValueExpression &) = delete;
+
+	virtual ~ValueExpression() = default;
+
+	virtual item Execute(const std::vector<std::pair<std::string, row_handle>> &data) = 0;
+
+  protected:
+	ValueExpression() = default;
+};
+
+// --------------------------------------------------------------------
+
+class DerivedColumn
+{
+  public:
+	DerivedColumn(ValueExpression *expr, const std::string &name)
+		: mExpr(expr->shared_from_this())
+		, mName(name)
+	{
+	}
+
+	item Execute(const std::vector<std::pair<std::string, row_handle>> &data)
+	{
+		return mExpr->Execute(data);
+	}
+
+	std::string Name() const
+	{
+		return mName;
+	}
+
+  private:
+	std::shared_ptr<ValueExpression> mExpr;
+	std::string mName;
+};
+
+// --------------------------------------------------------------------
+
+class SimpleColumnValueExpression : public ValueExpression
+{
+  public:
+	SimpleColumnValueExpression(const std::string &column)
+		: mColumn(column)
+	{
+	}
+
+	item Execute(const std::vector<std::pair<std::string, row_handle>> &data) override;
+
+  private:
+	std::string mColumn;
+};
+
 
 // // -----------------------------------------------------------------------
 
@@ -359,45 +415,6 @@ class SelectStatement : public Statement
 
 	std::shared_ptr<view> m_view;
 	column_list m_columns;
-
-	// 	virtual std::shared_ptr<view> Execute() override
-	// 	{
-	// 		std::vector<std::string> fields(mItems.size());
-	// 		std::unordered_set<std::string> seen;
-
-	// 		std::vector<row_handle> rows;
-
-	// 		// TODO: optimise this code please... duh
-	// 		for (auto r : mCategory.find(std::move(mWhere)))
-	// 		{
-	// 			transform(mItems.begin(), mItems.end(), fields.begin(),
-	// 				[r](auto item)
-	// 				{
-	// 					return r[item].template as<std::string>();
-	// 				});
-
-	// 			std::string line = cif::join(fields, "\t");
-	// 			bool seenLine = seen.count(line);
-
-	// 			if (not mDistinct or not seenLine)
-	// 			{
-	// 				rows.emplace_back(r);
-	// 				seen.insert(line);
-	// 			}
-	// 		}
-
-	// 		std::vector<int> cols;
-	// 		for (auto col : mItems)
-	// 			cols.emplace_back(mCategory.get_item_ix(col));
-
-	// 		return result("", std::move(rows), std::move(cols));
-	// 	}
-
-	//   private:
-	// 	cif::category &mCategory;
-	// 	bool mDistinct;
-	// 	std::vector<std::string> mItems;
-	// 	cif::condition mWhere;
 };
 
 // // -----------------------------------------------------------------------
@@ -515,6 +532,7 @@ class Parser
 
 		SELECT,
 		DISTINCT,
+		ALL,
 		FROM,
 		AS,
 		BETWEEN,
@@ -535,6 +553,7 @@ class Parser
 	std::map<std::string, Token, iless> kKeyWords{
 		{ "SELECT", Token::SELECT },
 		{ "DISTINCT", Token::DISTINCT },
+		{ "ALL", Token::ALL },
 		{ "FROM", Token::FROM },
 		{ "AS", Token::AS },
 		{ "BETWEEN", Token::BETWEEN },
@@ -1042,11 +1061,16 @@ StatementPtr Parser::ParseStatement()
 
 StatementPtr Parser::ParseSelect()
 {
-	bool distinct = false;
+	bool distinct = false, all = false;
 	if (mLookahead == Token::DISTINCT)
 	{
 		distinct = true;
 		Match(Token::DISTINCT);
+	}
+	else if (mLookahead == Token::ALL)
+	{
+		all = true;
+		Match(Token::ALL);
 	}
 
 	auto items = ParseItemList();
@@ -1216,12 +1240,35 @@ std::vector<std::pair<std::string, std::string>> Parser::ParseItemList()
 {
 	std::vector<std::pair<std::string, std::string>> items;
 
-	for (;;)
+	if (mLookahead == Token::ASTERISK)
 	{
-		if (mLookahead == Token::ASTERISK)
+		Match(Token::ASTERISK);
+		items.emplace_back("", "*");
+	}
+	else
+	{
+		for (;;)
 		{
-			Match(Token::ASTERISK);
-			items.emplace_back("", "*");
+			if (mLookahead == Token::BRACE_OPEN)
+			{
+				Match(Token::BRACE_OPEN);
+
+
+
+				Match(Token::BRACE_CLOSE);
+			}
+			else
+			{
+				items.emplace_back(mToken, mToken);
+				Match(Token::IDENT);
+			}
+
+			if (mLookahead == Token::AS)
+			{
+				Match(Token::AS);
+				items.back().first = mToken;
+				Match(Token::IDENT);
+			}
 
 			if (mLookahead == Token::COMMA)
 			{
@@ -1231,24 +1278,6 @@ std::vector<std::pair<std::string, std::string>> Parser::ParseItemList()
 
 			break;
 		}
-
-		items.emplace_back(mToken, mToken);
-		Match(Token::IDENT);
-
-		if (mLookahead == Token::AS)
-		{
-			Match(Token::AS);
-			items.back().first = mToken;
-			Match(Token::IDENT);
-		}
-
-		if (mLookahead == Token::COMMA)
-		{
-			Match(Token::COMMA);
-			continue;
-		}
-
-		break;
 	}
 
 	return items;

@@ -65,6 +65,9 @@ set(BUILD_DOCUMENTATION OFF CACHE BOOL "Build the documentation")
 # Optionally build a version to be installed inside CCP4
 set(BUILD_FOR_CCP4 OFF CACHE BOOL "Build a version to be installed in CCP4")
 
+# Create the cql/sqlite interface
+set(BUILD_SQLITE_INTERFACE ON CACHE BOOL "Build the sqlite interface")
+
 # Building shared libraries?
 if(NOT(BUILD_FOR_CCP4 AND WIN32))
 	set(BUILD_SHARED_LIBS OFF CACHE BOOL "Build a shared library instead of a static one")
@@ -187,6 +190,10 @@ find_package(ZLIB QUIET)
 
 if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
+endif()
+
+if(BUILD_SQLITE_INTERFACE)
+	find_package(SQLite3 REQUIRED)
 endif()
 
 include(FindPkgConfig)
@@ -350,6 +357,10 @@ endif()
 
 if(NOT STD_CHARCONV_COMPILING)
 	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
+endif()
+
+if(BUILD_SQLITE_INTERFACE)
+	target_link_libraries(cifpp PRIVATE SQLite::SQLite3)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")

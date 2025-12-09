@@ -27,13 +27,18 @@
 #include "cif++/cql/transaction.hpp"
 
 #include "cif++/category.hpp"
+#include "cif++/condition.hpp"
+#include "cif++/datablock.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
 
+#include <mcfp/mcfp.hpp>
+
 #include <algorithm>
 #include <iterator>
 #include <memory>
+#include <sqlite3.h>
 #include <stdexcept>
 
 namespace cif::cql
@@ -348,7 +353,6 @@ class SimpleColumnValueExpression : public ValueExpression
   private:
 	std::string mColumn;
 };
-
 
 // // -----------------------------------------------------------------------
 
@@ -1253,8 +1257,6 @@ std::vector<std::pair<std::string, std::string>> Parser::ParseItemList()
 			{
 				Match(Token::BRACE_OPEN);
 
-
-
 				Match(Token::BRACE_CLOSE);
 			}
 			else
@@ -1518,6 +1520,245 @@ cif::condition Parser::ParseWhereClause(cif::category &cat, const column_list &c
 
 // --------------------------------------------------------------------
 
+struct virtual_table
+{
+	static int Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
+	static int Disconnect(sqlite3_vtab *pVtab);
+	static int Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor);
+	static int Close(sqlite3_vtab_cursor *cur);
+	static int Next(sqlite3_vtab_cursor *cur);
+	static int Column(
+		sqlite3_vtab_cursor *cur, /* The cursor */
+		sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
+		int i);                   /* Which column to return */
+	static int Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid);
+	static int Eof(sqlite3_vtab_cursor *cur);
+	static int Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv);
+	static int BestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo);
+
+	static sqlite3_module s_module;
+};
+
+struct transaction_impl
+{
+	const datablock &m_db;
+	sqlite3 *m_sqlite_db = nullptr;
+
+	transaction_impl(const datablock &db);
+
+	~transaction_impl()
+	{
+		sqlite3_close(m_sqlite_db);
+	}
+
+};
+
+sqlite3_module virtual_table::s_module{
+	/* iVersion    */ 0,
+	/* xCreate     */ 0,
+	/* xConnect    */ Connect,
+	/* xBestIndex  */ BestIndex,
+	/* xDisconnect */ Disconnect,
+	/* xDestroy    */ 0,
+	/* xOpen       */ Open,
+	/* xClose      */ Close,
+	/* xFilter     */ Filter,
+	/* xNext       */ Next,
+	/* xEof        */ Eof,
+	/* xColumn     */ Column,
+	/* xRowid      */ Rowid,
+	/* xUpdate     */ 0,
+	/* xBegin      */ 0,
+	/* xSync       */ 0,
+	/* xCommit     */ 0,
+	/* xRollback   */ 0,
+	/* xFindFunction */ 0,
+	/* xRename     */ 0,
+	/* xSavepoint  */ 0,
+	/* xRelease    */ 0,
+	/* xRollbackTo */ 0,
+	/* xShadowName */ 0,
+	/* xIntegrity  */ 0
+};
+
+/*
+** The templatevtabConnect() method is invoked to create a new
+** template virtual table.
+**
+** Think of this routine as the constructor for virtual_table objects.
+**
+** All this routine needs to do is:
+**
+**    (1) Allocate the virtual_table object and initialize all fields.
+**
+**    (2) Tell SQLite (via the sqlite3_declare_vtab() interface) what the
+**        result set of queries against the virtual table will look like.
+*/
+int virtual_table::Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
+{
+	virtual_table *pNew;
+	int rc;
+
+	
+
+
+	rc = sqlite3_declare_vtab(db,
+		"CREATE TABLE x(a,b)");
+	/* For convenience, define symbolic names for the index to each column. */
+#define TEMPLATEVTAB_A 0
+#define TEMPLATEVTAB_B 1
+	if (rc == SQLITE_OK)
+	{
+		pNew = sqlite3_malloc(sizeof(*pNew));
+		*ppVtab = (sqlite3_vtab *)pNew;
+		if (pNew == 0)
+			return SQLITE_NOMEM;
+		memset(pNew, 0, sizeof(*pNew));
+	}
+	return rc;
+}
+
+/*
+** This method is the destructor for virtual_table objects.
+*/
+int virtual_table::Disconnect(sqlite3_vtab *pVtab)
+{
+	virtual_table *p = (virtual_table *)pVtab;
+	sqlite3_free(p);
+	return SQLITE_OK;
+}
+
+/*
+** Constructor for a new templatevtab_cursor object.
+*/
+int virtual_table::Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor)
+{
+	templatevtab_cursor *pCur;
+	pCur = sqlite3_malloc(sizeof(*pCur));
+	if (pCur == 0)
+		return SQLITE_NOMEM;
+	memset(pCur, 0, sizeof(*pCur));
+	*ppCursor = &pCur->base;
+	return SQLITE_OK;
+}
+
+/*
+** Destructor for a templatevtab_cursor.
+*/
+int virtual_table::Close(sqlite3_vtab_cursor *cur)
+{
+	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
+	sqlite3_free(pCur);
+	return SQLITE_OK;
+}
+
+/*
+** Advance a templatevtab_cursor to its next row of output.
+*/
+int virtual_table::Next(sqlite3_vtab_cursor *cur)
+{
+	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
+	pCur->iRowid++;
+	return SQLITE_OK;
+}
+
+/*
+** Return values of columns for the row at which the templatevtab_cursor
+** is currently pointing.
+*/
+int virtual_table::Column(
+	sqlite3_vtab_cursor *cur, /* The cursor */
+	sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
+	int i                     /* Which column to return */
+)
+{
+	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
+	switch (i)
+	{
+		case TEMPLATEVTAB_A:
+			sqlite3_result_int(ctx, 1000 + pCur->iRowid);
+			break;
+		default:
+			assert(i == TEMPLATEVTAB_B);
+			sqlite3_result_int(ctx, 2000 + pCur->iRowid);
+			break;
+	}
+	return SQLITE_OK;
+}
+
+/*
+** Return the rowid for the current row.  In this implementation, the
+** rowid is the same as the output value.
+*/
+int virtual_table::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
+{
+	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
+	*pRowid = pCur->iRowid;
+	return SQLITE_OK;
+}
+
+/*
+** Return TRUE if the cursor has been moved off of the last
+** row of output.
+*/
+int virtual_table::Eof(sqlite3_vtab_cursor *cur)
+{
+	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
+	return pCur->iRowid >= 10;
+}
+
+/*
+** This method is called to "rewind" the templatevtab_cursor object back
+** to the first row of output.  This method is always called at least
+** once prior to any call to templatevtabColumn() or templatevtabRowid() or
+** templatevtabEof().
+*/
+int virtual_table::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv)
+{
+	templatevtab_cursor *pCur = (templatevtab_cursor *)pVtabCursor;
+	pCur->iRowid = 1;
+	return SQLITE_OK;
+}
+
+/*
+** SQLite will invoke this method one or more times while planning a query
+** that uses the virtual table.  This routine needs to create
+** a query plan for each invocation and compute an estimated cost for that
+** plan.
+*/
+int virtual_table::BestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo)
+{
+	pIdxInfo->estimatedCost = (double)10;
+	pIdxInfo->estimatedRows = 10;
+	return SQLITE_OK;
+}
+
+transaction_impl::transaction_impl(const datablock &db)
+	: m_db(db)
+{
+	auto rc = sqlite3_open(":memory:", &m_sqlite_db);
+
+	if (rc)
+		throw std::runtime_error(std::format("Cannot open databank: {}", sqlite3_errmsg(m_sqlite_db)));
+
+	rc = sqlite3_create_module(m_sqlite_db, "cifpp", &virtual_table::s_module, &m_db);
+
+	if (rc)
+		throw std::runtime_error(std::format("Cannot open databank: {}", sqlite3_errmsg(m_sqlite_db)));
+}
+
+// --------------------------------------------------------------------
+
+transaction::transaction(const datablock &db)
+	: m_impl(new transaction_impl(db))
+{
+}
+
+transaction::~transaction()
+{
+	delete m_impl;
+}
+
 result transaction::exec(std::string_view query)
 {
 	struct membuf : public std::streambuf
@@ -1528,9 +1769,9 @@ result transaction::exec(std::string_view query)
 		}
 	} buffer(const_cast<char *>(query.data()), query.size());
 
-	Parser p(m_db);
-	auto stmt = p.Parse(&buffer);
-	return { *stmt->Execute() };
+	// Parser p(m_db);
+	// auto stmt = p.Parse(&buffer);
+	// return { *stmt->Execute() };
 }
 
 } // namespace cif::cql

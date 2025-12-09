@@ -437,15 +437,24 @@ class result
 class transaction
 {
   public:
-	transaction(const datablock &db)
-		: m_db(const_cast<datablock &>(db))
-	{
-	}
+	transaction(const datablock &db);
+	~transaction();
+
+	transaction(const transaction &) = delete;
+	transaction &operator=(const transaction &) = delete;
 
 	result exec(std::string_view query);
 
   private:
-	datablock &m_db;
+	struct transaction_impl *m_impl;
 };
+
+// // --------------------------------------------------------------------
+
+// class connection
+// {
+
+// };
+
 
 } // namespace cif::cql

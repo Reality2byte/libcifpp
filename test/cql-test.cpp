@@ -49,6 +49,34 @@ cif::file operator""_cf(const char *text, std::size_t length)
 
 // --------------------------------------------------------------------
 
+const char *kAuthors[] = {
+	"Kleywegt, G.J.",
+	"Bergfors, T.",
+	"Senn, H.",
+	"Le Motte, P.",
+	"Gsell, B.",
+	"Shudo, K.",
+	"Jones, T.A.",
+
+	"Banaszak, L.",
+	"Winter, N.",
+	"Xu, Z.",
+	"Bernlohr, D.A.",
+	"Cowan, S.W.",
+	"Jones, T.A.",
+	"Bergfors, T.",
+	"Kleywegt, G.J.",
+	"Jones, T.A.",
+	"Cowan, S.W.",
+	"Newcomer, M.E.",
+	"Jones, T.A.",
+	"Jones, T.A.",
+	"Bergfors, T.",
+	"Sedzik, J.",
+	"Unge, T."
+};
+
+// Test simple SELECT
 TEST_CASE("cql-1")
 {
 	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
@@ -56,35 +84,20 @@ TEST_CASE("cql-1")
 
 	cif::cql::transaction tx(db);
 
-	// CHECK(tx.exec("SELECT COUNT(*) FROM entry").one_field().as<int>() == 1);
-	// CHECK(tx.exec("SELECT COUNT(*) FROM entry WHERE id = '1CBS'").one_field().as<int>() == 1);
-	// CHECK(tx.exec("SELECT COUNT(*) FROM entry WHERE id = 'XXXX'").one_field().as<int>() == 0);
-
-	// CHECK(tx.exec("SELECT COUNT(*) FROM citation").one_field().as<int>() == 4);
-	// CHECK(tx.exec("SELECT COUNT(page_last) FROM citation").one_field().as<int>() == 1);
-
-	const char *kPrimaryAuthors[] = {
-		"Kleywegt, G.J.",
-		"Bergfors, T.",
-		"Senn, H.",
-		"Le Motte, P.",
-		"Gsell, B.",
-		"Shudo, K.",
-		"Jones, T.A."
-	};
-
 	auto r = tx.exec("SELECT name, ordinal FROM citation_author WHERE citation_id = 'primary';");
 	CHECK(r.size() == 7);
 
 	for (size_t ix = 0; auto row : r)
 	{
-		REQUIRE(ix < (sizeof(kPrimaryAuthors) / sizeof(char *)));
+		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
 
-		CHECK(row[0].as<std::string>() == kPrimaryAuthors[ix++]);
-		CHECK(row[1].as<size_t>() == ix);
+		CHECK(row[0].as<std::string>() == kAuthors[ix]);
+		CHECK(row[1].as<size_t>() == ix + 1);
 
-		// CHECK(row["name"].as<std::string>() == kPrimaryAuthors[ix++]);
-		// CHECK(row["ordinal"].as<int>() == ix);
+		CHECK(row["name"].as<std::string>() == kAuthors[ix]);
+		CHECK(row["ordinal"].as<size_t>() == ix + 1);
+
+		++ix;
 	}
 
 	r = tx.exec("SELECT ordinal, name FROM citation_author WHERE citation_id = 'primary';");
@@ -92,21 +105,23 @@ TEST_CASE("cql-1")
 
 	for (size_t ix = 0; auto row : r)
 	{
-		REQUIRE(ix < (sizeof(kPrimaryAuthors) / sizeof(char *)));
+		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
 
-		CHECK(row[1].as<std::string>() == kPrimaryAuthors[ix++]);
-		CHECK(row[0].as<size_t>() == ix);
+		CHECK(row[1].as<std::string>() == kAuthors[ix]);
+		CHECK(row[0].as<size_t>() == ix + 1);
 
-		// CHECK(row["name"].as<std::string>() == kPrimaryAuthors[ix++]);
-		// CHECK(row["ordinal"].as<int>() == ix);
+		CHECK(row["name"].as<std::string>() == kAuthors[ix]);
+		CHECK(row["ordinal"].as<size_t>() == ix + 1);
+
+		++ix;
 	}
 
 	r = tx.exec("SELECT * FROM citation_author WHERE citation_id = 'primary';");
 	CHECK(r.size() == 7);
 
-	for (size_t ix = 0; auto row : r)
+	for (int ix = 0; auto row : r)
 	{
-		REQUIRE(ix < (sizeof(kPrimaryAuthors) / sizeof(char *)));
+		REQUIRE(static_cast<size_t>(ix) < (sizeof(kAuthors) / sizeof(char *)));
 
 		for (auto fld : row)
 		{
@@ -118,11 +133,11 @@ TEST_CASE("cql-1")
 					break;
 				case 1:
 					CHECK(fld.name() == "name");
-					CHECK(fld.as<std::string>() == kPrimaryAuthors[ix]);
+					CHECK(fld.as<std::string>() == kAuthors[ix]);
 					break;
 				case 2:
 					CHECK(fld.name() == "ordinal");
-					CHECK(fld.as<int>() == ix);
+					CHECK(fld.as<int>() == ix + 1);
 					break;
 				default:
 					REQUIRE(false);
@@ -130,28 +145,69 @@ TEST_CASE("cql-1")
 			}
 		}
 
+		CHECK(row["name"].as<std::string>() == kAuthors[ix]);
+		CHECK(row["ordinal"].as<int>() == ix + 1);
+		CHECK(row["citation_id"].as<std::string>() == "primary");
+
 		++ix;
-
-		// CHECK(row[0].as<std::string>() == kPrimaryAuthors[ix++]);
-		// CHECK(row[1].as<int>() == ix);
-
-		CHECK(row["name"].as<std::string>() == kPrimaryAuthors[ix++]);
-		CHECK(row["ordinal"].as<size_t>() == ix);
 	}
+}
 
-	// CHECK(tx.query_value<int>("SELECT COUNT(*) FROM citation_author WHERE citation_id = 'primary';") == 7);
+// Test SELECT AS
+TEST_CASE("cql-2")
+{
+	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	auto &db = f.front();
 
-	// for (size_t ix = 0; auto row : r)
-	// {
-	// 	REQUIRE(ix < (sizeof(kPrimaryAuthors) / sizeof(char*)));
-	// 	// CHECK(row["name"].as<std::string>() == kPrimaryAuthors[ix++]);
-	// 	// CHECK(row["ordinal"].as<int>() == ix);
-	// }
+	cif::cql::transaction tx(db);
 
-	// for (size_t ix = 0; const auto &[name, ordinal] : tx.stream<std::string, int>("SELECT name FROM citation_author WHERE citation_id = 'primary'"))
-	// {
-	// 	REQUIRE(ix < (sizeof(kPrimaryAuthors) / sizeof(char*)));
-	// 	CHECK(name == kPrimaryAuthors[ix++]);
-	// 	CHECK(ordinal == ix);
-	// }
+	auto r = tx.exec("SELECT name AS v1, ordinal AS v2 FROM citation_author WHERE citation_id = 'primary';");
+	CHECK(r.size() == 7);
+
+	for (size_t ix = 0; auto row : r)
+	{
+		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
+
+		CHECK(row[0].as<std::string>() == kAuthors[ix]);
+		CHECK(row[1].as<size_t>() == ix + 1);
+
+		CHECK(row["v1"].as<std::string>() == kAuthors[ix]);
+		CHECK(row["v2"].as<size_t>() == ix + 1);
+
+		++ix;
+	}
+}
+
+TEST_CASE("cql-3")
+{
+	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	auto &db = f.front();
+
+	cif::cql::transaction tx(db);
+
+	auto r = tx.exec("SELECT name FROM citation_author WHERE ordinal = 10").one_field();
+	CHECK(r.as<std::string>() == kAuthors[9]);
+}
+
+TEST_CASE("cql-4")
+{
+	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	auto &db = f.front();
+
+	cif::cql::transaction tx(db);
+
+	auto r = tx.exec("SELECT name FROM citation_author WHERE ordinal BETWEEN 10 AND 15");
+	REQUIRE(r.size() == 6);
+}
+
+TEST_CASE("cql-5")
+{
+	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	auto &db = f.front();
+
+	cif::cql::transaction tx(db);
+
+	auto r = tx.exec("SELECT (SELECT year FROM citation WHERE id = citation_id) AS jaar FROM citation_author WHERE ordinal IS 23").one_field();
+	CHECK(r.name() == "jaar");
+	CHECK(r.as<int>() == 1988);
 }

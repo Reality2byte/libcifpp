@@ -62,7 +62,7 @@ using column_list = std::vector<column>;
 
 // --------------------------------------------------------------------
 
-class field_ref
+class field_ref final
 {
   public:
 	std::string_view name() const &

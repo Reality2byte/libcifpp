@@ -1077,6 +1077,16 @@ condition operator==(const key &key, const T &v)
 }
 
 /**
+ * @brief Operator to create an not-equals condition based on a key @a key and a numeric value @a v
+ */
+template <Numeric T>
+condition operator!=(const key &key, const T &v)
+{
+	// TODO: change key_equals_etc... to use std::variant<double,int64_t> or something
+	return condition(new detail::not_condition_impl(key == v));
+}
+
+/**
  * @brief Operator to create an equals condition based on a key @a key and a value @a value
  */
 inline condition operator==(const key &key, std::string_view value)

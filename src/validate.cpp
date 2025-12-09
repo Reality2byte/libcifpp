@@ -27,11 +27,9 @@
 #include "cif++/validate.hpp"
 #include "cif++/category.hpp"
 #include "cif++/dictionary_parser.hpp"
-#include "cif++/gzio.hpp"
 #include "cif++/utilities.hpp"
 
 #include <cassert>
-#include <fstream>
 #include <iostream>
 
 // The validator depends on regular expressions. Unfortunately,

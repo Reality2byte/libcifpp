@@ -28,13 +28,12 @@
 
 #include "cif++/category.hpp"
 #include "cif++/row.hpp"
+#include "cif++/text.hpp"
 
 #include <algorithm>
 #include <iterator>
 #include <memory>
-#include <numeric>
 #include <stdexcept>
-#include <unordered_set>
 
 namespace cif::cql
 {
@@ -517,6 +516,8 @@ class Parser
 		SELECT,
 		DISTINCT,
 		FROM,
+		AS,
+		BETWEEN,
 		UPDATE,
 		SET,
 		WHERE,
@@ -529,6 +530,26 @@ class Parser
 		VALUES,
 		IS,
 		_NULL
+	};
+
+	std::map<std::string, Token, iless> kKeyWords{
+		{ "SELECT", Token::SELECT },
+		{ "DISTINCT", Token::DISTINCT },
+		{ "FROM", Token::FROM },
+		{ "AS", Token::AS },
+		{ "BETWEEN", Token::BETWEEN },
+		{ "UPDATE", Token::UPDATE },
+		{ "SET", Token::SET },
+		{ "WHERE", Token::WHERE },
+		{ "AND", Token::AND },
+		{ "OR", Token::OR },
+		{ "NOT", Token::NOT },
+		{ "INSERT", Token::INSERT },
+		{ "DELETE", Token::DELETE },
+		{ "INTO", Token::INTO },
+		{ "VALUES", Token::VALUES },
+		{ "IS", Token::IS },
+		{ "NULL", Token::_NULL }
 	};
 
 	std::string Describe(Token token)
@@ -561,6 +582,7 @@ class Parser
 			case Token::SELECT: return "SELECT";
 			case Token::DISTINCT: return "DISTINCT";
 			case Token::FROM: return "FROM";
+			case Token::AS: return "AS";
 			case Token::UPDATE: return "UPDATE";
 			case Token::SET: return "SET";
 			case Token::WHERE: return "WHERE";
@@ -589,10 +611,10 @@ class Parser
 	StatementPtr ParseSelect();
 	StatementPtr ParseDelete();
 	StatementPtr ParseUpdate();
-	std::vector<std::string> ParseItemList();
+	std::vector<std::pair<std::string, std::string>> ParseItemList();
 
-	cif::condition ParseWhereClause(cif::category &cat);
-	cif::condition ParseNotWhereClause(cif::category &cat);
+	cif::condition ParseWhereClause(cif::category &cat, const column_list &columns);
+	cif::condition ParseNotWhereClause(cif::category &cat, const column_list &columns);
 
 	cif::datablock &mDb;
 	std::streambuf *mIs;
@@ -877,36 +899,8 @@ Parser::Token Parser::GetNextToken()
 				{
 					Retract();
 
-					if (iequals(mToken, "SELECT"))
-						token = Token::SELECT;
-					else if (iequals(mToken, "DISTINCT"))
-						token = Token::DISTINCT;
-					else if (iequals(mToken, "FROM"))
-						token = Token::FROM;
-					else if (iequals(mToken, "UPDATE"))
-						token = Token::UPDATE;
-					else if (iequals(mToken, "SET"))
-						token = Token::SET;
-					else if (iequals(mToken, "WHERE"))
-						token = Token::WHERE;
-					else if (iequals(mToken, "AND"))
-						token = Token::AND;
-					else if (iequals(mToken, "OR"))
-						token = Token::OR;
-					else if (iequals(mToken, "NOT"))
-						token = Token::NOT;
-					else if (iequals(mToken, "INSERT"))
-						token = Token::INSERT;
-					else if (iequals(mToken, "DELETE"))
-						token = Token::DELETE;
-					else if (iequals(mToken, "INTO"))
-						token = Token::INTO;
-					else if (iequals(mToken, "VALUES"))
-						token = Token::VALUES;
-					else if (iequals(mToken, "IS"))
-						token = Token::IS;
-					else if (iequals(mToken, "NULL"))
-						token = Token::_NULL;
+					if (auto i = kKeyWords.find(mToken); i != kKeyWords.end())
+						token = i->second;
 					else
 						token = Token::IDENT;
 				}
@@ -1038,7 +1032,8 @@ StatementPtr Parser::ParseStatement()
 			Match(Token::SELECT);
 	}
 
-	Match(Token::SEMICOLON);
+	if (mLookahead != Token::EOLN)
+		Match(Token::SEMICOLON);
 
 	return result;
 }
@@ -1080,12 +1075,14 @@ StatementPtr Parser::ParseSelect()
 			cat_items.emplace_back(item);
 	}
 
-	std::vector<std::string> nItems;
+	std::vector<std::pair<std::string, std::string>> nItems;
 
 	for (auto item : items)
 	{
-		if (item == "*")
-			nItems.insert(nItems.end(), cat_items.begin(), cat_items.end());
+		if (item.second == "*")
+			std::transform(cat_items.begin(), cat_items.end(), std::back_inserter(nItems),
+				[](const std::string &ci)
+				{ return std::make_pair(ci, ci); });
 		else
 			nItems.push_back(item);
 	}
@@ -1093,23 +1090,23 @@ StatementPtr Parser::ParseSelect()
 	swap(items, nItems);
 
 	items.erase(remove_if(items.begin(), items.end(), [category](auto item)
-					{ return not category->has_item(item); }),
+					{ return not category->has_item(item.second); }),
 		items.end());
 
 	if (cv)
 	{
 		for (auto item : items)
 		{
-			auto iv = cv->get_validator_for_item(item);
+			auto iv = cv->get_validator_for_item(item.second);
 			if (iv == nullptr)
-				throw std::runtime_error("Item " + item + " is not defined in the dictionary for category " + cat);
+				throw std::runtime_error("Item " + item.second + " is not defined in the dictionary for category " + cat);
 		}
 	}
 
 	column_list columns;
 
 	for (auto &item : items)
-		columns.emplace_back(item, category->get_item_ix(item));
+		columns.emplace_back(item.first, category->get_item_ix(item.second));
 
 	std::shared_ptr<view> view;
 
@@ -1118,7 +1115,7 @@ StatementPtr Parser::ParseSelect()
 		Match(Token::WHERE);
 
 		std::vector<row_handle> rows;
-		for (auto rh : category->find(ParseNotWhereClause(*category)))
+		for (auto rh : category->find(ParseNotWhereClause(*category, columns)))
 			rows.emplace_back(rh);
 
 		view.reset(new row_handle_view(std::move(rows)));
@@ -1215,20 +1212,33 @@ StatementPtr Parser::ParseSelect()
 
 // -----------------------------------------------------------------------
 
-std::vector<std::string> Parser::ParseItemList()
+std::vector<std::pair<std::string, std::string>> Parser::ParseItemList()
 {
-	std::vector<std::string> items;
+	std::vector<std::pair<std::string, std::string>> items;
 
 	for (;;)
 	{
 		if (mLookahead == Token::ASTERISK)
 		{
 			Match(Token::ASTERISK);
-			items.push_back("*");
+			items.emplace_back("", "*");
+
+			if (mLookahead == Token::COMMA)
+			{
+				Match(Token::COMMA);
+				continue;
+			}
+
+			break;
 		}
-		else
+
+		items.emplace_back(mToken, mToken);
+		Match(Token::IDENT);
+
+		if (mLookahead == Token::AS)
 		{
-			items.push_back(mToken);
+			Match(Token::AS);
+			items.back().first = mToken;
 			Match(Token::IDENT);
 		}
 
@@ -1246,38 +1256,38 @@ std::vector<std::string> Parser::ParseItemList()
 
 // -----------------------------------------------------------------------
 
-cif::condition Parser::ParseNotWhereClause(cif::category &cat)
+cif::condition Parser::ParseNotWhereClause(cif::category &cat, const column_list &columns)
 {
 	cif::condition result;
 
 	if (mLookahead == Token::NOT)
 	{
 		Match(Token::NOT);
-		result = not ParseNotWhereClause(cat);
+		result = not ParseNotWhereClause(cat, columns);
 	}
 	else if (mLookahead == Token::BRACE_OPEN)
 	{
 		Match(Token::BRACE_OPEN);
-		result = ParseNotWhereClause(cat);
+		result = ParseNotWhereClause(cat, columns);
 		Match(Token::BRACE_CLOSE);
 	}
 	else
 	{
-		result = ParseWhereClause(cat);
+		result = ParseWhereClause(cat, columns);
 
 		for (;;)
 		{
 			if (mLookahead == Token::AND)
 			{
 				Match(Token::AND);
-				result = std::move(result) and ParseNotWhereClause(cat);
+				result = std::move(result) and ParseNotWhereClause(cat, columns);
 				continue;
 			}
 
 			if (mLookahead == Token::OR)
 			{
 				Match(Token::OR);
-				result = std::move(result) or ParseNotWhereClause(cat);
+				result = std::move(result) or ParseNotWhereClause(cat, columns);
 				continue;
 			}
 
@@ -1289,9 +1299,15 @@ cif::condition Parser::ParseNotWhereClause(cif::category &cat)
 
 // -----------------------------------------------------------------------
 
-cif::condition Parser::ParseWhereClause(cif::category &cat)
+cif::condition Parser::ParseWhereClause(cif::category &cat, const column_list &columns)
 {
 	std::string item = mToken;
+
+	if (auto i = std::find_if(columns.begin(), columns.end(), [&item](const column &col)
+			{ return col.name == item; });
+		i != columns.end())
+		item = cat.get_item_name(i->index);
+
 	Match(Token::IDENT);
 
 	auto cv = cat.get_cat_validator();
@@ -1316,6 +1332,63 @@ cif::condition Parser::ParseWhereClause(cif::category &cat)
 			return cif::key(item) == cif::null;
 		}
 	}
+	else if (mLookahead == Token::BETWEEN)
+	{
+		Match(Token::BETWEEN);
+
+		cif::condition c;
+
+		switch (mLookahead)
+		{
+			case Token::INTEGER:
+			{
+				auto v1 = mTokenInteger;
+				Match(Token::INTEGER);
+				Match(Token::AND);
+				if (mLookahead == Token::NUMBER)
+				{
+					c = cif::key(item) >= v1 and cif::key(item) <= mTokenFloat;
+					Match(Token::NUMBER);
+				}
+				else
+				{
+					c = cif::key(item) >= v1 and cif::key(item) <= mTokenInteger;
+					Match(Token::INTEGER);
+				}
+				break;
+			}
+
+			case Token::NUMBER:
+			{
+				auto v1 = mTokenFloat;
+				Match(Token::NUMBER);
+				Match(Token::AND);
+				if (mLookahead == Token::NUMBER)
+				{
+					c = cif::key(item) >= v1 and cif::key(item) <= mTokenFloat;
+					Match(Token::NUMBER);
+				}
+				else
+				{
+					c = cif::key(item) >= v1 and cif::key(item) <= mTokenInteger;
+					Match(Token::INTEGER);
+				}
+				break;
+			}
+
+			default:
+			{
+				auto v1 = mToken;
+				Match(Token::STRING);
+				Match(Token::AND);
+				c = cif::key(item) >= v1 and cif::key(item) <= mToken;
+				Match(Token::STRING);
+				break;
+			}
+		}
+
+		return c;
+	}
 	else
 	{
 		if (mLookahead < Token::EQ or mLookahead > Token::NE)
@@ -1325,29 +1398,92 @@ cif::condition Parser::ParseWhereClause(cif::category &cat)
 		Match(mLookahead);
 
 		cif::condition c;
-		std::string value = mToken;
 
 		switch (mLookahead)
 		{
 			case Token::INTEGER:
-			case Token::NUMBER:
-			case Token::STRING:
-				Match(mLookahead);
+				switch (oper)
+				{
+					case Token::EQ:
+						c = cif::key(item) == mTokenInteger;
+						break;
+					case Token::LT:
+						c = cif::key(item) < mTokenInteger;
+						break;
+					case Token::LE:
+						c = cif::key(item) <= mTokenInteger;
+						break;
+					case Token::GT:
+						c = cif::key(item) > mTokenInteger;
+						break;
+					case Token::GE:
+						c = cif::key(item) >= mTokenInteger;
+						break;
+					case Token::NE:
+						c = cif::key(item) != mTokenInteger;
+						break;
+					default: throw std::logic_error("should never happen");
+				}
+
+				Match(Token::INTEGER);
 				break;
+
+			case Token::NUMBER:
+				switch (oper)
+				{
+					case Token::EQ:
+						c = cif::key(item) == mTokenFloat;
+						break;
+					case Token::LT:
+						c = cif::key(item) < mTokenFloat;
+						break;
+					case Token::LE:
+						c = cif::key(item) <= mTokenFloat;
+						break;
+					case Token::GT:
+						c = cif::key(item) > mTokenFloat;
+						break;
+					case Token::GE:
+						c = cif::key(item) >= mTokenFloat;
+						break;
+					case Token::NE:
+						c = cif::key(item) != mTokenFloat;
+						break;
+					default: throw std::logic_error("should never happen");
+				}
+
+				Match(Token::NUMBER);
+				break;
+
 			default:
+				switch (oper)
+				{
+					case Token::EQ:
+						c = cif::key(item) == mToken;
+						break;
+					case Token::LT:
+						c = cif::key(item) < mToken;
+						break;
+					case Token::LE:
+						c = cif::key(item) <= mToken;
+						break;
+					case Token::GT:
+						c = cif::key(item) > mToken;
+						break;
+					case Token::GE:
+						c = cif::key(item) >= mToken;
+						break;
+					case Token::NE:
+						c = cif::key(item) != mToken;
+						break;
+					default: throw std::logic_error("should never happen");
+				}
+
 				Match(Token::STRING);
+				break;
 		}
 
-		switch (oper)
-		{
-			case Token::EQ: return cif::key(item) == value;
-			case Token::LT: return cif::key(item) < value;
-			case Token::LE: return cif::key(item) <= value;
-			case Token::GT: return cif::key(item) > value;
-			case Token::GE: return cif::key(item) >= value;
-			case Token::NE: return cif::key(item) != value;
-			default: throw std::logic_error("should never happen");
-		}
+		return c;
 	}
 }
 

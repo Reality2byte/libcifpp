@@ -49,6 +49,7 @@ class result;
 class row;
 class transaction;
 class view;
+class connection;
 
 // --------------------------------------------------------------------
 
@@ -388,7 +389,7 @@ class result
 
 	// --------------------------------------------------------------------
 
-	result();
+	result() = delete;
 	result(result const &rhs) noexcept = default;
 	result(result &&rhs) noexcept = default;
 	result &operator=(result const &rhs) noexcept = default;
@@ -434,27 +435,34 @@ class result
 
 // --------------------------------------------------------------------
 
-class transaction
+class transaction final
 {
   public:
-	transaction(const datablock &db);
+	transaction(connection &conn);
 	~transaction();
 
 	transaction(const transaction &) = delete;
 	transaction &operator=(const transaction &) = delete;
 
-	result exec(std::string_view query);
+	result exec(const std::string &query);
 
   private:
-	struct transaction_impl *m_impl;
+	connection &m_conn;
 };
 
-// // --------------------------------------------------------------------
+// --------------------------------------------------------------------
 
-// class connection
-// {
+class connection final
+{
+  public:
+	connection(datablock &db);
+	~connection();
 
-// };
+	friend class transaction;
+
+  private:
+	struct connection_impl *m_impl;
+};
 
 
 } // namespace cif::cql

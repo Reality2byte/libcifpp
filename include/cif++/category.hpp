@@ -33,8 +33,6 @@
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 
-#include <array>
-
 /** \file category.hpp
  * Documentation for the cif::category class
  *

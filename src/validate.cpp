@@ -288,15 +288,20 @@ void category_validator::add_item_validator(item_validator &&v)
 
 	v.m_category = m_name;
 
-	auto r = m_item_validators.insert(std::move(v));
-	if (not r.second and VERBOSE >= 4)
-		std::cout << "Could not add validator for item " << v.m_item_name << " to category " << m_name << '\n';
+	auto i = std::find(m_item_validators.begin(), m_item_validators.end(), v);
+	if (i != m_item_validators.end())
+	{
+		if (VERBOSE >= 4)
+			std::cout << "Could not add validator for item " << v.m_item_name << " to category " << m_name << '\n';
+	}
+	else
+		m_item_validators.emplace_back(std::move(v));
 }
 
 const item_validator *category_validator::get_validator_for_item(std::string_view item_name) const
 {
 	const item_validator *result = nullptr;
-	auto i = m_item_validators.find(item_validator{ std::string(item_name) });
+	auto i = std::find(m_item_validators.begin(), m_item_validators.end(), item_validator{ std::string(item_name) });
 	if (i != m_item_validators.end())
 		result = &*i;
 	else if (VERBOSE > 4)

@@ -81,8 +81,10 @@ TEST_CASE("cql-1")
 {
 	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
 	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
-	cif::cql::transaction tx(db);
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT name, ordinal FROM citation_author WHERE citation_id = 'primary';");
 	CHECK(r.size() == 7);
@@ -158,8 +160,10 @@ TEST_CASE("cql-2")
 {
 	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
 	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
-	cif::cql::transaction tx(db);
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT name AS v1, ordinal AS v2 FROM citation_author WHERE citation_id = 'primary';");
 	CHECK(r.size() == 7);
@@ -182,8 +186,10 @@ TEST_CASE("cql-3")
 {
 	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
 	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
-	cif::cql::transaction tx(db);
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT name FROM citation_author WHERE ordinal = 10").one_field();
 	CHECK(r.as<std::string>() == kAuthors[9]);
@@ -193,8 +199,10 @@ TEST_CASE("cql-4")
 {
 	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
 	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
-	cif::cql::transaction tx(db);
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT name FROM citation_author WHERE ordinal BETWEEN 10 AND 15");
 	REQUIRE(r.size() == 6);
@@ -204,8 +212,10 @@ TEST_CASE("cql-5")
 {
 	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
 	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
-	cif::cql::transaction tx(db);
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT (SELECT year FROM citation WHERE id = citation_id) AS jaar FROM citation_author WHERE ordinal IS 23").one_field();
 	CHECK(r.name() == "jaar");

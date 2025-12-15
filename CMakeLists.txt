@@ -24,6 +24,8 @@
 
 cmake_minimum_required(VERSION 3.23)
 
+cmake_policy(SET CMP0135 NEW)
+
 if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR AND NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
 	set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
 	set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release" "MinSizeRel" "RelWithDebInfo")
@@ -192,9 +194,19 @@ if(NOT ZLIB_FOUND)
 	message(FATAL_ERROR "cifpp: The zlib development files were not found you this system, please install them and try again (hint: on debian/ubuntu use apt-get install zlib1g-dev)")
 endif()
 
-if(BUILD_SQLITE_INTERFACE)
-	find_package(SQLite3 REQUIRED)
-endif()
+# if(BUILD_SQLITE_INTERFACE)
+# 	# find_package(sqlite3 REQUIRED)
+# 	message(NOTICE "libcifpp: Using fast_float for std::from_chars")
+# 	FetchContent_Declare(
+# 		sqlite3
+# 		URL "https://sqlite.org/2025/sqlite-src-3510100.zip"
+# 		URL_HASH SHA3_256=a10d1469493c62c0667c63d889269f802bbb212d695533cd13611a713a9f77a7
+# 		OVERRIDE_FIND_PACKAGE
+# 		EXCLUDE_FROM_ALL)
+# 	FetchContent_MakeAvailable(sqlite3)
+
+# 	find_package(sqlite3 REQUIRED)
+# endif()
 
 include(FindPkgConfig)
 
@@ -252,7 +264,7 @@ endif()
 write_version_header("${CMAKE_CURRENT_SOURCE_DIR}/src/" LIB_NAME "LibCIFPP")
 
 # Sources
-set(project_sources
+list(APPEND project_sources
 	${CMAKE_CURRENT_SOURCE_DIR}/src/category.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/condition.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/datablock.cpp
@@ -279,7 +291,12 @@ set(project_sources
 	${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/validate-pdbx.cpp
 )
 
-set(project_headers
+if(BUILD_SQLITE_INTERFACE)
+	list(APPEND project_sources
+		${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite3.c)
+endif()
+
+list(APPEND project_headers
 	include/cif++.hpp
 	include/cif++/atom_type.hpp
 	include/cif++/category.hpp
@@ -359,9 +376,12 @@ if(NOT STD_CHARCONV_COMPILING)
 	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
 endif()
 
-if(BUILD_SQLITE_INTERFACE)
-	target_link_libraries(cifpp PRIVATE SQLite::SQLite3)
-endif()
+# if(BUILD_SQLITE_INTERFACE)
+# 	message(NOTICE "include ${sqlite3_VERSION}")
+
+# 	target_include_directories(cifpp PRIVATE sqlite3_INCLUDE_DIRS)
+# 	target_link_libraries(cifpp PRIVATE sqlite3)
+# endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
 	target_link_options(cifpp PRIVATE -undefined dynamic_lookup)

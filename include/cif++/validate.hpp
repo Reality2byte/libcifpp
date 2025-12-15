@@ -343,11 +343,11 @@ struct item_validator
  */
 struct category_validator
 {
-	std::string m_name;                         ///< The name of the category
-	std::vector<std::string> m_keys;            ///< The list of items that make up the key
-	cif::iset m_groups;                         ///< The category groups this category belongs to
-	cif::iset m_mandatory_items;                ///< The mandatory items for this category
-	std::set<item_validator> m_item_validators; ///< The item validators for the items in this category
+	std::string m_name;                            ///< The name of the category
+	std::vector<std::string> m_keys;               ///< The list of items that make up the key
+	cif::iset m_groups;                            ///< The category groups this category belongs to
+	cif::iset m_mandatory_items;                   ///< The mandatory items for this category
+	std::vector<item_validator> m_item_validators; ///< The item validators for the items in this category
 
 	/// @brief return true if this category sorts before @a rhs
 	bool operator<(const category_validator &rhs) const

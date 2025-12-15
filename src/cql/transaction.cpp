@@ -26,6 +26,7 @@
 
 #include "cif++/cql/transaction.hpp"
 
+#include "../sqlite3.h"
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"
@@ -33,13 +34,14 @@
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
 
-#include <mcfp/mcfp.hpp>
-
 #include <algorithm>
+#include <cstdint>
+#include <exception>
 #include <iterator>
 #include <memory>
-#include <sqlite3.h>
+#include <regex>
 #include <stdexcept>
+#include <utility>
 
 namespace cif::cql
 {
@@ -124,17 +126,17 @@ row_ref result::back() const noexcept
 
 size_t result::size() const noexcept
 {
-	return m_view->size();
+	return m_view ? m_view->size() : 0;
 }
 
 bool result::empty() const noexcept
 {
-	return m_view->empty();
+	return size() == 0;
 }
 
 row_ref result::at(size_t index) const
 {
-	return m_view->at(index);
+	return m_view ? m_view->at(index) : row_ref{};
 }
 
 // --------------------------------------------------------------------
@@ -1520,8 +1522,22 @@ cif::condition Parser::ParseWhereClause(cif::category &cat, const column_list &c
 
 // --------------------------------------------------------------------
 
-struct virtual_table
+struct connection_impl
 {
+	datablock &m_db;
+	sqlite3 *m_sqlite_db = nullptr;
+
+	connection_impl(datablock &db);
+
+	~connection_impl()
+	{
+		sqlite3_close(m_sqlite_db);
+	}
+
+	int Connect(sqlite3 *db, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
+
+	// The module interface
+
 	static int Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
 	static int Disconnect(sqlite3_vtab *pVtab);
 	static int Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor);
@@ -1539,27 +1555,40 @@ struct virtual_table
 	static sqlite3_module s_module;
 };
 
-struct transaction_impl
+struct virtual_table
 {
-	const datablock &m_db;
-	sqlite3 *m_sqlite_db = nullptr;
+	sqlite3_vtab base;
 
-	transaction_impl(const datablock &db);
+	category &m_cat;
 
-	~transaction_impl()
-	{
-		sqlite3_close(m_sqlite_db);
-	}
-
+	// int Disconnect(sqlite3_vtab *pVtab);
+	// int Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor);
+	// int Close(sqlite3_vtab_cursor *cur);
+	// int Next(sqlite3_vtab_cursor *cur);
+	// int Column(
+	// 	sqlite3_vtab_cursor *cur, /* The cursor */
+	// 	sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
+	// 	int i);                   /* Which column to return */
+	// int Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid);
+	// int Eof(sqlite3_vtab_cursor *cur);
+	// int Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv);
+	// int BestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo);
 };
 
-sqlite3_module virtual_table::s_module{
+struct virtual_cursor
+{
+	sqlite3_vtab_cursor base;
+	category &m_cat;
+	category::iterator m_cur;
+};
+
+sqlite3_module connection_impl::s_module{
 	/* iVersion    */ 0,
-	/* xCreate     */ 0,
+	/* xCreate     */ Connect,
 	/* xConnect    */ Connect,
 	/* xBestIndex  */ BestIndex,
 	/* xDisconnect */ Disconnect,
-	/* xDestroy    */ 0,
+	/* xDestroy    */ Disconnect,
 	/* xOpen       */ Open,
 	/* xClose      */ Close,
 	/* xFilter     */ Filter,
@@ -1585,80 +1614,126 @@ sqlite3_module virtual_table::s_module{
 ** The templatevtabConnect() method is invoked to create a new
 ** template virtual table.
 **
-** Think of this routine as the constructor for virtual_table objects.
+** Think of this routine as the constructor for connection_impl objects.
 **
 ** All this routine needs to do is:
 **
-**    (1) Allocate the virtual_table object and initialize all fields.
+**    (1) Allocate the connection_impl object and initialize all fields.
 **
 **    (2) Tell SQLite (via the sqlite3_declare_vtab() interface) what the
 **        result set of queries against the virtual table will look like.
 */
-int virtual_table::Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
+
+int connection_impl::Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
 {
-	virtual_table *pNew;
-	int rc;
-
-	
-
-
-	rc = sqlite3_declare_vtab(db,
-		"CREATE TABLE x(a,b)");
-	/* For convenience, define symbolic names for the index to each column. */
-#define TEMPLATEVTAB_A 0
-#define TEMPLATEVTAB_B 1
-	if (rc == SQLITE_OK)
+	connection_impl *impl = reinterpret_cast<connection_impl *>(pAux);
+	try
 	{
-		pNew = sqlite3_malloc(sizeof(*pNew));
-		*ppVtab = (sqlite3_vtab *)pNew;
-		if (pNew == 0)
-			return SQLITE_NOMEM;
-		memset(pNew, 0, sizeof(*pNew));
+		return impl->Connect(db, argc, argv, ppVtab, pzErr);
 	}
+	catch (const std::exception &ex)
+	{
+		*pzErr = sqlite3_mprintf("%s", ex.what());
+		return SQLITE_ERROR;
+	}
+}
+
+// --------------------------------------------------------------------
+
+int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
+{
+	if (argc < 3)
+		throw std::runtime_error("Insufficient arguments to module connect");
+
+	auto cat = m_db.get(argv[2]);
+	if (cat == nullptr)
+		throw std::runtime_error(std::format("Category {} is not known in this databank", argv[2]));
+
+	std::vector<std::string> items;
+
+	if (auto cv = cat->get_cat_validator(); cv != nullptr)
+	{
+		for (std::string item : cat->get_items())
+		{
+			auto iv = cv->get_validator_for_item(item);
+
+			if (iv != nullptr)
+			{
+				if (iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+				{
+					if (iequals(iv->m_type->m_name, "int"))
+					{
+						items.emplace_back(std::format("'{}' {}", item, " INTEGER"));
+						continue;
+					}
+
+					if (iequals(iv->m_type->m_name, "float"))
+					{
+						items.emplace_back(std::format("'{}' {}", item, " REAL"));
+						continue;
+					}
+				}
+			}
+
+			items.emplace_back(std::format("'{}' {}", item, " TEXT"));
+		}
+	}
+	else
+	{
+		for (auto item : cat->get_items())
+			items.emplace_back(std::format("'{}'", item));
+	}
+
+	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *cat);
+
+	auto createStmt = std::format("CREATE TABLE {} ({})", cat->name(), join(items, ", "));
+
+	int rc = sqlite3_declare_vtab(db, createStmt.c_str());
+	if (rc == SQLITE_OK)
+		*ppVtab = reinterpret_cast<sqlite3_vtab *>(vtab.release());
+
 	return rc;
 }
 
 /*
-** This method is the destructor for virtual_table objects.
+** This method is the destructor for connection_impl objects.
 */
-int virtual_table::Disconnect(sqlite3_vtab *pVtab)
+int connection_impl::Disconnect(sqlite3_vtab *pVtab)
 {
-	virtual_table *p = (virtual_table *)pVtab;
-	sqlite3_free(p);
+	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+	delete p;
 	return SQLITE_OK;
 }
 
 /*
 ** Constructor for a new templatevtab_cursor object.
 */
-int virtual_table::Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor)
+int connection_impl::Open(sqlite3_vtab *pVtab, sqlite3_vtab_cursor **ppCursor)
 {
-	templatevtab_cursor *pCur;
-	pCur = sqlite3_malloc(sizeof(*pCur));
-	if (pCur == 0)
-		return SQLITE_NOMEM;
-	memset(pCur, 0, sizeof(*pCur));
-	*ppCursor = &pCur->base;
+	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+
+	auto cursor = std::make_unique<virtual_cursor>(sqlite3_vtab_cursor{}, p->m_cat, p->m_cat.begin());
+	*ppCursor = reinterpret_cast<sqlite3_vtab_cursor *>(cursor.release());
 	return SQLITE_OK;
 }
 
 /*
 ** Destructor for a templatevtab_cursor.
 */
-int virtual_table::Close(sqlite3_vtab_cursor *cur)
+int connection_impl::Close(sqlite3_vtab_cursor *cur)
 {
-	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
-	sqlite3_free(pCur);
+	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
+	delete pCur;
 	return SQLITE_OK;
 }
 
 /*
 ** Advance a templatevtab_cursor to its next row of output.
 */
-int virtual_table::Next(sqlite3_vtab_cursor *cur)
+int connection_impl::Next(sqlite3_vtab_cursor *cur)
 {
-	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
-	pCur->iRowid++;
+	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
+	++pCur->m_cur;
 	return SQLITE_OK;
 }
 
@@ -1666,23 +1741,41 @@ int virtual_table::Next(sqlite3_vtab_cursor *cur)
 ** Return values of columns for the row at which the templatevtab_cursor
 ** is currently pointing.
 */
-int virtual_table::Column(
+int connection_impl::Column(
 	sqlite3_vtab_cursor *cur, /* The cursor */
 	sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
 	int i                     /* Which column to return */
 )
 {
-	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
-	switch (i)
+	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
+	auto rh = *pCur->m_cur;
+	auto item = rh[i];
+
+	auto cv = pCur->m_cat.get_cat_validator();
+	if (cv)
 	{
-		case TEMPLATEVTAB_A:
-			sqlite3_result_int(ctx, 1000 + pCur->iRowid);
-			break;
-		default:
-			assert(i == TEMPLATEVTAB_B);
-			sqlite3_result_int(ctx, 2000 + pCur->iRowid);
-			break;
+		if (auto iv = cv->get_validator_for_item(pCur->m_cat.get_item_name(i));
+			iv != nullptr and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+		{
+			if (iequals(iv->m_type->m_name, "int"))
+			{
+				auto v = item.as<int64_t>();
+				sqlite3_result_int64(ctx, v);
+			}
+			else if (iequals(iv->m_type->m_name, "float"))
+			{
+				auto v = item.as<double>();
+				sqlite3_result_double(ctx, v);
+			}
+			else
+				sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_TRANSIENT);
+		}
+		else
+			sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_TRANSIENT);
 	}
+	else
+		sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_TRANSIENT);
+
 	return SQLITE_OK;
 }
 
@@ -1690,10 +1783,10 @@ int virtual_table::Column(
 ** Return the rowid for the current row.  In this implementation, the
 ** rowid is the same as the output value.
 */
-int virtual_table::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
+int connection_impl::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
 {
-	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
-	*pRowid = pCur->iRowid;
+	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
+	*pRowid = std::distance(pCur->m_cat.begin(), pCur->m_cur);
 	return SQLITE_OK;
 }
 
@@ -1701,10 +1794,10 @@ int virtual_table::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
 ** Return TRUE if the cursor has been moved off of the last
 ** row of output.
 */
-int virtual_table::Eof(sqlite3_vtab_cursor *cur)
+int connection_impl::Eof(sqlite3_vtab_cursor *cur)
 {
-	templatevtab_cursor *pCur = (templatevtab_cursor *)cur;
-	return pCur->iRowid >= 10;
+	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
+	return pCur->m_cur == pCur->m_cat.end();
 }
 
 /*
@@ -1713,10 +1806,10 @@ int virtual_table::Eof(sqlite3_vtab_cursor *cur)
 ** once prior to any call to templatevtabColumn() or templatevtabRowid() or
 ** templatevtabEof().
 */
-int virtual_table::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv)
+int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv)
 {
-	templatevtab_cursor *pCur = (templatevtab_cursor *)pVtabCursor;
-	pCur->iRowid = 1;
+	auto pCur = reinterpret_cast<virtual_cursor *>(pVtabCursor);
+	pCur->m_cur = pCur->m_cat.begin();
 	return SQLITE_OK;
 }
 
@@ -1726,14 +1819,18 @@ int virtual_table::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const ch
 ** a query plan for each invocation and compute an estimated cost for that
 ** plan.
 */
-int virtual_table::BestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo)
+int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo)
 {
+	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+
 	pIdxInfo->estimatedCost = (double)10;
-	pIdxInfo->estimatedRows = 10;
+	pIdxInfo->estimatedRows = p->m_cat.size();
 	return SQLITE_OK;
 }
 
-transaction_impl::transaction_impl(const datablock &db)
+// --------------------------------------------------------------------
+
+connection_impl::connection_impl(datablock &db)
 	: m_db(db)
 {
 	auto rc = sqlite3_open(":memory:", &m_sqlite_db);
@@ -1741,37 +1838,137 @@ transaction_impl::transaction_impl(const datablock &db)
 	if (rc)
 		throw std::runtime_error(std::format("Cannot open databank: {}", sqlite3_errmsg(m_sqlite_db)));
 
-	rc = sqlite3_create_module(m_sqlite_db, "cifpp", &virtual_table::s_module, &m_db);
+	rc = sqlite3_create_module_v2(m_sqlite_db, "CIFPP", &connection_impl::s_module, this, nullptr);
 
 	if (rc)
-		throw std::runtime_error(std::format("Cannot open databank: {}", sqlite3_errmsg(m_sqlite_db)));
+		throw std::runtime_error(std::format("Cannot create module: {}", sqlite3_errmsg(m_sqlite_db)));
+
+	// Now, create a table for all known categories in the datablock
+
+	for (auto &cat : db)
+	{
+		char *errmsg;
+		rc = sqlite3_exec(m_sqlite_db,
+			("CREATE VIRTUAL TABLE " + cat.name() + " USING CIFPP;").c_str(),
+			nullptr, nullptr, &errmsg);
+		if (rc != SQLITE_OK)
+		{
+			if (errmsg != nullptr)
+			{
+				std::string err = errmsg;
+				sqlite3_free(errmsg);
+
+				throw std::runtime_error("Error creating virtual tables for the categories: " + err);
+			}
+
+			throw std::runtime_error("Error creating virtual tables for the categories");
+		}
+	}
+}
+
+connection::connection(datablock &db)
+	: m_impl(new connection_impl(db))
+{
+}
+
+connection::~connection()
+{
+	delete m_impl;
 }
 
 // --------------------------------------------------------------------
 
-transaction::transaction(const datablock &db)
-	: m_impl(new transaction_impl(db))
+class simple_view_with_cat : public simple_view
+{
+  public:
+	simple_view_with_cat(std::shared_ptr<category> cat)
+		: simple_view(*cat)
+		, m_cat2(cat)
+	{
+	}
+
+	std::shared_ptr<category> m_cat2;
+};
+
+transaction::transaction(connection &conn)
+	: m_conn(conn)
 {
 }
 
 transaction::~transaction()
 {
-	delete m_impl;
 }
 
-result transaction::exec(std::string_view query)
+result transaction::exec(const std::string &query)
 {
-	struct membuf : public std::streambuf
-	{
-		membuf(char *text, std::size_t length)
-		{
-			this->setg(text, text, text + length);
-		}
-	} buffer(const_cast<char *>(query.data()), query.size());
+	auto cat = std::make_shared<category>();
 
-	// Parser p(m_db);
-	// auto stmt = p.Parse(&buffer);
-	// return { *stmt->Execute() };
+	sqlite3_stmt *stmt = nullptr;
+
+	try
+	{
+		int rc = sqlite3_prepare_v2(m_conn.m_impl->m_sqlite_db, query.data(), query.size(),
+			&stmt, nullptr);
+
+		if (rc != SQLITE_OK)
+			throw std::runtime_error("Error preparing statement");
+
+		for (int i = 0; i < sqlite3_column_count(stmt); ++i)
+			cat->add_item(sqlite3_column_name(stmt, i));
+
+		for (;;)
+		{
+			rc = sqlite3_step(stmt);
+			if (rc == SQLITE_ROW)
+			{
+				row_initializer data;
+
+				for (int i = 0; i < sqlite3_column_count(stmt); ++i)
+				{
+					switch (sqlite3_column_type(stmt, i))
+					{
+						case SQLITE_INTEGER:
+							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
+							break;
+						case SQLITE_FLOAT:
+							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_double(stmt, i));
+							break;
+						case SQLITE_TEXT:
+							data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
+							break;
+						case SQLITE_BLOB:
+							// data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
+							throw std::runtime_error("Unexpected: blob in result");
+							break;
+						case SQLITE_NULL:
+							data.emplace_back(sqlite3_column_name(stmt, i), ".");
+							break;
+					}
+				}
+
+				cat->emplace(std::move(data));
+				continue;
+			}
+
+			if (rc == SQLITE_BUSY)
+				throw std::runtime_error("Oops, busy?");
+			if (rc == SQLITE_DONE)
+				break;
+			if (rc == SQLITE_ERROR)
+				throw std::runtime_error(std::format("Error in sqlite: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
+
+			throw std::runtime_error("Unknown result from step");
+		}
+
+		auto vw = std::make_shared<simple_view_with_cat>(cat);
+		return result(*vw, query);
+	}
+	catch (const std::exception &ex)
+	{
+		if (stmt)
+			sqlite3_finalize(stmt);
+		throw;
+	}
 }
 
 } // namespace cif::cql

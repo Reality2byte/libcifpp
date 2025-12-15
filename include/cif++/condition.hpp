@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "cif++/text.hpp"
 #include "cif++/row.hpp"
 #include "cif++/format.hpp"
 

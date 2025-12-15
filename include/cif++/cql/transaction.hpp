@@ -27,13 +27,11 @@
 #pragma once
 
 #include "cif++/category.hpp"
-#include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"
 #include "cif++/item.hpp"
 #include "cif++/row.hpp"
 #include "cif++/validate.hpp"
 
-#include <algorithm>
 #include <iterator>
 #include <memory>
 #include <stdexcept>
@@ -234,12 +232,90 @@ class row_ref final
 	const column_list *m_cols = nullptr;
 };
 
+// // --------------------------------------------------------------------
+
+// class view : public std::enable_shared_from_this<view>
+// {
+//   public:
+// 	virtual ~view() = default;
+
+
+// 	// --------------------------------------------------------------------
+
+// 	const_row_iterator begin() const noexcept { return const_row_iterator(*this, 0, at(0)); }
+// 	const_row_iterator cbegin() const noexcept { return const_row_iterator(*this, 0, at(0)); }
+
+// 	const_row_iterator end() const noexcept { return const_row_iterator(*this, size(), row_ref{}); }
+// 	const_row_iterator cend() const noexcept { return const_row_iterator(*this, size(), row_ref{}); }
+
+// 	virtual row_ref front() const noexcept = 0;
+// 	virtual row_ref back() const noexcept = 0;
+
+// 	virtual size_t size() const noexcept = 0;
+// 	bool empty() const noexcept { return size() == 0; }
+
+// 	virtual row_ref at(size_t index) const = 0;
+
+// 	// --------------------------------------------------------------------
+
+// 	std::vector<std::string> columns() const
+// 	{
+// 		std::vector<std::string> result;
+// 		for (const auto &[name, ignore] : m_columns)
+// 			result.emplace_back(name);
+// 		return result;
+// 	}
+
+//   protected:
+// 	friend class const_row_iterator;
+
+// 	view(const column_list &cols)
+// 		: m_columns(cols)
+// 	{
+// 	}
+
+// 	view(column_list &&cols)
+// 		: m_columns(std::forward<column_list>(cols))
+// 	{
+// 	}
+
+// 	column_list m_columns;
+// };
+
+// // --------------------------------------------------------------------
+
+// class simple_view : public view
+// {
+//   public:
+// 	simple_view(const category &cat)
+// 		: view(get_column_list_for_category(cat))
+// 		, m_cat(cat)
+// 	{
+// 	}
+
+// 	simple_view(const simple_view &) = default;
+// 	simple_view(simple_view &&) = default;
+
+// 	virtual size_t size() const noexcept override { return m_cat.size(); }
+
+// 	virtual row_ref front() const noexcept override;
+// 	virtual row_ref back() const noexcept override;
+
+// 	virtual row_ref at(size_t index) const override;
+
+//   protected:
+
+// 	static column_list get_column_list_for_category(const category &cat);
+
+//   const category &m_cat;
+// };
+
 // --------------------------------------------------------------------
 
-class view : public std::enable_shared_from_this<view>
+class result
 {
   public:
-	virtual ~view() = default;
+	// --------------------------------------------------------------------
 
 	class const_row_iterator
 	{
@@ -296,96 +372,12 @@ class view : public std::enable_shared_from_this<view>
 		}
 
 	  private:
-		const_row_iterator(const view &result, size_t index, row_ref current)
-			: m_data(result)
-			, m_index(index)
-			, m_current(current)
-		{
-		}
+		const_row_iterator(const view &result, size_t index, row_ref current);
 
-		const view &m_data;
-		size_t m_index = 0;
-		row_ref m_current;
+		// const view &m_data;
+		// size_t m_index = 0;
+		// row_ref m_current;
 	};
-
-	// --------------------------------------------------------------------
-
-	const_row_iterator begin() const noexcept { return const_row_iterator(*this, 0, at(0)); }
-	const_row_iterator cbegin() const noexcept { return const_row_iterator(*this, 0, at(0)); }
-
-	const_row_iterator end() const noexcept { return const_row_iterator(*this, size(), row_ref{}); }
-	const_row_iterator cend() const noexcept { return const_row_iterator(*this, size(), row_ref{}); }
-
-	virtual row_ref front() const noexcept = 0;
-	virtual row_ref back() const noexcept = 0;
-
-	virtual size_t size() const noexcept = 0;
-	bool empty() const noexcept { return size() == 0; }
-
-	virtual row_ref at(size_t index) const = 0;
-
-	// --------------------------------------------------------------------
-
-	std::vector<std::string> columns() const
-	{
-		std::vector<std::string> result;
-		for (const auto &[name, ignore] : m_columns)
-			result.emplace_back(name);
-		return result;
-	}
-
-  protected:
-	friend class const_row_iterator;
-
-	view(const column_list &cols)
-		: m_columns(cols)
-	{
-	}
-
-	view(column_list &&cols)
-		: m_columns(std::forward<column_list>(cols))
-	{
-	}
-
-	column_list m_columns;
-};
-
-// --------------------------------------------------------------------
-
-class simple_view : public view
-{
-  public:
-	simple_view(const category &cat)
-		: view(get_column_list_for_category(cat))
-		, m_cat(cat)
-	{
-	}
-
-	simple_view(const simple_view &) = default;
-	simple_view(simple_view &&) = default;
-
-	virtual size_t size() const noexcept override { return m_cat.size(); }
-
-	virtual row_ref front() const noexcept override;
-	virtual row_ref back() const noexcept override;
-
-	virtual row_ref at(size_t index) const override;
-
-  protected:
-
-	static column_list get_column_list_for_category(const category &cat);
-
-  const category &m_cat;
-};
-
-// --------------------------------------------------------------------
-
-class result
-{
-  public:
-	// --------------------------------------------------------------------
-
-	using const_row_iterator = view::const_row_iterator;
 
 	// --------------------------------------------------------------------
 
@@ -446,8 +438,11 @@ class transaction final
 
 	result exec(const std::string &query);
 
+	void commit();
+	void rollback();
+
   private:
-	connection &m_conn;
+	struct transaction_impl *m_impl;
 };
 
 // --------------------------------------------------------------------

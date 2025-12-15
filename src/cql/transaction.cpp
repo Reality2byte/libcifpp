@@ -1751,8 +1751,9 @@ int connection_impl::Column(
 	auto rh = *pCur->m_cur;
 	auto item = rh[i];
 
-	auto cv = pCur->m_cat.get_cat_validator();
-	if (cv)
+	if (item.is_null())
+		sqlite3_result_null(ctx);
+	else if (auto cv = pCur->m_cat.get_cat_validator(); cv != nullptr)
 	{
 		if (auto iv = cv->get_validator_for_item(pCur->m_cat.get_item_name(i));
 			iv != nullptr and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
@@ -1768,13 +1769,13 @@ int connection_impl::Column(
 				sqlite3_result_double(ctx, v);
 			}
 			else
-				sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_TRANSIENT);
+				sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
 		}
 		else
-			sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_TRANSIENT);
+			sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
 	}
 	else
-		sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_TRANSIENT);
+		sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
 
 	return SQLITE_OK;
 }
@@ -1786,7 +1787,7 @@ int connection_impl::Column(
 int connection_impl::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
-	*pRowid = std::distance(pCur->m_cat.begin(), pCur->m_cur);
+	*pRowid = reinterpret_cast<sqlite3_int64>(pCur->m_cur.get_row());
 	return SQLITE_OK;
 }
 

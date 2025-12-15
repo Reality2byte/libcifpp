@@ -30,6 +30,7 @@
 #include "cif++/row.hpp"
 
 #include <array>
+#include <cstdint>
 
 /**
  * @file iterator.hpp

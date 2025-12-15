@@ -32,51 +32,56 @@
 
 /**
  * @file row.hpp
- * 
+ *
  * The class cif::row should be an opaque type. It is used to store the
  * internal data per row in a category. You should use cif::row_handle
  * to get access to the contents in a row.
- * 
+ *
  * One could think of rows as vectors of cif::item. But internally
  * that's not the case.
- * 
+ *
  * You can access the values of stored items by name or index.
  * The return value of operator[] is an cif::item_handle object.
- * 
+ *
  * @code {.cpp}
  * cif::category &atom_site = my_db["atom_site"];
  * cif::row_handle rh = atom_site.front();
- * 
+ *
  * // by name:
  * std::string name = rh["label_atom_id"].as<std::string>();
- * 
+ *
  * // by index:
  * uint16_t ix = atom_site.get_item_ix("label_atom_id");
  * assert(rh[ix].as<std::string() == name);
  * @endcode
- * 
+ *
  * There some template magic here to allow easy extracting of data
  * from rows. This can be done using cif::tie e.g.:
- * 
+ *
  * @code {.cpp}
  * std::string name;
  * float x, y, z;
- * 
+ *
  * cif::tie(name, x, y, z) = rh.get("label_atom_id", "cartn_x", "cartn_y", "cartn_z");
  * @endcode
- * 
+ *
  * However, a more modern way uses structured binding:
- * 
+ *
  * @code {.cpp}
  * const auto &[name, x, y, z] = rh.get<std::string,float,float,float>("label_atom_id", "cartn_x", "cartn_y", "cartn_z");
  * @endcode
- * 
- * 
- * 
+ *
+ *
+ *
  */
 
 namespace cif
 {
+
+namespace cql
+{
+	struct connection_impl;
+}
 
 namespace detail
 {
@@ -141,7 +146,7 @@ namespace detail
 
 } // namespace detail
 
-/// \brief similar to std::tie, assign values to each element in @a v from the 
+/// \brief similar to std::tie, assign values to each element in @a v from the
 /// result of a get on a row_handle.
 template <typename... Ts>
 auto tie(Ts &...v)
@@ -160,7 +165,7 @@ class row : public std::vector<item_value>
 	/**
 	 * @brief Return the item_value pointer for item at index @a ix
 	 */
-	item_value* get(uint16_t ix)
+	item_value *get(uint16_t ix)
 	{
 		return ix < size() ? &data()[ix] : nullptr;
 	}
@@ -168,7 +173,7 @@ class row : public std::vector<item_value>
 	/**
 	 * @brief Return the const item_value pointer for item at index @a ix
 	 */
-	const item_value* get(uint16_t ix) const
+	const item_value *get(uint16_t ix) const
 	{
 		return ix < size() ? &data()[ix] : nullptr;
 	}
@@ -184,7 +189,7 @@ class row : public std::vector<item_value>
 	{
 		if (ix >= size())
 			resize(ix + 1);
-		
+
 		at(ix) = std::move(iv);
 	}
 
@@ -208,7 +213,8 @@ class row_handle
 	friend class category;
 	friend class category_index;
 	friend class row_initializer;
-	template <typename, typename...> friend class iterator_impl;
+	template <typename, typename...>
+	friend class iterator_impl;
 
 	row_handle() = default;
 
@@ -305,13 +311,13 @@ class row_handle
 			assign(value, true);
 	}
 
-	/** \brief assign the value @a value to the item named @a name 
-	 * 
+	/** \brief assign the value @a value to the item named @a name
+	 *
 	 * If updateLinked it true, linked records are updated as well.
 	 * That means that if item @a name is part of the link definition
 	 * and the link results in a linked record in another category
 	 * this record in the linked category is updated as well.
-	 * 
+	 *
 	 * If validate is true, which is default, the assigned value is
 	 * checked to see if it conforms to the rules defined in the dictionary
 	 */
@@ -322,12 +328,12 @@ class row_handle
 	}
 
 	/** \brief assign the value @a value to item at index @a item
-	 * 
+	 *
 	 * If updateLinked it true, linked records are updated as well.
 	 * That means that if item @a item is part of the link definition
 	 * and the link results in a linked record in another category
 	 * this record in the linked category is updated as well.
-	 * 
+	 *
 	 * If validate is true, which is default, the assigned value is
 	 * checked to see if it conforms to the rules defined in the dictionary
 	 */
@@ -345,6 +351,8 @@ class row_handle
 	std::string_view get_item_name(uint16_t ix) const;
 
 	uint16_t add_item(std::string_view name);
+
+	friend cql::connection_impl;
 
 	row *get_row()
 	{
@@ -371,7 +379,7 @@ class row_handle
 
 /**
  * @brief The class row_initializer is a list of cif::item's.
- * 
+ *
  * This class is used to construct new rows, it allows to
  * group a list of item name and value pairs and pass it
  * in one go to the constructing function.
@@ -405,7 +413,6 @@ class row_initializer : public std::vector<item>
 
 	/// \brief constructor taking the values of an existing row
 	row_initializer(row_handle rh);
-
 
 	/// \brief set the value for item name @a name to @a value
 	void set_value(std::string_view name, std::string_view value);

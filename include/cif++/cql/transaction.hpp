@@ -36,7 +36,6 @@
 #include <memory>
 #include <stdexcept>
 #include <string>
-#include <vector>
 
 // --------------------------------------------------------------------
 
@@ -46,18 +45,9 @@ namespace cif::cql
 class result;
 class row;
 class transaction;
-class view;
 class connection;
 
-// --------------------------------------------------------------------
-
-struct column
-{
-	std::string name;
-	size_t index;
-};
-
-using column_list = std::vector<column>;
+struct result_impl;
 
 // --------------------------------------------------------------------
 
@@ -66,24 +56,24 @@ class field_ref final
   public:
 	std::string_view name() const &
 	{
-		return m_col->name;
+		return m_row.get_category().get_item_name(m_index);
 	}
 
 	constexpr size_t num() const noexcept
 	{
-		return m_col->index;
+		return m_index;
 	}
 
 	std::string_view text() const &
 	{
-		return m_row[m_col->index].text();
+		return m_row[m_index].text();
 	}
 
 	/** Return the contents of this item as type @tparam T */
 	template <typename T = std::string>
 	auto as() const -> T
 	{
-		return m_row[m_col->index].as<T>();
+		return m_row[m_index].as<T>();
 	}
 
 	/** Return the contents of this item as type @tparam T or, if not
@@ -92,12 +82,13 @@ class field_ref final
 	template <typename T>
 	auto value_or(const T &dv) const
 	{
-		return m_row[m_col->index].value_or(dv);
+		return m_row[m_index].value_or(dv);
 	}
 
-	field_ref(row_handle rh, column_list::const_iterator col)
+	field_ref(row_handle rh, int col, std::shared_ptr<result_impl> result_impl)
 		: m_row(rh)
-		, m_col(col)
+		, m_index(col)
+		, m_result_impl(result_impl)
 	{
 	}
 
@@ -109,7 +100,9 @@ class field_ref final
 
   private:
 	row_handle m_row;
-	column_list::const_iterator m_col;
+	int m_index;
+
+	std::shared_ptr<result_impl> m_result_impl;
 };
 
 // --------------------------------------------------------------------
@@ -149,7 +142,7 @@ class row_ref final
 			if (m_row)
 			{
 				++m_col;
-				m_current = field_ref(m_row, m_col);
+				m_current = field_ref(m_row, m_col, m_result_impl);
 			}
 
 			return *this;
@@ -175,31 +168,28 @@ class row_ref final
 	  private:
 		friend class row_ref;
 
-		const_field_iterator(const row_handle &row, column_list::const_iterator col)
+		const_field_iterator(row_handle row, int column, std::shared_ptr<result_impl> result_impl)
 			: m_row(row)
-			, m_col(col)
-			, m_current(m_row, m_col)
+			, m_col(column)
+			, m_current(m_row, m_col, result_impl)
+			, m_result_impl(result_impl)
 		{
 		}
 
 		row_handle m_row;
-		column_list::const_iterator m_col;
+		int m_col;
 		field_ref m_current;
+
+		std::shared_ptr<result_impl> m_result_impl;
 	};
 
 	// --------------------------------------------------------------------
 
 	row_ref() = default;
 
-	row_ref(row_handle rh, const column_list &cols)
+	row_ref(row_handle rh, std::shared_ptr<result_impl> result_impl)
 		: m_row(rh)
-		, m_cols(&cols)
-	{
-	}
-
-	row_ref(row_ref r, const column_list &cols)
-		: m_row(r.m_row)
-		, m_cols(&cols)
+		, m_result_impl(result_impl)
 	{
 	}
 
@@ -208,107 +198,29 @@ class row_ref final
 
 	// --------------------------------------------------------------------
 
-	const_field_iterator cbegin() const noexcept { return const_field_iterator(m_row, m_cols->cbegin()); }
-	const_field_iterator begin() const noexcept { return const_field_iterator(m_row, m_cols->cbegin()); }
-	const_field_iterator cend() const noexcept { return const_field_iterator(m_row, m_cols->cend()); }
-	const_field_iterator end() const noexcept { return const_field_iterator(m_row, m_cols->cend()); }
+	const_field_iterator cbegin() const noexcept { return const_field_iterator(m_row, 0, m_result_impl); }
+	const_field_iterator begin() const noexcept { return const_field_iterator(m_row, 0, m_result_impl); }
+	const_field_iterator cend() const noexcept { return const_field_iterator(m_row, size(), m_result_impl); }
+	const_field_iterator end() const noexcept { return const_field_iterator(m_row, size(), m_result_impl); }
 
-	field_ref front() const noexcept { return field_ref(m_row, m_cols->cbegin()); }
-	field_ref back() const noexcept { return field_ref(m_row, m_cols->cend()); }
+	field_ref front() const noexcept { return field_ref(m_row, 0, m_result_impl); }
+	field_ref back() const noexcept { return field_ref(m_row, size() - 1, m_result_impl); }
 
-	size_t size() const noexcept { return m_cols->size(); }
-	bool empty() const noexcept { return m_cols->empty(); }
+	size_t size() const noexcept;
+	bool empty() const noexcept { return size() == 0; }
 
-	field_ref operator[](size_t index) const noexcept;
-	field_ref operator[](std::string_view name) const noexcept;
+	field_ref operator[](size_t index) const noexcept { return field_ref(m_row, index, m_result_impl); }
+	field_ref operator[](std::string_view name) const;
 
 	// --------------------------------------------------------------------
 
-	bool operator==(const row_ref &rhs) const { return m_row == rhs.m_row and m_cols == rhs.m_cols; }
-	bool operator!=(const row_ref &rhs) const { return m_row != rhs.m_row or m_cols != rhs.m_cols; }
+	bool operator==(const row_ref &rhs) const { return m_row == rhs.m_row; }
+	bool operator!=(const row_ref &rhs) const { return m_row != rhs.m_row; }
 
   private:
 	row_handle m_row;
-	const column_list *m_cols = nullptr;
+	std::shared_ptr<result_impl> m_result_impl;
 };
-
-// // --------------------------------------------------------------------
-
-// class view : public std::enable_shared_from_this<view>
-// {
-//   public:
-// 	virtual ~view() = default;
-
-
-// 	// --------------------------------------------------------------------
-
-// 	const_row_iterator begin() const noexcept { return const_row_iterator(*this, 0, at(0)); }
-// 	const_row_iterator cbegin() const noexcept { return const_row_iterator(*this, 0, at(0)); }
-
-// 	const_row_iterator end() const noexcept { return const_row_iterator(*this, size(), row_ref{}); }
-// 	const_row_iterator cend() const noexcept { return const_row_iterator(*this, size(), row_ref{}); }
-
-// 	virtual row_ref front() const noexcept = 0;
-// 	virtual row_ref back() const noexcept = 0;
-
-// 	virtual size_t size() const noexcept = 0;
-// 	bool empty() const noexcept { return size() == 0; }
-
-// 	virtual row_ref at(size_t index) const = 0;
-
-// 	// --------------------------------------------------------------------
-
-// 	std::vector<std::string> columns() const
-// 	{
-// 		std::vector<std::string> result;
-// 		for (const auto &[name, ignore] : m_columns)
-// 			result.emplace_back(name);
-// 		return result;
-// 	}
-
-//   protected:
-// 	friend class const_row_iterator;
-
-// 	view(const column_list &cols)
-// 		: m_columns(cols)
-// 	{
-// 	}
-
-// 	view(column_list &&cols)
-// 		: m_columns(std::forward<column_list>(cols))
-// 	{
-// 	}
-
-// 	column_list m_columns;
-// };
-
-// // --------------------------------------------------------------------
-
-// class simple_view : public view
-// {
-//   public:
-// 	simple_view(const category &cat)
-// 		: view(get_column_list_for_category(cat))
-// 		, m_cat(cat)
-// 	{
-// 	}
-
-// 	simple_view(const simple_view &) = default;
-// 	simple_view(simple_view &&) = default;
-
-// 	virtual size_t size() const noexcept override { return m_cat.size(); }
-
-// 	virtual row_ref front() const noexcept override;
-// 	virtual row_ref back() const noexcept override;
-
-// 	virtual row_ref at(size_t index) const override;
-
-//   protected:
-
-// 	static column_list get_column_list_for_category(const category &cat);
-
-//   const category &m_cat;
-// };
 
 // --------------------------------------------------------------------
 
@@ -330,6 +242,13 @@ class result
 
 		// const_row_iterator() = default;
 
+		const_row_iterator(std::shared_ptr<result_impl> result_impl, category::iterator cat_iter)
+			: m_iter(cat_iter)
+			, m_current(*m_iter, result_impl)
+			, m_result_impl(result_impl)
+		{
+		}
+
 		const_row_iterator(const const_row_iterator &) = default;
 		const_row_iterator(const_row_iterator &&) = default;
 
@@ -348,9 +267,8 @@ class result
 
 		const_row_iterator &operator++()
 		{
-			++m_index;
-			if (m_index < m_data.size())
-				m_current = m_data.at(m_index);
+			++m_iter;
+			m_current = { *m_iter, m_result_impl };
 			return *this;
 		}
 
@@ -363,20 +281,18 @@ class result
 
 		bool operator==(const const_row_iterator &rhs) const
 		{
-			return &m_data == &rhs.m_data and m_index == rhs.m_index;
+			return m_result_impl == rhs.m_result_impl and m_iter == rhs.m_iter;
 		}
 
 		bool operator!=(const const_row_iterator &rhs) const
 		{
-			return &m_data != &rhs.m_data or m_index != rhs.m_index;
+			return m_result_impl != rhs.m_result_impl or m_iter != rhs.m_iter;
 		}
 
 	  private:
-		const_row_iterator(const view &result, size_t index, row_ref current);
-
-		// const view &m_data;
-		// size_t m_index = 0;
-		// row_ref m_current;
+		category::iterator m_iter;
+		row_ref m_current;
+		std::shared_ptr<result_impl> m_result_impl;
 	};
 
 	// --------------------------------------------------------------------
@@ -387,10 +303,24 @@ class result
 	result &operator=(result const &rhs) noexcept = default;
 	result &operator=(result &&rhs) noexcept = default;
 
-	result(view &vw, const std::string &query = "");
+	result(category &&data, const std::string &query = "");
 
-	row_ref one_row() const;
-	field_ref one_field() const;
+	row_ref one_row() const
+	{
+		if (size() != 1)
+			throw std::runtime_error("Expected one row");
+		return front();
+	}
+
+	field_ref one_field() const
+	{
+		if (size() != 1)
+			throw std::runtime_error("Expected one row");
+
+		expect_columns(1);
+
+		return one_row().front();
+	}
 
 	// --------------------------------------------------------------------
 
@@ -400,11 +330,11 @@ class result
 	const_row_iterator end() const noexcept;
 	const_row_iterator cend() const noexcept;
 
-	row_ref front() const noexcept;
-	row_ref back() const noexcept;
+	row_ref front() const;
+	row_ref back() const;
 
 	size_t size() const noexcept;
-	bool empty() const noexcept;
+	bool empty() const noexcept { return size() == 0; }
 
 	size_t column_count() const;
 
@@ -419,10 +349,7 @@ class result
 		return *this;
 	}
 
-	row_ref at(size_t index) const;
-
-	std::string m_query;
-	std::shared_ptr<view> m_view;
+	std::shared_ptr<result_impl> m_impl;
 };
 
 // --------------------------------------------------------------------
@@ -442,7 +369,7 @@ class transaction final
 	void rollback();
 
   private:
-	struct transaction_impl *m_impl;
+	connection &m_conn;
 };
 
 // --------------------------------------------------------------------
@@ -458,6 +385,5 @@ class connection final
   private:
 	struct connection_impl *m_impl;
 };
-
 
 } // namespace cif::cql

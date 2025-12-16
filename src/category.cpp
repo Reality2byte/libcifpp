@@ -32,6 +32,7 @@
 
 #include <numeric>
 #include <stack>
+#include <vector>
 
 // TODO: Find out what the rules are exactly for linked items, the current implementation
 // is inconsistent. It all depends whether a link is satified if a item taking part in the
@@ -620,12 +621,12 @@ void category::rename_item(std::string_view from_name, std::string_view to_name)
 	}
 }
 
-iset category::get_items() const
+std::vector<std::string> category::get_items() const
 {
-	iset result;
+	std::vector<std::string> result;
 
 	for (auto &col : m_items)
-		result.insert(col.m_name);
+		result.emplace_back(col.m_name);
 
 	return result;
 }

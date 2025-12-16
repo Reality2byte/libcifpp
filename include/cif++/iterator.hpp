@@ -264,6 +264,11 @@ class iterator_impl<Category>
 		return m_current;
 	}
 
+	int64_t row_id() const
+	{
+		return reinterpret_cast<int64_t>(m_current.m_row);
+	}
+
 	iterator_impl &operator++()
 	{
 		if (m_current)

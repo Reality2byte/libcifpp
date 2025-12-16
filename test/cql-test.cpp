@@ -238,3 +238,24 @@ TEST_CASE("cql-6")
 	CHECK(r.as<int>() == 1);
 }
 
+TEST_CASE("cql-stream-1")
+{
+	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
+
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
+
+	for (size_t ix = 0;
+		const auto &[name, ordinal] : tx.stream<std::string, size_t>(
+			"SELECT name, ordinal FROM citation_author WHERE citation_id = 'primary';"))
+	{
+		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
+
+		CHECK(name == kAuthors[ix]);
+		CHECK(ordinal == (ix + 1));
+
+		++ix;
+	}
+}

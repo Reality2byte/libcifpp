@@ -79,6 +79,11 @@ result::result(category &&cat, const std::string &query)
 {
 }
 
+category &result::get_category() const
+{
+	return m_impl->m_cat;
+}
+
 size_t result::size() const noexcept
 {
 	return m_impl->m_cat.size();

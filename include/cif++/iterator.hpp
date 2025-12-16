@@ -31,6 +31,7 @@
 
 #include <array>
 #include <cstdint>
+#include <numeric>
 
 /**
  * @file iterator.hpp
@@ -496,6 +497,9 @@ class iterator_proxy
 		std::swap(m_item_ix, rhs.m_item_ix);
 	}
 
+  protected:
+	iterator_proxy(category_type &cat);
+
   private:
 	category_type *m_category;
 	row_iterator m_begin, m_end;
@@ -655,6 +659,15 @@ iterator_proxy<Category, Ts...>::iterator_proxy(Category &cat, row_iterator pos,
 	std::uint16_t i = 0;
 	for (auto item : items)
 		m_item_ix[i++] = m_category->get_item_ix(item);
+}
+
+template <typename Category, typename... Ts>
+iterator_proxy<Category, Ts...>::iterator_proxy(Category &cat)
+	: m_category(&cat)
+	, m_begin(cat.begin())
+	, m_end(cat.end())
+{
+	std::iota(m_item_ix.begin(), m_item_ix.end(), 0);
 }
 
 // --------------------------------------------------------------------

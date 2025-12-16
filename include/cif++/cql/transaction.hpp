@@ -29,6 +29,7 @@
 #include "cif++/category.hpp"
 #include "cif++/datablock.hpp"
 #include "cif++/item.hpp"
+#include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/validate.hpp"
 
@@ -340,6 +341,8 @@ class result
 
 	size_t column_count() const;
 
+	category &get_category() const;
+
   private:
 	friend class transaction;
 	friend class SelectStatement;
@@ -356,6 +359,22 @@ class result
 
 // --------------------------------------------------------------------
 
+template <typename... Ts>
+class cql_iterator_proxy : public cif::iterator_proxy<category, Ts...>
+{
+  public:
+	cql_iterator_proxy(result &&res)
+		: cif::iterator_proxy<category, Ts...>(res.get_category())
+		, m_result(std::forward<result>(res))
+	{
+	}
+
+  private:
+	result m_result;
+};
+
+// --------------------------------------------------------------------
+
 class transaction final
 {
   public:
@@ -366,6 +385,12 @@ class transaction final
 	transaction &operator=(const transaction &) = delete;
 
 	result exec(const std::string &query);
+
+	template<typename... Ts>
+	cql_iterator_proxy<Ts...> stream(const std::string &sql)
+	{
+		return cql_iterator_proxy<Ts...>{ exec(sql) };
+	}
 
 	void commit();
 	void rollback();

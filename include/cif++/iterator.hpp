@@ -537,6 +537,7 @@ class conditional_iterator_proxy
 		using pointer = value_type *;
 		using reference = value_type;
 
+		conditional_iterator_impl() = default;
 		conditional_iterator_impl(CategoryType &cat, row_iterator pos, const condition &cond, const std::array<uint16_t, N> &cix);
 		conditional_iterator_impl(const conditional_iterator_impl &i) = default;
 		conditional_iterator_impl &operator=(const conditional_iterator_impl &i) = default;

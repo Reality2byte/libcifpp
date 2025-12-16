@@ -29,6 +29,7 @@
 #include "cif++/item.hpp"
 
 #include <array>
+#include <cstdint>
 
 /**
  * @file row.hpp
@@ -237,6 +238,12 @@ class row_handle
 	const category &get_category() const
 	{
 		return *m_category;
+	}
+
+	/// \brief return the row ID
+	int64_t row_id() const
+	{
+		return reinterpret_cast<int64_t>(m_row);
 	}
 
 	/// \brief Return true if the row is empty or uninitialised

@@ -229,7 +229,7 @@ class result
   public:
 	// --------------------------------------------------------------------
 
-	class const_row_iterator
+	class iterator
 	{
 	  public:
 		friend class view;
@@ -242,15 +242,15 @@ class result
 
 		// const_row_iterator() = default;
 
-		const_row_iterator(std::shared_ptr<result_impl> result_impl, category::iterator cat_iter)
+		iterator(std::shared_ptr<result_impl> result_impl, category::iterator cat_iter)
 			: m_iter(cat_iter)
 			, m_current(*m_iter, result_impl)
 			, m_result_impl(result_impl)
 		{
 		}
 
-		const_row_iterator(const const_row_iterator &) = default;
-		const_row_iterator(const_row_iterator &&) = default;
+		iterator(const iterator &) = default;
+		iterator(iterator &&) = default;
 
 		// const_row_iterator &operator=(const const_row_iterator &) = default;
 		// const_row_iterator &operator=(const_row_iterator &&) = default;
@@ -265,26 +265,26 @@ class result
 			return &m_current;
 		}
 
-		const_row_iterator &operator++()
+		iterator &operator++()
 		{
 			++m_iter;
 			m_current = { *m_iter, m_result_impl };
 			return *this;
 		}
 
-		const_row_iterator operator++(int)
+		iterator operator++(int)
 		{
-			const_row_iterator result(*this);
+			iterator result(*this);
 			this->operator++();
 			return result;
 		}
 
-		bool operator==(const const_row_iterator &rhs) const
+		bool operator==(const iterator &rhs) const
 		{
 			return m_result_impl == rhs.m_result_impl and m_iter == rhs.m_iter;
 		}
 
-		bool operator!=(const const_row_iterator &rhs) const
+		bool operator!=(const iterator &rhs) const
 		{
 			return m_result_impl != rhs.m_result_impl or m_iter != rhs.m_iter;
 		}
@@ -305,6 +305,8 @@ class result
 
 	result(category &&data, const std::string &query = "");
 
+	~result() = default;
+
 	row_ref one_row() const
 	{
 		if (size() != 1)
@@ -314,21 +316,21 @@ class result
 
 	field_ref one_field() const
 	{
+		expect_columns(1);
+
 		if (size() != 1)
 			throw std::runtime_error("Expected one row");
-
-		expect_columns(1);
 
 		return one_row().front();
 	}
 
 	// --------------------------------------------------------------------
 
-	const_row_iterator begin() const noexcept;
-	const_row_iterator cbegin() const noexcept;
+	iterator begin() const noexcept;
+	iterator cbegin() const noexcept;
 
-	const_row_iterator end() const noexcept;
-	const_row_iterator cend() const noexcept;
+	iterator end() const noexcept;
+	iterator cend() const noexcept;
 
 	row_ref front() const;
 	row_ref back() const;

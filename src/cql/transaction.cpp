@@ -28,15 +28,21 @@
 
 #include "../sqlite3.h"
 #include "cif++/category.hpp"
+#include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"
+#include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
 
 #include <cstdint>
 #include <exception>
+#include <iomanip>
 #include <memory>
+#include <regex>
+#include <sstream>
 #include <stdexcept>
+#include <system_error>
 #include <utility>
 
 namespace cif::cql
@@ -50,6 +56,11 @@ struct result_impl
 
 // --------------------------------------------------------------------
 
+size_t row_ref::size() const noexcept
+{
+	return m_result_impl->m_cat.get_item_count();
+}
+
 field_ref row_ref::operator[](std::string_view name) const
 {
 	for (int ix = 0; auto &item : m_result_impl->m_cat.get_items())
@@ -59,11 +70,6 @@ field_ref row_ref::operator[](std::string_view name) const
 		++ix;
 	}
 	throw std::runtime_error("Column not defined in query result");
-}
-
-size_t row_ref::size() const noexcept
-{
-	return m_result_impl->m_cat.get_item_count();
 }
 
 // --------------------------------------------------------------------
@@ -83,22 +89,22 @@ size_t result::column_count() const
 	return m_impl->m_cat.get_item_count();
 }
 
-result::const_row_iterator result::begin() const noexcept
+result::iterator result::begin() const noexcept
 {
 	return { m_impl, m_impl->m_cat.begin() };
 }
 
-result::const_row_iterator result::cbegin() const noexcept
+result::iterator result::cbegin() const noexcept
 {
 	return { m_impl, m_impl->m_cat.cbegin() };
 }
 
-result::const_row_iterator result::end() const noexcept
+result::iterator result::end() const noexcept
 {
 	return { m_impl, m_impl->m_cat.end() };
 }
 
-result::const_row_iterator result::cend() const noexcept
+result::iterator result::cend() const noexcept
 {
 	return { m_impl, m_impl->m_cat.cend() };
 }
@@ -112,215 +118,6 @@ row_ref result::back() const
 {
 	return { m_impl->m_cat.back(), m_impl };
 }
-
-// // --------------------------------------------------------------------
-
-// field_ref row_ref::operator[](size_t ix) const noexcept
-// {
-// 	return field_ref(m_row, m_cols->begin() + ix);
-// }
-
-// field_ref row_ref::operator[](std::string_view name) const noexcept
-// {
-// 	if (m_row)
-// 	{
-// 		for (auto col = m_cols->begin(); col != m_cols->end(); ++col)
-// 		{
-// 			if (col->name == name)
-// 				return field_ref(m_row, col);
-// 		}
-// 	}
-
-// 	return field_ref(m_row, m_cols->end());
-// }
-
-// // --------------------------------------------------------------------
-
-// result::result(view &vw, const std::string &query)
-// 	: m_query(query)
-// 	, m_view(vw.shared_from_this())
-// {
-// }
-
-// size_t result::column_count() const
-// {
-// 	return m_view->columns().size();
-// }
-
-// row_ref result::one_row() const
-// {
-// 	if (auto sz = size(); sz != 1)
-// 		throw std::runtime_error("Unexpected number of rows");
-
-// 	return front();
-// }
-
-// field_ref result::one_field() const
-// {
-// 	expect_columns(1);
-// 	return one_row()[0];
-// }
-
-// view::const_row_iterator result::begin() const noexcept
-// {
-// 	return m_view->begin();
-// }
-
-// view::const_row_iterator result::cbegin() const noexcept
-// {
-// 	return m_view->cbegin();
-// }
-
-// view::const_row_iterator result::end() const noexcept
-// {
-// 	return m_view->end();
-// }
-
-// view::const_row_iterator result::cend() const noexcept
-// {
-// 	return m_view->cend();
-// }
-
-// row_ref result::front() const noexcept
-// {
-// 	return m_view->front();
-// }
-
-// row_ref result::back() const noexcept
-// {
-// 	return m_view->back();
-// }
-
-// size_t result::size() const noexcept
-// {
-// 	return m_view ? m_view->size() : 0;
-// }
-
-// bool result::empty() const noexcept
-// {
-// 	return size() == 0;
-// }
-
-// row_ref result::at(size_t index) const
-// {
-// 	return m_view ? m_view->at(index) : row_ref{};
-// }
-
-// // --------------------------------------------------------------------
-
-// row_ref simple_view::front() const noexcept
-// {
-// 	return row_ref{ m_cat.front(), m_columns };
-// }
-
-// row_ref simple_view::back() const noexcept
-// {
-// 	return row_ref{ m_cat.back(), m_columns };
-// }
-
-// column_list simple_view::get_column_list_for_category(const category &cat)
-// {
-// 	column_list result;
-// 	for (int ix = 0; auto &item : cat.get_items())
-// 		result.emplace_back(item, ix++);
-// 	return result;
-// }
-
-// row_ref simple_view::at(size_t index) const
-// {
-// 	// auto i = std::advance(m_cat.begin(), index);
-// 	auto i = m_cat.begin();
-// 	while (index--)
-// 		++i;
-// 	return { *i, m_columns };
-// }
-
-// // --------------------------------------------------------------------
-
-// class row_handle_view : public view
-// {
-//   public:
-// 	row_handle_view(std::vector<row_handle> &&rows)
-// 		: view(get_column_list_for_rows(rows))
-// 		, m_rows(std::forward<std::vector<row_handle>>(rows))
-// 	{
-// 	}
-
-// 	row_handle_view(const row_handle_view &) = default;
-// 	row_handle_view(row_handle_view &&) = default;
-
-// 	virtual size_t size() const noexcept override { return m_rows.size(); }
-
-// 	virtual row_ref front() const noexcept override
-// 	{
-// 		return row_ref{ m_rows.front(), m_columns };
-// 	}
-
-// 	virtual row_ref back() const noexcept override
-// 	{
-// 		return row_ref{ m_rows.back(), m_columns };
-// 	}
-
-// 	virtual row_ref at(size_t index) const override
-// 	{
-// 		return { m_rows.at(index), m_columns };
-// 	}
-
-// 	static column_list get_column_list_for_rows(const std::vector<row_handle> &rows)
-// 	{
-// 		column_list result;
-// 		if (not rows.empty())
-// 		{
-// 			for (int ix = 0; auto &item : rows.front().get_category().get_items())
-// 				result.emplace_back(item, ix++);
-// 		}
-// 		return result;
-// 	}
-
-//   protected:
-// 	std::vector<row_handle> m_rows;
-// };
-
-// // --------------------------------------------------------------------
-
-// class select_view : public view
-// {
-//   public:
-// 	select_view(std::shared_ptr<view> vw, const column_list &cols)
-// 		: view(cols)
-// 		, m_subview(vw)
-// 	{
-// 	}
-
-// 	select_view(std::shared_ptr<view> vw, column_list &&cols)
-// 		: view(std::forward<column_list>(cols))
-// 		, m_subview(vw)
-// 	{
-// 	}
-
-// 	select_view(const select_view &) = default;
-// 	select_view(select_view &&) = default;
-
-// 	virtual size_t size() const noexcept override { return m_subview->size(); }
-
-// 	virtual row_ref front() const noexcept override
-// 	{
-// 		return row_ref{ m_subview->front(), m_columns };
-// 	}
-
-// 	virtual row_ref back() const noexcept override
-// 	{
-// 		return row_ref{ m_subview->back(), m_columns };
-// 	}
-
-// 	virtual row_ref at(size_t index) const override
-// 	{
-// 		return row_ref{ m_subview->at(index), m_columns };
-// 	}
-
-//   protected:
-// 	std::shared_ptr<view> m_subview;
-// };
 
 // // --------------------------------------------------------------------
 
@@ -1625,28 +1422,17 @@ struct connection_impl
 struct virtual_table
 {
 	sqlite3_vtab base;
-
 	category &m_cat;
-
-	// int Disconnect(sqlite3_vtab *pVtab);
-	// int Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor);
-	// int Close(sqlite3_vtab_cursor *cur);
-	// int Next(sqlite3_vtab_cursor *cur);
-	// int Column(
-	// 	sqlite3_vtab_cursor *cur, /* The cursor */
-	// 	sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
-	// 	int i);                   /* Which column to return */
-	// int Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid);
-	// int Eof(sqlite3_vtab_cursor *cur);
-	// int Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv);
-	// int BestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo);
+	std::unique_ptr<condition> m_condition;
 };
 
 struct virtual_cursor
 {
 	sqlite3_vtab_cursor base;
 	category &m_cat;
-	category::iterator m_cur;
+
+	std::unique_ptr<conditional_iterator_proxy<category>> m_result;
+	conditional_iterator_proxy<category>::iterator m_cur;
 };
 
 sqlite3_module connection_impl::s_module{
@@ -1779,7 +1565,7 @@ int connection_impl::Open(sqlite3_vtab *pVtab, sqlite3_vtab_cursor **ppCursor)
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
 
-	auto cursor = std::make_unique<virtual_cursor>(sqlite3_vtab_cursor{}, p->m_cat, p->m_cat.begin());
+	auto cursor = std::make_unique<virtual_cursor>(sqlite3_vtab_cursor{}, p->m_cat);
 	*ppCursor = reinterpret_cast<sqlite3_vtab_cursor *>(cursor.release());
 	return SQLITE_OK;
 }
@@ -1854,7 +1640,8 @@ int connection_impl::Column(
 int connection_impl::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
-	*pRowid = pCur->m_cur.row_id();
+	row_handle rh = *pCur->m_cur;
+	*pRowid = rh.row_id();
 	return SQLITE_OK;
 }
 
@@ -1877,7 +1664,90 @@ int connection_impl::Eof(sqlite3_vtab_cursor *cur)
 int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv)
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(pVtabCursor);
-	pCur->m_cur = pCur->m_cat.begin();
+
+	pCur->m_result.reset();
+
+	try
+	{
+		if (idxStr != nullptr)
+		{
+			struct membuf : public std::streambuf
+			{
+				membuf(char *text, std::size_t length)
+				{
+					this->setg(text, text, text + length);
+				}
+			} buffer(const_cast<char *>(idxStr), strlen(idxStr));
+
+			std::istream is(&buffer);
+
+			std::regex rx("^(.+?)( IS NULL| IS NOT NULL|(?: < | <= | == | >= | > ))(.+)?$");
+
+			condition cond;
+			std::string line;
+			while (std::getline(is, line))
+			{
+				std::smatch m;
+				if (not std::regex_match(line, m, rx))
+					throw std::runtime_error("Internal error in cql, no match");
+
+				if (m[2] == " IS NULL")
+					cond = std::move(cond) and cif::key(m[1]) == cif::null;
+				else if (m[2] == " IS NOT NULL")
+					cond = std::move(cond) and cif::key(m[1]) != cif::null;
+				else if (m[3].str().starts_with("\""))
+				{
+					std::istringstream isv(m[3]);
+					std::string value;
+					isv >> std::quoted(value);
+
+					if (m[2] == " < ")
+						cond = std::move(cond) and cif::key(m[1]) < value;
+					else if (m[2] == " <- ")
+						cond = std::move(cond) and cif::key(m[1]) <= value;
+					else if (m[2] == " == ")
+						cond = std::move(cond) and cif::key(m[1]) == value;
+					else if (m[2] == " >= ")
+						cond = std::move(cond) and cif::key(m[1]) >= value;
+					else if (m[2] == " > ")
+						cond = std::move(cond) and cif::key(m[1]) > value;
+				}
+				else
+				{
+					double value;
+					const auto &[ptr, ec] = std::from_chars(m[3].str().data(), m[3].str().data() + m[3].str().length(), value);
+					if (ec != std::errc{})
+						throw std::system_error(std::make_error_code(ec));
+
+					if (m[2] == " < ")
+						cond = std::move(cond) and cif::key(m[1]) < value;
+					else if (m[2] == " <- ")
+						cond = std::move(cond) and cif::key(m[1]) <= value;
+					else if (m[2] == " == ")
+						cond = std::move(cond) and cif::key(m[1]) == value;
+					else if (m[2] == " >= ")
+						cond = std::move(cond) and cif::key(m[1]) >= value;
+					else if (m[2] == " > ")
+						cond = std::move(cond) and cif::key(m[1]) > value;
+				}
+			}
+
+			pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(pCur->m_cat.find(std::move(cond)));
+			pCur->m_cur = pCur->m_result->begin();
+		}
+	}
+	catch (const std::exception &ex)
+	{
+		std::cerr << "Internal error: " << ex.what() << "\n";
+	}
+
+	if (not pCur->m_result)
+	{
+		condition cond = all();
+		pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(pCur->m_cat.find(std::move(cond)));
+		pCur->m_cur = pCur->m_result->begin();
+	}
+
 	return SQLITE_OK;
 }
 
@@ -1890,6 +1760,139 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo)
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+
+	try
+	{
+		std::ostringstream os;
+		bool ok = true;
+
+		if (pIdxInfo->nConstraint > 0)
+		{
+			auto constraint = [&os](std::string_view item, sqlite3_value *val, unsigned char op)
+			{
+				bool result = true;
+				switch (op)
+				{
+					case SQLITE_INDEX_CONSTRAINT_EQ:
+						os << item << " == ";
+						break;
+					case SQLITE_INDEX_CONSTRAINT_GT:
+						os << item << " > ";
+						break;
+					case SQLITE_INDEX_CONSTRAINT_LE:
+						os << item << " <= ";
+						break;
+					case SQLITE_INDEX_CONSTRAINT_LT:
+						os << item << " < ";
+						break;
+					case SQLITE_INDEX_CONSTRAINT_GE:
+						os << item << " >= ";
+						break;
+					default:
+						result = false;
+						break;
+				}
+
+				if (result)
+				{
+					switch (sqlite3_value_type(val))
+					{
+						case SQLITE_INTEGER:
+							os << sqlite3_value_int64(val) << "\n";
+							break;
+						case SQLITE_FLOAT:
+							os << sqlite3_value_double(val) << "\n";
+							break;
+						default:
+						{
+							std::string s = (const char *)sqlite3_value_text(val);
+							if (s.find("\n") == std::string::npos)
+								os << std::quoted(s) << "\n";
+							else
+								result = false;
+							break;
+						}
+					}
+				}
+
+				return result;
+			};
+
+			for (int i = 0; ok and i < pIdxInfo->nConstraint; ++i)
+			{
+				auto &info = pIdxInfo->aConstraint[i];
+				auto item = p->m_cat.get_item_name(info.iColumn);
+
+				sqlite3_value *pVal;
+
+				switch (info.op)
+				{
+					case SQLITE_INDEX_CONSTRAINT_EQ:
+					case SQLITE_INDEX_CONSTRAINT_GT:
+					case SQLITE_INDEX_CONSTRAINT_LE:
+					case SQLITE_INDEX_CONSTRAINT_LT:
+					case SQLITE_INDEX_CONSTRAINT_GE:
+						if (sqlite3_vtab_rhs_value(pIdxInfo, i, &pVal) == SQLITE_OK and constraint(item, pVal, info.op))
+						{
+							pIdxInfo->aConstraintUsage[i].omit = 1;
+							if (i < 63 and sqlite3_libversion_number() >= 3010000)
+								pIdxInfo->colUsed |= 1 << i;
+						}
+						else
+							ok = false;
+						break;
+					// case SQLITE_INDEX_CONSTRAINT_MATCH:
+					// 	break;
+					// case SQLITE_INDEX_CONSTRAINT_LIKE:
+					// 	break;
+					// case SQLITE_INDEX_CONSTRAINT_GLOB:
+					// 	break;
+					// case SQLITE_INDEX_CONSTRAINT_REGEXP:
+					// 	break;
+					case SQLITE_INDEX_CONSTRAINT_NE:
+						break;
+					// case SQLITE_INDEX_CONSTRAINT_ISNOT:
+					// 	break;
+					case SQLITE_INDEX_CONSTRAINT_ISNOTNULL:
+						os << item << " IS NOT NULL\n";
+						pIdxInfo->aConstraintUsage[i].omit = 1;
+						if (i < 63 and sqlite3_libversion_number() >= 3010000)
+							pIdxInfo->colUsed |= 1 << i;
+						break;
+					case SQLITE_INDEX_CONSTRAINT_ISNULL:
+						os << item << " IS NULL\n";
+						pIdxInfo->aConstraintUsage[i].omit = 1;
+						if (i < 63 and sqlite3_libversion_number() >= 3010000)
+							pIdxInfo->colUsed |= 1 << i;
+						break;
+						// case SQLITE_INDEX_CONSTRAINT_IS:
+						// 	break;
+						// case SQLITE_INDEX_CONSTRAINT_LIMIT:
+						// 	break;
+						// case SQLITE_INDEX_CONSTRAINT_OFFSET:
+						// 	break;
+						// case SQLITE_INDEX_CONSTRAINT_FUNCTION				:
+						// 	break;
+
+					default:
+						ok = false;
+						break;
+				}
+			}
+		}
+
+		if (auto cs = os.str(); ok and not cs.empty())
+		{
+			pIdxInfo->idxStr = sqlite3_mprintf("%s", cs.c_str());
+			pIdxInfo->needToFreeIdxStr = 1;
+		}
+	}
+	catch (const std::exception &ex)
+	{
+		std::cerr << ex.what() << "\n";
+		if (sqlite3_libversion_number() >= 3010000)
+			pIdxInfo->colUsed = 0;
+	}
 
 	pIdxInfo->estimatedCost = p->m_cat.size();
 	pIdxInfo->estimatedRows = p->m_cat.size();

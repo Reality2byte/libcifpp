@@ -221,3 +221,20 @@ TEST_CASE("cql-5")
 	CHECK(r.name() == "jaar");
 	CHECK(r.as<int>() == 1988);
 }
+
+TEST_CASE("cql-6")
+{
+	cif::file f(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	auto &db = f.front();
+	db.set_validator(&cif::validator_factory::instance().get("mmcif_pdbx.dic"));
+
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
+
+	auto r = tx.exec("SELECT COUNT(*) FROM citation WHERE page_last IS NULL").one_field();
+	CHECK(r.as<int>() == 3);
+
+	r = tx.exec("SELECT COUNT(*) FROM citation WHERE page_last IS NOT NULL").one_field();
+	CHECK(r.as<int>() == 2);
+}
+

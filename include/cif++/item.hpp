@@ -260,8 +260,8 @@ class item
 // --------------------------------------------------------------------
 /// \brief the internal storage for items in a category
 ///
-/// Internal storage, strictly forward linked list with minimal space
-/// requirements. Strings of size 7 or shorter are stored internally.
+/// Internal storage, with minimal space requirements. Strings of
+/// size 7 or shorter are stored internally.
 /// Typically, more than 99% of the strings in an mmCIF file are less
 /// than 8 bytes in length.
 
@@ -338,7 +338,8 @@ struct item_value
 	/** Return the content of the item as a std::string_view */
 	constexpr inline std::string_view text() const
 	{
-		return { m_length >= kBufferSize ? m_data : m_local_data, m_length };
+		const char *ptr = m_length >= kBufferSize ? m_data : m_local_data;
+		return (m_length == 1 and *ptr == '?') ? std::string_view{} : std::string_view{ ptr, m_length };
 	}
 };
 

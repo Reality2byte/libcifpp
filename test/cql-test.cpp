@@ -232,9 +232,9 @@ TEST_CASE("cql-6")
 	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT COUNT(*) FROM citation WHERE page_last IS NULL").one_field();
-	CHECK(r.as<int>() == 3);
+	CHECK(r.as<int>() == 4);
 
 	r = tx.exec("SELECT COUNT(*) FROM citation WHERE page_last IS NOT NULL").one_field();
-	CHECK(r.as<int>() == 2);
+	CHECK(r.as<int>() == 1);
 }
 

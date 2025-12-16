@@ -1604,7 +1604,7 @@ int connection_impl::Column(
 	auto rh = *pCur->m_cur;
 	auto item = rh[i];
 
-	if (item.is_null())
+	if (item.is_null() or item.is_unknown())
 		sqlite3_result_null(ctx);
 	else if (auto cv = pCur->m_cat.get_cat_validator(); cv != nullptr)
 	{

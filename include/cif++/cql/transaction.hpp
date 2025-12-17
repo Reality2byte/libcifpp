@@ -343,16 +343,16 @@ class result
 
 	category &get_category() const;
 
-  private:
-	friend class transaction;
-	friend class SelectStatement;
-
 	result expect_columns(size_t cols) const
 	{
 		if (auto actual = column_count(); cols != actual)
 			throw std::runtime_error("Unexpected number of columns");
 		return *this;
 	}
+
+  private:
+	friend class transaction;
+	friend class SelectStatement;
 
 	std::shared_ptr<result_impl> m_impl;
 };
@@ -367,6 +367,7 @@ class cql_iterator_proxy : public cif::iterator_proxy<category, Ts...>
 		: cif::iterator_proxy<category, Ts...>(res.get_category())
 		, m_result(std::forward<result>(res))
 	{
+		m_result.expect_columns(cif::iterator_proxy<category, Ts...>::N);
 	}
 
   private:

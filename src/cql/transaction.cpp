@@ -1421,6 +1421,8 @@ struct connection_impl
 	static int Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv);
 	static int BestIndex(sqlite3_vtab *tab, sqlite3_index_info *pIdxInfo);
 
+	static int Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv, sqlite_int64 *pRowid);
+
 	static sqlite3_module s_module;
 };
 
@@ -1454,7 +1456,7 @@ sqlite3_module connection_impl::s_module{
 	/* xEof        */ Eof,
 	/* xColumn     */ Column,
 	/* xRowid      */ Rowid,
-	/* xUpdate     */ 0,
+	/* xUpdate     */ Update,
 	/* xBegin      */ 0,
 	/* xSync       */ 0,
 	/* xCommit     */ 0,
@@ -1904,6 +1906,82 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 	return SQLITE_OK;
 }
 
+int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv, sqlite_int64 *pRowid)
+{
+	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
+
+	int rc = SQLITE_ERROR;
+
+	try
+	{
+		auto addr = sqlite3_value_int64(argv[0]);
+
+		if (argc == 1) // DELETE
+		{
+			p->m_cat.erase(row_handle{ p->m_cat, *reinterpret_cast<const cif::row *>(addr) });
+			rc = SQLITE_OK;
+		}
+		else if (addr == 0) // INSERT
+		{
+			addr = sqlite3_value_int64(argv[1]);
+			if (addr == 0)	 // We do not accept rowid's here
+			{
+				row_initializer data;
+				for (int i = 2; i < argc; ++i)
+				{
+					switch (sqlite3_value_type(argv[i]))
+					{
+						case SQLITE_INTEGER:
+							data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_int64(argv[i]));
+							break;
+						case SQLITE_FLOAT:
+							data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_double(argv[i]));
+							break;
+						default:
+							data.emplace_back(p->m_cat.get_item_name(i - 2), (const char *)sqlite3_value_text(argv[i]));
+							break;
+					}
+				}
+
+				auto r = p->m_cat.emplace(std::move(data));
+				*pRowid = r->row_id();
+				rc = SQLITE_OK;
+			}
+		}
+		else // UPDATE
+		{
+			row_handle rh{ p->m_cat, *reinterpret_cast<const cif::row *>(addr) };
+
+			row_initializer data;
+			for (int i = 2; i < argc; ++i)
+			{
+				switch (sqlite3_value_type(argv[i]))
+				{
+					case SQLITE_INTEGER:
+						data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_int64(argv[i]));
+						break;
+					case SQLITE_FLOAT:
+						data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_double(argv[i]));
+						break;
+					default:
+						data.emplace_back(p->m_cat.get_item_name(i - 2), (const char *)sqlite3_value_text(argv[i]));
+						break;
+				}
+			}
+
+			rh.assign(data);
+			*pRowid = addr;
+			rc = SQLITE_OK;
+		}
+	}
+	catch (const std::exception &ex)
+	{
+		rc = SQLITE_ERROR;
+	}
+
+	return rc;
+}
+
 // --------------------------------------------------------------------
 
 connection_impl::connection_impl(datablock &db)
@@ -1975,7 +2053,7 @@ result transaction::exec(const std::string &query)
 			&stmt, nullptr);
 
 		if (rc != SQLITE_OK)
-			throw std::runtime_error("Error preparing statement");
+			throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
 
 		for (int i = 0; i < sqlite3_column_count(stmt); ++i)
 			cat.add_item(sqlite3_column_name(stmt, i));

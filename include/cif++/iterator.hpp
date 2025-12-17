@@ -682,6 +682,8 @@ conditional_iterator_proxy<Category, Ts...>::conditional_iterator_impl::conditio
 {
 	if (m_condition == nullptr or m_condition->empty())
 		m_begin = m_end;
+	else
+		m_current = *m_begin;
 }
 
 template <typename Category, typename... Ts>

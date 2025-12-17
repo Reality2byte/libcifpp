@@ -259,3 +259,46 @@ TEST_CASE("cql-stream-1")
 		++ix;
 	}
 }
+
+// --------------------------------------------------------------------
+
+TEST_CASE("cql-insert-1")
+{
+	auto f1 = R"(
+data_T1
+loop_
+_table1.id
+_table1.name
+1 aap
+2 noot)"_cf;
+
+	auto &db = f1.front();
+
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
+
+	auto count = tx.exec("SELECT COUNT(*) FROM table1;").one_field().as<int>();
+	CHECK(count == 2);
+
+	auto r = tx.exec("INSERT INTO table1 (id, name) VALUES (3, 'mies')");
+
+	count = tx.exec("SELECT COUNT(*) FROM table1").one_field().as<int>();
+	CHECK(count == 3);
+
+	(void)tx.exec("DELETE FROM table1 WHERE CAST(id AS INTEGER) = 1;");
+
+	count = tx.exec("SELECT COUNT(*) FROM table1;").one_field().as<int>();
+	CHECK(count == 2);
+
+	(void)tx.exec("UPDATE table1 SET name = 'amandel' WHERE CAST(id AS INTEGER) = 2");
+
+	auto f2 = R"(
+data_T1
+loop_
+_table1.id
+_table1.name
+2 amandel
+3 mies)"_cf;
+
+	CHECK(f1 == f2);
+}

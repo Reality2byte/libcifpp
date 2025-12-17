@@ -271,6 +271,7 @@ _table1.id
 _table1.name
 1 aap
 2 noot)"_cf;
+	auto f0 = f1;
 
 	auto &db = f1.front();
 
@@ -299,6 +300,40 @@ _table1.id
 _table1.name
 2 amandel
 3 mies)"_cf;
+
+	CHECK(f1 == f2);
+
+	tx.rollback();
+
+	CHECK(f1 == f0);
+}
+
+// --------------------------------------------------------------------
+
+TEST_CASE("cql-rename")
+{
+	auto f1 = R"(
+data_T1
+loop_
+_table1.id
+_table1.name
+1 aap
+2 noot)"_cf;
+
+	auto &db = f1.front();
+
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
+
+	(void)tx.exec("ALTER TABLE table1 RENAME TO 'table2'");
+
+	auto f2 = R"(
+data_T1
+loop_
+_table2.id
+_table2.name
+1 aap
+2 noot)"_cf;
 
 	CHECK(f1 == f2);
 }

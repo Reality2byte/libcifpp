@@ -179,6 +179,12 @@ class category
 
 	const std::string &name() const { return m_name; } ///< Returns the name of the category
 
+	/// \brief Rename category to @a new_name
+	void name(std::string_view new_name)
+	{
+		m_name = new_name;
+	}
+
 	[[deprecated("use key_items instead")]] iset key_fields() const; ///< Returns the cif::iset of key item names. Retrieved from the @ref category_validator for this category
 
 	iset key_items() const; ///< Returns the cif::iset of key item names. Retrieved from the @ref category_validator for this category

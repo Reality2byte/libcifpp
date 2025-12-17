@@ -398,6 +398,7 @@ class transaction final
 
   private:
 	connection &m_conn;
+	bool m_transaction_active = false;
 };
 
 // --------------------------------------------------------------------

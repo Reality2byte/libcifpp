@@ -34,7 +34,7 @@ endif()
 # set the project name
 project(
 	libcifpp
-	VERSION 9.0.5
+	VERSION 10.0.0
 	LANGUAGES CXX C)
 
 list(PREPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")

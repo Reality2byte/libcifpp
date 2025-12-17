@@ -312,10 +312,10 @@ class row_handle
 	}
 
 	/// \brief assign each of the items named in @a values to their respective value
-	void assign(const std::vector<item> &values)
+	void assign(const std::vector<item> &values, bool updateLinked = true)
 	{
 		for (auto &value : values)
-			assign(value, true);
+			assign(value, updateLinked);
 	}
 
 	/** \brief assign the value @a value to the item named @a name

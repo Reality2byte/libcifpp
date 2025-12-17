@@ -24,9 +24,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/cql/transaction.hpp"
+#include "cif++/cql.hpp"
+#include "sqlite3.h"
 
-#include "../sqlite3.h"
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"

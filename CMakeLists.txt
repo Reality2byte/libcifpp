@@ -281,7 +281,7 @@ list(APPEND project_sources
 	${CMAKE_CURRENT_SOURCE_DIR}/src/point.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/symmetry.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/model.cpp
-	${CMAKE_CURRENT_SOURCE_DIR}/src/cql/transaction.cpp
+	${CMAKE_CURRENT_SOURCE_DIR}/src/cql.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/cif2pdb.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/pdb2cif.cpp
 	${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/pdb_record.hpp
@@ -323,7 +323,7 @@ list(APPEND project_headers
 	include/cif++/row.hpp
 	include/cif++/symmetry.hpp
 	include/cif++/text.hpp
-	include/cif++/cql/transaction.hpp
+	include/cif++/cql.hpp
 	include/cif++/utilities.hpp
 	include/cif++/validate.hpp
 )

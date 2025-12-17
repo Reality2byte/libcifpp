@@ -350,6 +350,14 @@ class result
 		return *this;
 	}
 
+	// --------------------------------------------------------------------
+	
+	friend std::ostream &operator<<(std::ostream &os, const result &r)
+	{
+		os << r.get_category();
+		return os;
+	}
+
   private:
 	friend class transaction;
 	friend class SelectStatement;

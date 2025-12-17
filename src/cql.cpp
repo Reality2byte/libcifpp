@@ -25,7 +25,6 @@
  */
 
 #include "cif++/cql.hpp"
-#include "sqlite3.h"
 
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
@@ -34,6 +33,7 @@
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
+#include "sqlite3.h"
 
 #include <cstdint>
 #include <exception>
@@ -130,6 +130,7 @@ struct connection_impl
 {
 	datablock &m_db;
 	sqlite3 *m_sqlite_db = nullptr;
+	int m_next_result_nr = 1;
 
 	connection_impl(datablock &db);
 
@@ -676,7 +677,7 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 		else if (addr == 0) // INSERT
 		{
 			addr = sqlite3_value_int64(argv[1]);
-			if (addr == 0)	 // We do not accept rowid's here
+			if (addr == 0) // We do not accept rowid's here
 			{
 				row_initializer data;
 				for (int i = 2; i < argc; ++i)
@@ -688,6 +689,9 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 							break;
 						case SQLITE_FLOAT:
 							data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_double(argv[i]));
+							break;
+						case SQLITE_NULL:
+							data.emplace_back(p->m_cat.get_item_name(i - 2), "?");
 							break;
 						default:
 							data.emplace_back(p->m_cat.get_item_name(i - 2), (const char *)sqlite3_value_text(argv[i]));
@@ -714,6 +718,9 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 						break;
 					case SQLITE_FLOAT:
 						data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_double(argv[i]));
+						break;
+					case SQLITE_NULL:
+						data.emplace_back(p->m_cat.get_item_name(i - 2), "?");
 						break;
 					default:
 						data.emplace_back(p->m_cat.get_item_name(i - 2), (const char *)sqlite3_value_text(argv[i]));
@@ -854,7 +861,7 @@ void transaction::commit()
 			err = errmsg;
 			sqlite3_free(errmsg);
 		}
-	
+
 		if (rc != SQLITE_OK)
 			throw std::runtime_error("Error committing transaction: " + err);
 
@@ -874,7 +881,7 @@ void transaction::rollback()
 			err = errmsg;
 			sqlite3_free(errmsg);
 		}
-	
+
 		if (rc != SQLITE_OK)
 			throw std::runtime_error("Error rolling back transaction: " + err);
 
@@ -890,60 +897,70 @@ result transaction::exec(const std::string &query)
 
 	try
 	{
-		int rc = sqlite3_prepare_v2(m_conn.m_impl->m_sqlite_db, query.data(), query.size(),
-			&stmt, nullptr);
-
-		if (rc != SQLITE_OK)
-			throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
-
-		for (int i = 0; i < sqlite3_column_count(stmt); ++i)
-			cat.add_item(sqlite3_column_name(stmt, i));
-
-		for (;;)
+		std::string_view sql = query;
+		while (not sql.empty())
 		{
-			rc = sqlite3_step(stmt);
-			if (rc == SQLITE_ROW)
+			const char *tail = nullptr;
+			int rc = sqlite3_prepare_v2(m_conn.m_impl->m_sqlite_db, sql.data(), sql.length(),
+				&stmt, &tail);
+			auto used = tail - sql.data();
+			sql = sql.substr(used, sql.length() - used);
+	
+			if (rc != SQLITE_OK)
+				throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
+	
+			category ncat((std::format("result{}", m_conn.m_impl->m_next_result_nr++)));
+			std::swap(cat, ncat);
+
+			for (int i = 0; i < sqlite3_column_count(stmt); ++i)
+				cat.add_item(sqlite3_column_name(stmt, i));
+	
+			for (;;)
 			{
-				row_initializer data;
-
-				for (int i = 0; i < sqlite3_column_count(stmt); ++i)
+				rc = sqlite3_step(stmt);
+				if (rc == SQLITE_ROW)
 				{
-					switch (sqlite3_column_type(stmt, i))
+					row_initializer data;
+	
+					for (int i = 0; i < sqlite3_column_count(stmt); ++i)
 					{
-						case SQLITE_INTEGER:
-							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
-							break;
-						case SQLITE_FLOAT:
-							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_double(stmt, i));
-							break;
-						case SQLITE_TEXT:
-							data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
-							break;
-						case SQLITE_BLOB:
-							// data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
-							throw std::runtime_error("Unexpected: blob in result");
-							break;
-						case SQLITE_NULL:
-							data.emplace_back(sqlite3_column_name(stmt, i), ".");
-							break;
+						switch (sqlite3_column_type(stmt, i))
+						{
+							case SQLITE_INTEGER:
+								data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
+								break;
+							case SQLITE_FLOAT:
+								data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_double(stmt, i));
+								break;
+							case SQLITE_TEXT:
+								data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
+								break;
+							case SQLITE_BLOB:
+								// data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
+								throw std::runtime_error("Unexpected: blob in result");
+								break;
+							case SQLITE_NULL:
+								data.emplace_back(sqlite3_column_name(stmt, i), ".");
+								break;
+						}
 					}
+	
+					cat.emplace(std::move(data));
+					continue;
 				}
-
-				cat.emplace(std::move(data));
-				continue;
+	
+				if (rc == SQLITE_BUSY)
+					throw std::runtime_error("Oops, busy?");
+				if (rc == SQLITE_DONE)
+					break;
+				if (rc == SQLITE_ERROR)
+					throw std::runtime_error(std::format("Error in sqlite: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
+	
+				throw std::runtime_error("Unknown result from step");
 			}
-
-			if (rc == SQLITE_BUSY)
-				throw std::runtime_error("Oops, busy?");
-			if (rc == SQLITE_DONE)
-				break;
-			if (rc == SQLITE_ERROR)
-				throw std::runtime_error(std::format("Error in sqlite: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
-
-			throw std::runtime_error("Unknown result from step");
+	
+			sqlite3_finalize(stmt);
 		}
-
-		sqlite3_finalize(stmt);
 
 		return result(std::move(cat), query);
 	}

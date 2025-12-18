@@ -145,6 +145,7 @@ struct connection_impl
 
 	static int Create(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
 	static int Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
+	static int Destroy(sqlite3_vtab *pVtab);
 	static int Disconnect(sqlite3_vtab *pVtab);
 	static int Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor);
 	static int Close(sqlite3_vtab_cursor *cur);
@@ -174,13 +175,13 @@ struct virtual_table
 {
 	sqlite3_vtab base;
 	category &m_cat;
+	datablock &m_db;
 	std::stack<category> m_rollback_buffer;
 };
 
 struct virtual_cursor
 {
 	sqlite3_vtab_cursor base;
-	category &m_cat;
 
 	std::unique_ptr<conditional_iterator_proxy<category>> m_result;
 	conditional_iterator_proxy<category>::iterator m_cur;
@@ -192,7 +193,7 @@ sqlite3_module connection_impl::s_module{
 	/* xConnect    */ Connect,
 	/* xBestIndex  */ BestIndex,
 	/* xDisconnect */ Disconnect,
-	/* xDestroy    */ Disconnect,
+	/* xDestroy    */ Destroy,
 	/* xOpen       */ Open,
 	/* xClose      */ Close,
 	/* xFilter     */ Filter,
@@ -298,7 +299,7 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 			items.emplace_back(std::format("'{}'", item));
 	}
 
-	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *cat);
+	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *cat, m_db);
 
 	auto createStmt = std::format("CREATE TABLE {} ({})", cat->name(), join(items, ", "));
 
@@ -307,6 +308,19 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 		*ppVtab = reinterpret_cast<sqlite3_vtab *>(vtab.release());
 
 	return rc;
+}
+
+/*
+** This method is used to drop tables.
+*/
+int connection_impl::Destroy(sqlite3_vtab *pVtab)
+{
+	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+
+	auto &db = p->m_db;
+	db.remove(p->m_cat);
+	delete p;
+	return SQLITE_OK;
 }
 
 /*
@@ -324,9 +338,7 @@ int connection_impl::Disconnect(sqlite3_vtab *pVtab)
 */
 int connection_impl::Open(sqlite3_vtab *pVtab, sqlite3_vtab_cursor **ppCursor)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
-
-	auto cursor = std::make_unique<virtual_cursor>(sqlite3_vtab_cursor{}, p->m_cat);
+	auto cursor = std::make_unique<virtual_cursor>(sqlite3_vtab_cursor{});
 	*ppCursor = reinterpret_cast<sqlite3_vtab_cursor *>(cursor.release());
 	return SQLITE_OK;
 }
@@ -362,14 +374,16 @@ int connection_impl::Column(
 )
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
+	auto pVTab = reinterpret_cast<virtual_table *>(cur->pVtab);
 	auto rh = *pCur->m_cur;
 	auto item = rh[i];
+	auto &cat = pVTab->m_cat;
 
 	if (item.is_null() or item.is_unknown())
 		sqlite3_result_null(ctx);
-	else if (auto cv = pCur->m_cat.get_cat_validator(); cv != nullptr)
+	else if (auto cv = cat.get_cat_validator(); cv != nullptr)
 	{
-		if (auto iv = cv->get_validator_for_item(pCur->m_cat.get_item_name(i));
+		if (auto iv = cv->get_validator_for_item(cat.get_item_name(i));
 			iv != nullptr and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
 		{
 			if (iequals(iv->m_type->m_name, "int"))
@@ -413,7 +427,8 @@ int connection_impl::Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid)
 int connection_impl::Eof(sqlite3_vtab_cursor *cur)
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
-	return pCur->m_cur == pCur->m_cat.end();
+	auto pVTab = reinterpret_cast<virtual_table *>(cur->pVtab);
+	return pCur->m_cur == pVTab->m_cat.end();
 }
 
 /*
@@ -425,6 +440,8 @@ int connection_impl::Eof(sqlite3_vtab_cursor *cur)
 int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv)
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(pVtabCursor);
+	auto pVTab = reinterpret_cast<virtual_table *>(pCur->base.pVtab);
+	auto &cat = pVTab->m_cat;
 
 	pCur->m_result.reset();
 
@@ -493,7 +510,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 				}
 			}
 
-			pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(pCur->m_cat.find(std::move(cond)));
+			pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(cat.find(std::move(cond)));
 			pCur->m_cur = pCur->m_result->begin();
 		}
 	}
@@ -506,7 +523,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 	if (not pCur->m_result)
 	{
 		condition cond = all();
-		pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(pCur->m_cat.find(std::move(cond)));
+		pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(cat.find(std::move(cond)));
 		pCur->m_cur = pCur->m_result->begin();
 	}
 

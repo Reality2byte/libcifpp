@@ -262,7 +262,11 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 
 	if (auto cv = cat->get_cat_validator(); cv != nullptr)
 	{
-		for (std::string item : cat->get_items())
+		// Make sure all items are known in the category
+		for (auto iv : cv->m_item_validators)
+			cat->add_item(iv.m_item_name);
+
+		for (auto item : cat->get_items())
 		{
 			auto iv = cv->get_validator_for_item(item);
 
@@ -270,21 +274,18 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 			if (cv->m_keys.size() == 1 and cv->m_keys.front() == item)
 				primaryKey = " PRIMARY KEY";
 
-			if (iv != nullptr)
+			if (iv and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
 			{
-				if (iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+				if (iequals(iv->m_type->m_name, "int"))
 				{
-					if (iequals(iv->m_type->m_name, "int"))
-					{
-						items.emplace_back(std::format("'{}' {}", item, " INTEGER") + primaryKey);
-						continue;
-					}
+					items.emplace_back(std::format("'{}' {}", item, " INTEGER") + primaryKey);
+					continue;
+				}
 
-					if (iequals(iv->m_type->m_name, "float"))
-					{
-						items.emplace_back(std::format("'{}' {}", item, " REAL") + primaryKey);
-						continue;
-					}
+				if (iequals(iv->m_type->m_name, "float"))
+				{
+					items.emplace_back(std::format("'{}' {}", item, " REAL") + primaryKey);
+					continue;
 				}
 			}
 
@@ -499,6 +500,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 	catch (const std::exception &ex)
 	{
 		std::cerr << "Internal error: " << ex.what() << "\n";
+		pVtabCursor->pVtab->zErrMsg = sqlite3_mprintf("%s", ex.what());
 	}
 
 	if (not pCur->m_result)
@@ -652,6 +654,8 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 		std::cerr << ex.what() << "\n";
 		if (sqlite3_libversion_number() >= 3010000)
 			pIdxInfo->colUsed = 0;
+
+		pVtab->zErrMsg = sqlite3_mprintf("%s", ex.what());
 	}
 
 	pIdxInfo->estimatedCost = p->m_cat.size();
@@ -736,6 +740,7 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 	catch (const std::exception &ex)
 	{
 		rc = SQLITE_ERROR;
+		pVTab->zErrMsg = sqlite3_mprintf("%s", ex.what());
 	}
 
 	return rc;
@@ -897,7 +902,7 @@ result transaction::exec(const std::string &query)
 
 	try
 	{
-		std::string_view sql = query;
+		std::string sql = query;
 		while (not sql.empty())
 		{
 			const char *tail = nullptr;
@@ -905,6 +910,7 @@ result transaction::exec(const std::string &query)
 				&stmt, &tail);
 			auto used = tail - sql.data();
 			sql = sql.substr(used, sql.length() - used);
+			trim(sql);
 	
 			if (rc != SQLITE_OK)
 				throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));

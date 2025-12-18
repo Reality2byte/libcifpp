@@ -30,6 +30,8 @@
 #include "cif++/utilities.hpp"
 
 #include <cassert>
+#include <format>
+#include <iomanip>
 #include <iostream>
 
 // The validator depends on regular expressions. Unfortunately,
@@ -261,7 +263,7 @@ void item_validator::operator()(std::string_view value) const
 {
 	std::error_code ec;
 	if (not validate_value(value, ec))
-		throw std::system_error(ec, std::string{ value } + " does not match rx for " + m_item_name);
+		throw std::system_error(ec, std::format("'{}' is not a valid value for {}", value, m_item_name));
 }
 
 bool item_validator::validate_value(std::string_view value, std::error_code &ec) const noexcept

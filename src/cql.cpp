@@ -29,6 +29,7 @@
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"
+#include "cif++/item.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
@@ -150,10 +151,7 @@ struct connection_impl
 	static int Open(sqlite3_vtab *p, sqlite3_vtab_cursor **ppCursor);
 	static int Close(sqlite3_vtab_cursor *cur);
 	static int Next(sqlite3_vtab_cursor *cur);
-	static int Column(
-		sqlite3_vtab_cursor *cur, /* The cursor */
-		sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
-		int i);                   /* Which column to return */
+	static int Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int i);
 	static int Rowid(sqlite3_vtab_cursor *cur, sqlite_int64 *pRowid);
 	static int Eof(sqlite3_vtab_cursor *cur);
 	static int Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const char *idxStr, int argc, sqlite3_value **argv);
@@ -177,6 +175,7 @@ struct virtual_table
 	category &m_cat;
 	datablock &m_db;
 	std::stack<category> m_rollback_buffer;
+	std::vector<std::string> m_items;
 };
 
 struct virtual_cursor
@@ -259,15 +258,27 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 	if (cat == nullptr)
 		throw std::runtime_error(std::format("Category {} is not known in this databank", argv[2]));
 
-	std::vector<std::string> items;
+	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *cat, m_db);
+
+	std::vector<std::string> columns;
 
 	if (auto cv = cat->get_cat_validator(); cv != nullptr)
 	{
-		// Make sure all items are known in the category
-		for (auto iv : cv->m_item_validators)
-			cat->add_item(iv.m_item_name);
+		// Try to keep the order the same as in the parsed category
 
+		auto &items = vtab->m_items;;
 		for (auto item : cat->get_items())
+			items.emplace_back(item);
+
+		for (auto iv : cv->m_item_validators)
+		{
+			if (std::find(items.begin(), items.end(), iv.m_item_name) == items.end())
+				items.emplace_back(iv.m_item_name);
+		}
+
+
+		// Make sure all items are known in the category
+		for (auto item : items)
 		{
 			auto iv = cv->get_validator_for_item(item);
 
@@ -275,33 +286,34 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 			if (cv->m_keys.size() == 1 and cv->m_keys.front() == item)
 				primaryKey = " PRIMARY KEY";
 
-			if (iv and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+			if (iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
 			{
 				if (iequals(iv->m_type->m_name, "int"))
 				{
-					items.emplace_back(std::format("'{}' {}", item, " INTEGER") + primaryKey);
+					columns.emplace_back(std::format("'{}' {}", item, " INTEGER") + primaryKey);
 					continue;
 				}
 
 				if (iequals(iv->m_type->m_name, "float"))
 				{
-					items.emplace_back(std::format("'{}' {}", item, " REAL") + primaryKey);
+					columns.emplace_back(std::format("'{}' {}", item, " REAL") + primaryKey);
 					continue;
 				}
 			}
 
-			items.emplace_back(std::format("'{}' {}", item, " TEXT") + primaryKey);
+			columns.emplace_back(std::format("'{}' {}", item, " TEXT") + primaryKey);
 		}
 	}
 	else
 	{
 		for (auto item : cat->get_items())
-			items.emplace_back(std::format("'{}'", item));
+		{
+			vtab->m_items.emplace_back(item);
+			columns.emplace_back(std::format("'{}'", item));
+		}
 	}
 
-	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *cat, m_db);
-
-	auto createStmt = std::format("CREATE TABLE {} ({})", cat->name(), join(items, ", "));
+	auto createStmt = std::format("CREATE TABLE {} ({})", cat->name(), join(columns, ", "));
 
 	int rc = sqlite3_declare_vtab(db, createStmt.c_str());
 	if (rc == SQLITE_OK)
@@ -367,34 +379,39 @@ int connection_impl::Next(sqlite3_vtab_cursor *cur)
 ** Return values of columns for the row at which the templatevtab_cursor
 ** is currently pointing.
 */
-int connection_impl::Column(
-	sqlite3_vtab_cursor *cur, /* The cursor */
-	sqlite3_context *ctx,     /* First argument to sqlite3_result_...() */
-	int i                     /* Which column to return */
-)
+int connection_impl::Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int i)
 {
 	auto pCur = reinterpret_cast<virtual_cursor *>(cur);
 	auto pVTab = reinterpret_cast<virtual_table *>(cur->pVtab);
 	auto rh = *pCur->m_cur;
-	auto item = rh[i];
 	auto &cat = pVTab->m_cat;
+	auto ix = cat.get_item_ix(pVTab->m_items[i]);
 
-	if (item.is_null() or item.is_unknown())
+	if (ix >= cat.get_item_count())
 		sqlite3_result_null(ctx);
-	else if (auto cv = cat.get_cat_validator(); cv != nullptr)
+	else
 	{
-		if (auto iv = cv->get_validator_for_item(cat.get_item_name(i));
-			iv != nullptr and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+		auto item = rh[ix];
+	
+		if (item.is_null() or item.is_unknown())
+			sqlite3_result_null(ctx);
+		else if (auto cv = cat.get_cat_validator(); cv != nullptr)
 		{
-			if (iequals(iv->m_type->m_name, "int"))
+			if (auto iv = cv->get_validator_for_item(pVTab->m_items[i]);
+				iv != nullptr and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
 			{
-				auto v = item.as<int64_t>();
-				sqlite3_result_int64(ctx, v);
-			}
-			else if (iequals(iv->m_type->m_name, "float"))
-			{
-				auto v = item.as<double>();
-				sqlite3_result_double(ctx, v);
+				if (iequals(iv->m_type->m_name, "int"))
+				{
+					auto v = item.as<int64_t>();
+					sqlite3_result_int64(ctx, v);
+				}
+				else if (iequals(iv->m_type->m_name, "float"))
+				{
+					auto v = item.as<double>();
+					sqlite3_result_double(ctx, v);
+				}
+				else
+					sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
 			}
 			else
 				sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
@@ -402,8 +419,7 @@ int connection_impl::Column(
 		else
 			sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
 	}
-	else
-		sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
+
 
 	return SQLITE_OK;
 }
@@ -600,7 +616,7 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 			for (int i = 0; ok and i < pIdxInfo->nConstraint; ++i)
 			{
 				auto &info = pIdxInfo->aConstraint[i];
-				auto item = p->m_cat.get_item_name(info.iColumn);
+				auto item = p->m_items[info.iColumn];
 
 				sqlite3_value *pVal;
 
@@ -706,16 +722,16 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 					switch (sqlite3_value_type(argv[i]))
 					{
 						case SQLITE_INTEGER:
-							data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_int64(argv[i]));
+							data.emplace_back(p->m_items[i - 2], sqlite3_value_int64(argv[i]));
 							break;
 						case SQLITE_FLOAT:
-							data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_double(argv[i]));
+							data.emplace_back(p->m_items[i - 2], sqlite3_value_double(argv[i]));
 							break;
 						case SQLITE_NULL:
-							data.emplace_back(p->m_cat.get_item_name(i - 2), "?");
+							data.emplace_back(p->m_items[i - 2], "?");
 							break;
 						default:
-							data.emplace_back(p->m_cat.get_item_name(i - 2), (const char *)sqlite3_value_text(argv[i]));
+							data.emplace_back(p->m_items[i - 2], (const char *)sqlite3_value_text(argv[i]));
 							break;
 					}
 				}
@@ -735,16 +751,16 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 				switch (sqlite3_value_type(argv[i]))
 				{
 					case SQLITE_INTEGER:
-						data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_int64(argv[i]));
+						data.emplace_back(p->m_items[i - 2], sqlite3_value_int64(argv[i]));
 						break;
 					case SQLITE_FLOAT:
-						data.emplace_back(p->m_cat.get_item_name(i - 2), sqlite3_value_double(argv[i]));
+						data.emplace_back(p->m_items[i - 2], sqlite3_value_double(argv[i]));
 						break;
 					case SQLITE_NULL:
-						data.emplace_back(p->m_cat.get_item_name(i - 2), "?");
+						data.emplace_back(p->m_items[i - 2], "?");
 						break;
 					default:
-						data.emplace_back(p->m_cat.get_item_name(i - 2), (const char *)sqlite3_value_text(argv[i]));
+						data.emplace_back(p->m_items[i - 2], (const char *)sqlite3_value_text(argv[i]));
 						break;
 				}
 			}
@@ -928,23 +944,23 @@ result transaction::exec(const std::string &query)
 			auto used = tail - sql.data();
 			sql = sql.substr(used, sql.length() - used);
 			trim(sql);
-	
+
 			if (rc != SQLITE_OK)
 				throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
-	
+
 			category ncat((std::format("result{}", m_conn.m_impl->m_next_result_nr++)));
 			std::swap(cat, ncat);
 
-			for (int i = 0; i < sqlite3_column_count(stmt); ++i)
-				cat.add_item(sqlite3_column_name(stmt, i));
-	
+			// for (int i = 0; i < sqlite3_column_count(stmt); ++i)
+			// 	cat.add_item(sqlite3_column_name(stmt, i));
+
 			for (;;)
 			{
 				rc = sqlite3_step(stmt);
 				if (rc == SQLITE_ROW)
 				{
 					row_initializer data;
-	
+
 					for (int i = 0; i < sqlite3_column_count(stmt); ++i)
 					{
 						switch (sqlite3_column_type(stmt, i))
@@ -959,29 +975,28 @@ result transaction::exec(const std::string &query)
 								data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
 								break;
 							case SQLITE_BLOB:
-								// data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
 								throw std::runtime_error("Unexpected: blob in result");
 								break;
 							case SQLITE_NULL:
-								data.emplace_back(sqlite3_column_name(stmt, i), ".");
+								// data.emplace_back(sqlite3_column_name(stmt, i), ".");
 								break;
 						}
 					}
-	
+
 					cat.emplace(std::move(data));
 					continue;
 				}
-	
+
 				if (rc == SQLITE_BUSY)
 					throw std::runtime_error("Oops, busy?");
 				if (rc == SQLITE_DONE)
 					break;
 				if (rc == SQLITE_ERROR)
 					throw std::runtime_error(std::format("Error in sqlite: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
-	
+
 				throw std::runtime_error("Unknown result from step");
 			}
-	
+
 			sqlite3_finalize(stmt);
 		}
 

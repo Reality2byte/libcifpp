@@ -373,7 +373,7 @@ else()
 endif()
 
 if(NOT STD_CHARCONV_COMPILING)
-	target_link_libraries(cifpp PUBLIC FastFloat::fast_float)
+	target_link_libraries(cifpp PRIVATE FastFloat::fast_float)
 endif()
 
 # if(BUILD_SQLITE_INTERFACE)

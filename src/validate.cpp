@@ -27,12 +27,11 @@
 #include "cif++/validate.hpp"
 #include "cif++/category.hpp"
 #include "cif++/dictionary_parser.hpp"
-#include "cif++/gzio.hpp"
 #include "cif++/utilities.hpp"
 
 #include <cassert>
-#include <fstream>
 #include <iostream>
+#include <mutex>
 
 // The validator depends on regular expressions. Unfortunately,
 // the implementation of std::regex in g++ is buggy and crashes
@@ -75,6 +74,7 @@ struct regex_impl
   private:
 	pcre2_code *m_rx = nullptr;
 	pcre2_match_data *m_data = nullptr;
+	mutable std::mutex m_mutex;
 };
 
 regex_impl::regex_impl(std::string_view rx)
@@ -95,6 +95,8 @@ regex_impl::regex_impl(std::string_view rx)
 
 regex_impl::~regex_impl()
 {
+	std::unique_lock lock(m_mutex);
+
 	if (m_data)
 		pcre2_match_data_free(m_data);
 
@@ -104,6 +106,8 @@ regex_impl::~regex_impl()
 
 bool regex_impl::match(std::string_view v) const
 {
+	std::unique_lock lock(m_mutex);
+
 	bool result = false;
 
 	if (int rc = pcre2_match(m_rx, (PCRE2_SPTR)v.data(), v.length(), 0, 0, m_data, nullptr); rc >= 0)

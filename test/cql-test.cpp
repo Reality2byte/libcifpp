@@ -336,3 +336,189 @@ _table2.name
 
 	CHECK(f1 == f2);
 }
+
+// --------------------------------------------------------------------
+
+TEST_CASE("cql-foreign-keys-1")
+{
+	const char dict[] = R"(
+data_test_dict.dic
+    _datablock.id	test_dict.dic
+    _datablock.description
+;
+    A test dictionary
+;
+    _dictionary.title           test_dict.dic
+    _dictionary.datablock_id    test_dict.dic
+    _dictionary.version         1.0
+
+     loop_
+    _item_type_list.code
+    _item_type_list.primitive_code
+    _item_type_list.construct
+    _item_type_list.detail
+               code      char
+               '[][_,.;:"&<>()/\{}'`~!@#$%A-Za-z0-9*|+-]*'
+;              code item types/single words ...
+;
+               text      char
+               '[][ \n\t()_,.;:"&<>/\{}'`~!@#$%?+=*A-Za-z0-9|^-]*'
+;              text item types / multi-line text ...
+;
+               int       numb
+               '[+-]?[0-9]+'
+;              int item types are the subset of numbers that are the negative
+               or positive integers.
+;
+
+save_cat_1
+    _category.description     'A simple test category'
+    _category.id              cat_1
+    _category.mandatory_code  no
+    _category_key.name        '_cat_1.id'
+
+    save_
+
+save__cat_1.id
+    _item.name                '_cat_1.id'
+    _item.category_id         cat_1
+    _item.mandatory_code      yes
+    _item_aliases.dictionary  cif_core.dic
+    _item_aliases.version     2.0.1
+    _item_linked.child_name   '_cat_2.parent_id'
+    _item_linked.parent_name  '_cat_1.id'
+    _item_type.code           code
+    save_
+
+save__cat_1.name
+    _item.name                '_cat_1.name'
+    _item.category_id         cat_1
+    _item.mandatory_code      yes
+    _item_aliases.dictionary  cif_core.dic
+    _item_aliases.version     2.0.1
+    _item_type.code           text
+    save_
+
+save_cat_2
+    _category.description     'A second simple test category'
+    _category.id              cat_2
+    _category.mandatory_code  no
+    _category_key.name        '_cat_2.id'
+    save_
+
+save__cat_2.id
+    _item.name                '_cat_2.id'
+    _item.category_id         cat_2
+    _item.mandatory_code      yes
+    _item_aliases.dictionary  cif_core.dic
+    _item_aliases.version     2.0.1
+    _item_type.code           int
+    save_
+
+save__cat_2.parent_id
+    _item.name                '_cat_2.parent_id'
+    _item.category_id         cat_2
+    _item.mandatory_code      yes
+    _item_aliases.dictionary  cif_core.dic
+    _item_aliases.version     2.0.1
+    _item_type.code           code
+    save_
+
+save__cat_2.desc
+    _item.name                '_cat_2.desc'
+    _item.category_id         cat_2
+    _item.mandatory_code      yes
+    _item_aliases.dictionary  cif_core.dic
+    _item_aliases.version     2.0.1
+    _item_type.code           text
+    save_
+    )";
+
+	struct membuf : public std::streambuf
+	{
+		membuf(char *text, std::size_t length)
+		{
+			this->setg(text, text, text + length);
+		}
+	} buffer(const_cast<char *>(dict), sizeof(dict) - 1);
+
+	std::istream is_dict(&buffer);
+
+	cif::validator validator(is_dict);
+
+	cif::file f;
+
+	// --------------------------------------------------------------------
+
+	const char data[] = R"(
+data_test
+loop_
+_cat_1.id
+_cat_1.name
+1 Aap
+2 Noot
+3 Mies
+
+loop_
+_cat_2.id
+_cat_2.parent_id
+_cat_2.desc
+1 1 'Een dier'
+2 1 'Een andere aap'
+3 2 'walnoot bijvoorbeeld'
+    )";
+
+	struct data_membuf : public std::streambuf
+	{
+		data_membuf(char *text, std::size_t length)
+		{
+			this->setg(text, text, text + length);
+		}
+	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
+
+	std::istream is_data(&data_buffer);
+	f.load(is_data, validator);
+	
+	auto &db = f.front();
+
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
+
+	for (const auto &desc : tx.stream<std::string>(R"(SELECT b.desc FROM cat_1 a, cat_2 b WHERE a.id = b.parent_id AND a.name = 'Noot')"))
+	{
+		CHECK(desc == "walnoot bijvoorbeeld");
+	}
+
+	// Check cascading delete
+	tx.exec("DELETE FROM cat_1 WHERE id = 1");
+	CHECK(db["cat_1"].size() == 2);
+	CHECK(db["cat_2"].size() == 1);
+
+	tx.rollback();
+	CHECK(db["cat_1"].size() == 3);
+	CHECK(db["cat_2"].size() == 3);
+
+}
+
+// --------------------------------------------------------------------
+
+TEST_CASE("drop-table")
+{
+	auto f1 = R"(
+data_T1
+loop_
+_table1.id
+_table1.name
+1 aap
+2 noot)"_cf;
+
+	auto &db = f1.front();
+
+	cif::cql::connection connection(db);
+	cif::cql::transaction tx(connection);
+
+	(void)tx.exec("DROP TABLE table1;");
+	tx.commit();
+
+	CHECK(db.empty());
+}

@@ -26,9 +26,8 @@
 
 #pragma once
 
-#include "cif++/forward_decl.hpp"
-
 #include "cif++/condition.hpp"
+#include "cif++/forward_decl.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
@@ -1133,16 +1132,46 @@ class category
 	/// Write the contents of the category to the std::ostream @a os
 	void write(std::ostream &os) const;
 
+	/// \brief Various supported output formats
+	enum class output_format
+	{
+		cif,	  // Output in mmCIF format
+		csv,      // comma separated values
+		tsv,      // tab separated values
+		list,     // values delimited by a '|' character
+		column,   // output in columns
+		markdown, //
+		table,	  // ascii art table
+	};
+
+	/// @brief
+	/// @brief Write the contents of the category to the std::ostream @a os and
+	/// use @a order as the order of the items. If @a addMissingItems is
+	/// false, items that do not contain any value will be suppressed. Use this version
+	/// to write out
+	/// @param os The std::ostream to write to
+	/// @param fmt The format to use
+	/// @param order The order in which the items should appear
+	/// @param addMissingItems When false, empty items are suppressed from the output
+	void write(std::ostream &os, output_format fmt,
+		const std::vector<std::string> &order, bool addMissingItems = true);
+
 	/// @brief Write the contents of the category to the std::ostream @a os and
 	/// use @a order as the order of the items. If @a addMissingItems is
 	/// false, items that do not contain any value will be suppressed
 	/// @param os The std::ostream to write to
 	/// @param order The order in which the items should appear
 	/// @param addMissingItems When false, empty items are suppressed from the output
-	void write(std::ostream &os, const std::vector<std::string> &order, bool addMissingItems = true);
+	void write(std::ostream &os, const std::vector<std::string> &order, bool addMissingItems = true)
+	{
+		write(os, output_format::cif, order, addMissingItems);
+	}
 
   private:
-	void write(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_cif(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems, std::string_view delimiter, bool aligned) const;
+	void write_markdown(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
 
   public:
 	/// friend function to make it possible to do:

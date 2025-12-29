@@ -256,25 +256,44 @@ int connection_impl::Create(sqlite3 *db, void *pAux, int argc, const char *const
 
 void connection_impl::callBeginFor(virtual_table &tab)
 {
-	auto &cat = tab.m_cat;
+	std::stack<std::string> cats_stack;
+	cats_stack.push(tab.m_cat.name());
 
-	if (auto v = cat.get_validator(); v != nullptr)
+	std::vector<std::string> cats;
+
+	while (not cats_stack.empty())
 	{
-		for (auto link : v->get_links_for_parent(cat.name()))
+		auto cat = cats_stack.top();
+		cats_stack.pop();
+
+		if (find(cats.begin(), cats.end(), cat) != cats.end())
+			continue;
+	
+		cats.emplace_back(cat);
+	
+		auto ccat = m_db.get(cat);
+		if (not ccat)
+			continue;
+
+		if (auto v = ccat->get_validator(); v != nullptr)
 		{
-			auto vtabi = std::find_if(m_vtabs.begin(), m_vtabs.end(), [name=link->m_child_category](virtual_table *vt)
+			for (auto link : v->get_links_for_parent(cat))
 			{
-				return vt->m_cat.name() == name;
-			});
+				auto vtabi = std::find_if(m_vtabs.begin(), m_vtabs.end(), [name=link->m_child_category](virtual_table *vt)
+				{
+					return vt->m_cat.name() == name;
+				});
 
-			if (vtabi == m_vtabs.end())
-				continue;
+				if (vtabi == m_vtabs.end())
+					continue;
 
-			sqlite3CallVtabBegin(m_sqlite_db, link->m_child_category.c_str());
-
-			callBeginFor(**vtabi);
+				cats_stack.push(link->m_child_category);
+			}
 		}
 	}
+
+	for (auto cat : cats)
+		sqlite3CallVtabBegin(m_sqlite_db, cat.c_str());
 }
 
 // --------------------------------------------------------------------

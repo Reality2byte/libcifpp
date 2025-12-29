@@ -13960,7 +13960,7 @@ struct fts5_api {
 
 // Exposed by MLH:
 
-int sqlite3CallVtabBegin(sqlite3 *db, const char *zTableName);
+int sqlite3_call_vtab_begin(sqlite3 *db, const char *zTableName);
 
 #ifdef __cplusplus
 }  /* end of the 'extern "C"' block */

@@ -293,7 +293,7 @@ void connection_impl::callBeginFor(virtual_table &tab)
 	}
 
 	for (auto cat : cats)
-		sqlite3CallVtabBegin(m_sqlite_db, cat.c_str());
+		sqlite3_call_vtab_begin(m_sqlite_db, cat.c_str());
 }
 
 // --------------------------------------------------------------------

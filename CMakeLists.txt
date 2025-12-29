@@ -283,10 +283,10 @@ list(APPEND project_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/validate-pdbx.cpp
 )
 
-# if(BUILD_SQLITE_INTERFACE)
-#     list(APPEND project_sources
-#         ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite3.c)
-# endif()
+if(BUILD_SQLITE_INTERFACE)
+    list(APPEND project_sources
+        ${CMAKE_CURRENT_SOURCE_DIR}/src/sqlite3/sqlite3.c)
+endif()
 
 list(APPEND project_headers
     include/cif++.hpp
@@ -325,21 +325,6 @@ add_library(cifpp::cifpp ALIAS cifpp)
 
 if(TARGET my-eigen3)
     add_dependencies(cifpp my-eigen3)
-endif()
-
-if(BUILD_SQLITE_INTERFACE)
-    find_package(sqlite3 QUIET)
-    if (sqlite3_FOUND)
-        target_link_libraries(cifpp PRIVATE sqlite3)
-    else()
-        FetchContent_Populate(sqlite3
-            URL https://sqlite.org/2025/sqlite-amalgamation-3510100.zip
-			URL_HASH SHA3_256=856b52ffe7383d779bb86a0ed1ddc19c41b0e5751fa14ce6312f27534e629b64
-			EXCLUDE_FROM_ALL)
-        
-        list(APPEND project_sources $<BUILD_INTERFACE:${sqlite3_SOURCE_DIR}>/sqlite3.c)
-        target_include_directories(cifpp PRIVATE $<BUILD_INTERFACE:${sqlite3_SOURCE_DIR}>)
-    endif()
 endif()
 
 target_sources(cifpp

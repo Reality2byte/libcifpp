@@ -34,7 +34,8 @@
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
-#include "sqlite3.h"
+
+#include "./sqlite3/sqlite3.h"
 
 #include <cstdint>
 #include <exception>
@@ -127,11 +128,14 @@ row_ref result::back() const
 
 // --------------------------------------------------------------------
 
+struct virtual_table;
+
 struct connection_impl
 {
 	datablock &m_db;
 	sqlite3 *m_sqlite_db = nullptr;
 	int m_next_result_nr = 1;
+	std::vector<virtual_table*> m_vtabs;
 
 	connection_impl(datablock &db);
 
@@ -139,6 +143,8 @@ struct connection_impl
 	{
 		sqlite3_close(m_sqlite_db);
 	}
+
+	void callBeginFor(virtual_table &table);
 
 	int Connect(sqlite3 *db, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
 
@@ -172,6 +178,7 @@ struct connection_impl
 struct virtual_table
 {
 	sqlite3_vtab base;
+	connection_impl &m_connection_impl;
 	category &m_cat;
 	datablock &m_db;
 	std::stack<category> m_rollback_buffer;
@@ -247,6 +254,29 @@ int connection_impl::Create(sqlite3 *db, void *pAux, int argc, const char *const
 	return Connect(db, pAux, argc, argv, ppVtab, pzErr);
 }
 
+void connection_impl::callBeginFor(virtual_table &tab)
+{
+	auto &cat = tab.m_cat;
+
+	if (auto v = cat.get_validator(); v != nullptr)
+	{
+		for (auto link : v->get_links_for_parent(cat.name()))
+		{
+			auto vtabi = std::find_if(m_vtabs.begin(), m_vtabs.end(), [name=link->m_child_category](virtual_table *vt)
+			{
+				return vt->m_cat.name() == name;
+			});
+
+			if (vtabi == m_vtabs.end())
+				continue;
+
+			sqlite3CallVtabBegin(m_sqlite_db, link->m_child_category.c_str());
+
+			callBeginFor(**vtabi);
+		}
+	}
+}
+
 // --------------------------------------------------------------------
 
 int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
@@ -258,7 +288,8 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 	if (cat == nullptr)
 		throw std::runtime_error(std::format("Category {} is not known in this databank", argv[2]));
 
-	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *cat, m_db);
+	auto vtab = std::make_unique<virtual_table>(sqlite3_vtab{}, *this, *cat, m_db);
+	m_vtabs.emplace_back(vtab.get());
 
 	std::vector<std::string> columns;
 
@@ -329,9 +360,13 @@ int connection_impl::Destroy(sqlite3_vtab *pVtab)
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
 
+	auto &conn = p->m_connection_impl;
+	conn.m_vtabs.erase(std::remove(conn.m_vtabs.begin(), conn.m_vtabs.end(), p), conn.m_vtabs.end());
+
 	auto &db = p->m_db;
 	db.remove(p->m_cat);
 	delete p;
+
 	return SQLITE_OK;
 }
 
@@ -341,7 +376,12 @@ int connection_impl::Destroy(sqlite3_vtab *pVtab)
 int connection_impl::Disconnect(sqlite3_vtab *pVtab)
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+
+	auto &conn = p->m_connection_impl;
+	conn.m_vtabs.erase(std::remove(conn.m_vtabs.begin(), conn.m_vtabs.end(), p), conn.m_vtabs.end());
+
 	delete p;
+
 	return SQLITE_OK;
 }
 
@@ -699,6 +739,8 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv, sqlite_int64 *pRowid)
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
+
+	p->m_connection_impl.callBeginFor(*p);
 
 	int rc = SQLITE_ERROR;
 

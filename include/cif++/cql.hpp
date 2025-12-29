@@ -393,7 +393,8 @@ class transaction final
 	transaction(const transaction &) = delete;
 	transaction &operator=(const transaction &) = delete;
 
-	result exec(const std::string &query);
+	result exec(std::string query);
+	result exec(std::string query, std::string &tail);
 
 	template<typename... Ts>
 	cql_iterator_proxy<Ts...> stream(const std::string &sql)
@@ -419,6 +420,9 @@ class connection final
 
 	friend class transaction;
 
+	/// \brief Return true if the string @a sql contains a complete statement.
+	bool statementIsComplete(const std::string &sql) const;
+	
   private:
 	struct connection_impl *m_impl;
 };

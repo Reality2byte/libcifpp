@@ -182,8 +182,23 @@ class category
 	void name(std::string_view new_name)
 	{
 		m_name = new_name;
+		m_dirty = true;
 	}
 
+	/// \brief Return true if the category has been modified since last open/save
+	constexpr bool is_dirty() const
+	{
+		return m_dirty;
+	}
+
+	/// \brief Mark the category as modified according to @a dirty
+	void set_dirty(bool dirty)
+	{
+		m_dirty = dirty;
+	}
+
+	// --------------------------------------------------------------------
+	
 	[[deprecated("use key_items instead")]] iset key_fields() const; ///< Returns the cif::iset of key item names. Retrieved from the @ref category_validator for this category
 
 	iset key_items() const; ///< Returns the cif::iset of key item names. Retrieved from the @ref category_validator for this category
@@ -1169,7 +1184,8 @@ class category
 
   private:
 	void write_cif(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
-	void write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems, std::string_view delimiter, bool aligned) const;
+	void write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems,
+		std::string_view delimiter, bool aligned, bool header) const;
 	void write_markdown(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
 	void write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
 
@@ -1271,6 +1287,8 @@ class category
 	uint32_t m_last_unique_num = 0;
 	class category_index *m_index = nullptr;
 	row *m_head = nullptr, *m_tail = nullptr;
+
+	bool m_dirty = false;	// Keep track of modifications
 };
 
 } // namespace cif

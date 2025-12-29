@@ -538,6 +538,7 @@ void swap(category &a, category &b) noexcept
 	std::swap(a.m_index, b.m_index);
 	std::swap(a.m_head, b.m_head);
 	std::swap(a.m_tail, b.m_tail);
+	std::swap(a.m_dirty, b.m_dirty);
 }
 
 category::~category()
@@ -1251,6 +1252,7 @@ void category::clear()
 
 	delete m_index;
 	m_index = nullptr;
+	m_dirty = true;
 }
 
 void category::erase_orphans(condition &&cond, category &parent)
@@ -1499,6 +1501,8 @@ void category::update_value(row *row, uint16_t item, std::string_view value, boo
 	if (value == oldValue) // no need to update
 		return;
 
+	m_dirty = true;
+
 	std::string oldStrValue{ oldValue };
 
 	// check the value
@@ -1640,6 +1644,8 @@ void category::delete_row(row *r)
 		row_allocator_type ra(get_allocator());
 		row_allocator_traits::destroy(ra, r);
 		row_allocator_traits::deallocate(ra, r, 1);
+
+		m_dirty = true;
 	}
 }
 
@@ -1740,6 +1746,8 @@ category::iterator category::insert_impl(const_iterator pos, row *n)
 				n = n->m_next = m_head->m_next;
 		}
 
+		m_dirty = true;
+
 		return iterator(*this, n);
 	}
 	catch (const std::exception &e)
@@ -1762,6 +1770,8 @@ void category::swap_item(uint16_t item_ix, row_handle &a, row_handle &b)
 	auto &ra = *a.m_row;
 	auto &rb = *b.m_row;
 
+	m_dirty = true;
+
 	while (ra.size() <= item_ix)
 		ra.emplace_back("");
 
@@ -1775,6 +1785,8 @@ void category::sort(std::function<int(row_handle, row_handle)> f)
 {
 	if (m_head == nullptr)
 		return;
+
+	m_dirty = true;
 
 	std::vector<row_handle> rows;
 	for (auto itemRow = m_head; itemRow != nullptr; itemRow = itemRow->m_next)
@@ -1946,19 +1958,19 @@ void category::write(std::ostream &os, output_format fmt, const std::vector<std:
 			break;
 
 		case output_format::csv:
-			write_delimited(os, order, addMissingItems, ",", false);
+			write_delimited(os, order, addMissingItems, ",", false, true);
 			break;
 
 		case output_format::tsv:
-			write_delimited(os, order, addMissingItems, "\t", false);
+			write_delimited(os, order, addMissingItems, "\t", false, true);
 			break;
 
 		case output_format::list:
-			write_delimited(os, order, addMissingItems, "|", false);
+			write_delimited(os, order, addMissingItems, "|", false, false);
 			break;
 
 		case output_format::column:
-			write_delimited(os, order, addMissingItems, "  ", true);
+			write_delimited(os, order, addMissingItems, "  ", true, true);
 			break;
 
 		case output_format::markdown:
@@ -2144,14 +2156,15 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 	os << "# \n";
 }
 
-void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems, std::string_view delimiter, bool aligned) const
+void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems,
+	std::string_view delimiter, bool aligned, bool header) const
 {
 	if (empty())
 		return;
 
 	std::vector<bool> right_aligned(m_items.size(), false);
 
-	if (m_cat_validator != nullptr)
+	if (aligned and m_cat_validator != nullptr)
 	{
 		for (auto cix : order)
 		{
@@ -2202,10 +2215,13 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 
 	if (aligned)
 	{
-		for (auto cix : order)
+		if (header)
 		{
-			auto &col = m_items[cix];
-			itemWidths[cix] = col.m_name.length();
+			for (auto cix : order)
+			{
+				auto &col = m_items[cix];
+				itemWidths[cix] = col.m_name.length();
+			}
 		}
 
 		for (auto r = m_head; r != nullptr; r = r->m_next)
@@ -2223,7 +2239,7 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 		}
 	}
 
-	if (true /* header */)
+	if (header)
 	{
 		for (bool first = true; uint16_t cix : order)
 		{
@@ -2235,17 +2251,38 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 
 			if (s.length() < w)
 			{
-				if (right_aligned[cix])
-					os << std::string(w - s.length(), ' ');
-				os << s;
-				if (not right_aligned[cix])
-					os << std::string(w - s.length(), ' ');
+				if (delimiter == "  ")
+				{
+					int l = (w - s.length()) / 2;
+					int r = w - s.length() - l;
+					os << std::string(l, ' ') << s << std::string(r, ' ');
+				}
+				else
+				{
+					if (right_aligned[cix])
+						os << std::string(w - s.length(), ' ');
+					os << s;
+					if (not right_aligned[cix])
+						os << std::string(w - s.length(), ' ');
+				}
 			}
 			else
 				os << s;
 		}
 
 		os << '\n';
+
+		if (delimiter == "  ")
+		{
+			for (bool first = true; uint16_t cix : order)
+			{
+				if (not std::exchange(first, false))
+					os << delimiter;
+				os << std::string(itemWidths[cix], '-');
+			}
+
+			os << '\n';
+		}
 	}
 
 	for (auto r = m_head; r != nullptr; r = r->m_next) // loop over rows

@@ -107,6 +107,12 @@ class datablock : public std::list<category>
 	void load_dictionary();
 
 	/**
+	 * @brief Attempt to load the dictionary @a dict
+	 *
+	 */
+	void load_dictionary(std::string_view dict);
+
+	/**
 	 * @brief Set the validator object to @a v
 	 *
 	 * @param v The new validator object, may be null

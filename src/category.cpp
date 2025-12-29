@@ -1978,7 +1978,11 @@ void category::write(std::ostream &os, output_format fmt, const std::vector<std:
 			break;
 
 		case output_format::table:
-			write_table(os, order, addMissingItems);
+			write_table(os, order, addMissingItems, true);
+			break;
+
+		case output_format::box:
+			write_table(os, order, addMissingItems, false);
 			break;
 	}
 }
@@ -2210,7 +2214,10 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 		else if (delimiter == "|" or delimiter == "  ")
 			return std::string{ s };
 		else
+		{
 			assert(false);
+			return std::string{ s };
+		}
 	};
 
 	if (aligned)
@@ -2321,10 +2328,253 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 
 void category::write_markdown(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const
 {
+	if (empty())
+		return;
+
+	std::vector<bool> right_aligned(m_items.size(), false);
+
+	if (m_cat_validator != nullptr)
+	{
+		for (auto cix : order)
+		{
+			auto &col = m_items[cix];
+			right_aligned[cix] = col.m_validator != nullptr and
+			                     col.m_validator->m_type != nullptr and
+			                     col.m_validator->m_type->m_primitive_type == cif::DDL_PrimitiveType::Numb;
+		}
+	}
+
+	std::vector<std::size_t> itemWidths(m_items.size());
+
+	for (auto cix : order)
+	{
+		auto &col = m_items[cix];
+		itemWidths[cix] = col.m_name.length();
+	}
+
+	for (auto r = m_head; r != nullptr; r = r->m_next)
+	{
+		for (uint16_t ix = 0; ix < r->size(); ++ix)
+		{
+			auto v = r->get(ix);
+			if (v == nullptr)
+				continue;
+
+			size_t l = v->text().length();
+			if (itemWidths[ix] < l)
+				itemWidths[ix] = l;
+		}
+	}
+
+	os << "| ";
+	for (bool first = true; uint16_t cix : order)
+	{
+		if (not std::exchange(first, false))
+			os << " | ";
+
+		std::size_t w = itemWidths[cix];
+		std::string_view s = m_items[cix].m_name;
+
+		if (s.length() < w)
+		{
+			int l = (w - s.length()) / 2;
+			int r = w - s.length() - l;
+			os << std::string(l, ' ') << s << std::string(r, ' ');
+		}
+		else
+			os << s;
+	}
+	os << " |\n";
+
+	os << "| ";
+	for (bool first = true; uint16_t cix : order)
+	{
+		if (not std::exchange(first, false))
+			os << " | ";
+		if (not right_aligned[cix])
+			os << ':';
+		os << std::string(itemWidths[cix] - 1, '-');
+		if (right_aligned[cix])
+			os << ':';
+	}
+	os << " |\n";
+
+	for (auto r = m_head; r != nullptr; r = r->m_next) // loop over rows
+	{
+		os << "| ";
+		for (bool first = true; uint16_t cix : order)
+		{
+			if (not std::exchange(first, false))
+				os << " | ";
+
+			std::size_t w = itemWidths[cix];
+
+			std::string_view s;
+			auto iv = r->get(cix);
+
+			if (iv != nullptr)
+				s = iv->text();
+
+			if (s == "?" or s == ".")
+				s = "";
+
+			if (s.length() < w)
+			{
+				if (right_aligned[cix])
+					os << std::string(w - s.length(), ' ');
+				os << s;
+				if (not right_aligned[cix])
+					os << std::string(w - s.length(), ' ');
+			}
+			else
+				os << s;
+		}
+
+		os << " |\n";
+	}
 }
 
-void category::write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const
+void category::write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems, bool ascii) const
 {
+	static constexpr const std::string_view
+		kUnicodeBox[13] = {
+			"┌─", "─┬─", "─┐\n",
+			"├─", "─┼─", "─┤\n",
+			"└─", "─┴─", "─┘\n",
+			"│ ", " │ ", " │\n",
+			"─"
+		},
+		kAsciiBox[13] = {        //
+			"+-", "-+-", "-+\n", //
+			"+-", "-+-", "-+\n", //
+			"+-", "-+-", "-+\n", //
+			"| ", " | ", " |\n", //
+			"-"
+		};
+
+	if (empty())
+		return;
+
+	auto box = ascii ? kAsciiBox : kUnicodeBox;
+
+	std::vector<bool> right_aligned(m_items.size(), false);
+
+	if (m_cat_validator != nullptr)
+	{
+		for (auto cix : order)
+		{
+			auto &col = m_items[cix];
+			right_aligned[cix] = col.m_validator != nullptr and
+			                     col.m_validator->m_type != nullptr and
+			                     col.m_validator->m_type->m_primitive_type == cif::DDL_PrimitiveType::Numb;
+		}
+	}
+
+	std::vector<std::size_t> itemWidths(m_items.size());
+
+	for (auto cix : order)
+	{
+		auto &col = m_items[cix];
+		itemWidths[cix] = col.m_name.length();
+	}
+
+	for (auto r = m_head; r != nullptr; r = r->m_next)
+	{
+		for (uint16_t ix = 0; ix < r->size(); ++ix)
+		{
+			auto v = r->get(ix);
+			if (v == nullptr)
+				continue;
+
+			size_t l = v->text().length();
+			if (itemWidths[ix] < l)
+				itemWidths[ix] = l;
+		}
+	}
+
+	os << box[0];
+	for (bool first = true; uint16_t cix : order)
+	{
+		if (not std::exchange(first, false))
+			os << box[1];
+		for (size_t i = 0; i < itemWidths[cix]; ++i)
+			os << box[12];
+	}
+	os << box[2];
+
+	os << box[9];
+	for (bool first = true; uint16_t cix : order)
+	{
+		if (not std::exchange(first, false))
+			os << box[10];
+
+		std::size_t w = itemWidths[cix];
+		std::string_view s = m_items[cix].m_name;
+
+		if (s.length() < w)
+		{
+			int l = (w - s.length()) / 2;
+			int r = w - s.length() - l;
+			os << std::string(l, ' ') << s << std::string(r, ' ');
+		}
+		else
+			os << s;
+	}
+	os << box[11];
+
+	os << box[3];
+	for (bool first = true; uint16_t cix : order)
+	{
+		if (not std::exchange(first, false))
+			os << box[4];
+		for (size_t i = 0; i < itemWidths[cix]; ++i)
+			os << box[12];
+	}
+	os << box[5];
+
+	for (auto r = m_head; r != nullptr; r = r->m_next) // loop over rows
+	{
+		os << box[9];
+		for (bool first = true; uint16_t cix : order)
+		{
+			if (not std::exchange(first, false))
+				os << box[10];
+
+			std::size_t w = itemWidths[cix];
+
+			std::string_view s;
+			auto iv = r->get(cix);
+
+			if (iv != nullptr)
+				s = iv->text();
+
+			if (s == "?" or s == ".")
+				s = "";
+
+			if (s.length() < w)
+			{
+				if (right_aligned[cix])
+					os << std::string(w - s.length(), ' ');
+				os << s;
+				if (not right_aligned[cix])
+					os << std::string(w - s.length(), ' ');
+			}
+			else
+				os << s;
+		}
+
+		os << box[11];
+	}
+
+	os << box[6];
+	for (bool first = true; uint16_t cix : order)
+	{
+		if (not std::exchange(first, false))
+			os << box[7];
+		for (size_t i = 0; i < itemWidths[cix]; ++i)
+			os << box[12];
+	}
+	os << box[8];
 }
 
 bool category::operator==(const category &rhs) const

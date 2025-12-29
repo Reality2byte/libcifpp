@@ -1157,6 +1157,7 @@ class category
 		column,   // output in columns
 		markdown, //
 		table,	  // ascii art table
+		box,      // table with unicode line characters
 	};
 
 	/// @brief
@@ -1187,7 +1188,7 @@ class category
 	void write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems,
 		std::string_view delimiter, bool aligned, bool header) const;
 	void write_markdown(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
-	void write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems, bool ascii) const;
 
   public:
 	/// friend function to make it possible to do:

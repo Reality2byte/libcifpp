@@ -1099,6 +1099,9 @@ class category
 	 */
 	void remove_item(std::string_view item_name);
 
+	/// \brief Drop items in this category that contain empty values in all rows.
+	void drop_empty_items();
+
 	/** @brief Rename item @a from_name to @a to_name */
 	void rename_item(std::string_view from_name, std::string_view to_name);
 

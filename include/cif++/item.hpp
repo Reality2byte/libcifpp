@@ -228,7 +228,7 @@ class item
 	void value(std::string_view v) { m_value = v; }
 
 	/// \brief empty means either null or unknown
-	bool empty() const { return m_value.empty(); }
+	bool empty() const { return is_null() or is_unknown() or m_value.empty(); }
 
 	/// \brief returns true if the item contains '.'
 	bool is_null() const { return m_value == "."; }

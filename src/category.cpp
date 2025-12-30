@@ -610,6 +610,30 @@ void category::remove_item(std::string_view item_name)
 	}
 }
 
+void category::drop_empty_items()
+{
+	std::vector<bool> is_empty(m_items.size(), true);
+	
+	for (auto &row : *this)
+	{
+		for (size_t ix = 0; ix < m_items.size(); ++ix)
+		{
+			if (is_empty[ix] and not row[ix].empty())
+				is_empty[ix] = false;
+		}
+	}
+
+	std::vector<std::string> items;
+	for (size_t ix = 0; ix < m_items.size(); ++ix)
+	{
+		if (is_empty[ix])
+			items.push_back(m_items[ix].m_name);
+	}
+
+	for (auto &item : items)
+		remove_item(item);
+}
+
 void category::rename_item(std::string_view from_name, std::string_view to_name)
 {
 	for (std::size_t ix = 0; ix < m_items.size(); ++ix)

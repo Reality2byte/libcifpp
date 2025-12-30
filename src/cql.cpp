@@ -136,6 +136,7 @@ struct connection_impl
 	sqlite3 *m_sqlite_db = nullptr;
 	int m_next_result_nr = 1;
 	std::vector<virtual_table*> m_vtabs;
+	bool m_db_modified = false;
 
 	connection_impl(datablock &db);
 
@@ -843,9 +844,7 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 int connection_impl::Rename(sqlite3_vtab *pVtab, const char *zNew)
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
-
 	p->m_cat.name(zNew);
-
 	return SQLITE_OK;
 }
 
@@ -928,6 +927,98 @@ bool connection::statementIsComplete(const std::string &sql) const
 	return sqlite3_complete(sql.c_str()) == 1;
 }
 
+result connection::exec(std::string query)
+{
+	trim(query);
+
+	for (;;)
+	{
+		auto r = exec(query, query);
+		if (query.empty())
+			return r;
+	}
+}
+
+result connection::exec(std::string query, std::string &tail)
+{
+	category cat;
+
+	sqlite3_stmt *stmt = nullptr;
+
+	try
+	{
+		const char *tail_ptr = nullptr;
+		int rc = sqlite3_prepare_v2(m_impl->m_sqlite_db, query.data(), query.length(),
+			&stmt, &tail_ptr);
+
+		if (rc != SQLITE_OK)
+			throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_impl->m_sqlite_db)));
+
+		if (not sqlite3_stmt_readonly(stmt))
+			m_impl->m_db_modified = true;
+
+		auto used = tail_ptr - query.data();
+		auto sql = query.substr(0, used);
+		tail = trim_copy(query.substr(used));
+
+		category ncat((std::format("result{}", m_impl->m_next_result_nr++)));
+		std::swap(cat, ncat);
+
+		for (;;)
+		{
+			rc = sqlite3_step(stmt);
+			if (rc == SQLITE_ROW)
+			{
+				row_initializer data;
+
+				for (int i = 0; i < sqlite3_column_count(stmt); ++i)
+				{
+					switch (sqlite3_column_type(stmt, i))
+					{
+						case SQLITE_INTEGER:
+							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
+							break;
+						case SQLITE_FLOAT:
+							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_double(stmt, i));
+							break;
+						case SQLITE_TEXT:
+							data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
+							break;
+						case SQLITE_BLOB:
+							throw std::runtime_error("Unexpected: blob in result");
+							break;
+						case SQLITE_NULL:
+							// data.emplace_back(sqlite3_column_name(stmt, i), ".");
+							break;
+					}
+				}
+
+				cat.emplace(std::move(data));
+				continue;
+			}
+
+			if (rc == SQLITE_BUSY)
+				throw std::runtime_error("Oops, busy?");
+			if (rc == SQLITE_DONE)
+				break;
+			if (rc == SQLITE_ERROR)
+				throw std::runtime_error(std::format("Error in sqlite: {}", sqlite3_errmsg(m_impl->m_sqlite_db)));
+
+			throw std::runtime_error("Unknown result from step");
+		}
+
+		sqlite3_finalize(stmt);
+
+		return result(std::move(cat), sql);
+	}
+	catch (const std::exception &ex)
+	{
+		if (stmt)
+			sqlite3_finalize(stmt);
+		throw;
+	}
+}
+
 // --------------------------------------------------------------------
 
 transaction::transaction(connection &conn)
@@ -995,94 +1086,12 @@ void transaction::rollback()
 
 result transaction::exec(std::string query)
 {
-	trim(query);
-
-	for (;;)
-	{
-		auto r = exec(query, query);
-		if (query.empty())
-			return r;
-	}
+	return m_conn.exec(query);
 }
 
 result transaction::exec(std::string query, std::string &tail)
 {
-	category cat;
-
-	sqlite3_stmt *stmt = nullptr;
-
-	try
-	{
-		const char *tail_ptr = nullptr;
-		int rc = sqlite3_prepare_v2(m_conn.m_impl->m_sqlite_db, query.data(), query.length(),
-			&stmt, &tail_ptr);
-
-		auto used = tail_ptr - query.data();
-		auto sql = query.substr(0, used);
-		tail = trim_copy(query.substr(used));
-
-		if (rc != SQLITE_OK)
-			throw std::runtime_error(std::format("Error preparing statement: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
-
-		category ncat((std::format("result{}", m_conn.m_impl->m_next_result_nr++)));
-		std::swap(cat, ncat);
-
-		// for (int i = 0; i < sqlite3_column_count(stmt); ++i)
-		// 	cat.add_item(sqlite3_column_name(stmt, i));
-
-		for (;;)
-		{
-			rc = sqlite3_step(stmt);
-			if (rc == SQLITE_ROW)
-			{
-				row_initializer data;
-
-				for (int i = 0; i < sqlite3_column_count(stmt); ++i)
-				{
-					switch (sqlite3_column_type(stmt, i))
-					{
-						case SQLITE_INTEGER:
-							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_int64(stmt, i));
-							break;
-						case SQLITE_FLOAT:
-							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_double(stmt, i));
-							break;
-						case SQLITE_TEXT:
-							data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
-							break;
-						case SQLITE_BLOB:
-							throw std::runtime_error("Unexpected: blob in result");
-							break;
-						case SQLITE_NULL:
-							// data.emplace_back(sqlite3_column_name(stmt, i), ".");
-							break;
-					}
-				}
-
-				cat.emplace(std::move(data));
-				continue;
-			}
-
-			if (rc == SQLITE_BUSY)
-				throw std::runtime_error("Oops, busy?");
-			if (rc == SQLITE_DONE)
-				break;
-			if (rc == SQLITE_ERROR)
-				throw std::runtime_error(std::format("Error in sqlite: {}", sqlite3_errmsg(m_conn.m_impl->m_sqlite_db)));
-
-			throw std::runtime_error("Unknown result from step");
-		}
-
-		sqlite3_finalize(stmt);
-
-		return result(std::move(cat), sql);
-	}
-	catch (const std::exception &ex)
-	{
-		if (stmt)
-			sqlite3_finalize(stmt);
-		throw;
-	}
+	return m_conn.exec(query, tail);
 }
 
 } // namespace cif::cql

@@ -517,8 +517,21 @@ _table1.name
 	cif::cql::connection connection(db);
 	cif::cql::transaction tx(connection);
 
-	(void)tx.exec("DROP TABLE table1;");
-	tx.commit();
+	SECTION("commit")
+	{
+		(void)tx.exec("DROP TABLE table1;");
+		tx.commit();
+	
+		CHECK(db.empty());
+	}
 
-	CHECK(db.empty());
+	// Ah, too bad: this doesn't work
+	// SECTION("rollback")
+	// {
+	// 	(void)tx.exec("DROP TABLE table1;");
+	// 	tx.rollback();
+	
+	// 	CHECK(not db.empty());
+	// 	CHECK(db["table1"].size() == 2);
+	// }
 }

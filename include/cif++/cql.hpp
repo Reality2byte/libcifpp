@@ -425,7 +425,7 @@ class connection final
 	friend class transaction;
 
 	/// \brief Return true if the string @a sql contains a complete statement.
-	bool statementIsComplete(const std::string &sql) const;
+	bool is_complete_statement(const std::string &sql) const;
 
 	/// \brief Execute the sql in @a query returning an iterable result
 	result exec(std::string query);
@@ -433,6 +433,9 @@ class connection final
 	/// \brief Execute the sql in @a query returning an iterable result.
 	/// Updates @a tail with what remains after the first statement in @a query
 	result exec(std::string query, std::string &tail);
+
+	/// \brief Return true if the underlying data was modified by any query.
+	bool is_modified() const;
 
   private:
 	struct connection_impl *m_impl;

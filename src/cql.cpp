@@ -922,9 +922,14 @@ connection::~connection()
 	delete m_impl;
 }
 
-bool connection::statementIsComplete(const std::string &sql) const
+bool connection::is_complete_statement(const std::string &sql) const
 {
 	return sqlite3_complete(sql.c_str()) == 1;
+}
+
+bool connection::is_modified() const
+{
+	return m_impl->m_db_modified;
 }
 
 result connection::exec(std::string query)

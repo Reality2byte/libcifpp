@@ -280,6 +280,11 @@ class sac_parser
 		ItemName,
 		TextItem,
 		TextItemNL,
+
+		TextItemBS,
+		TextItemBS2,
+		TextItemBSNL,
+
 		Reserved,
 		Value
 	};
@@ -289,6 +294,7 @@ class sac_parser
 	// Parser state
 	uint32_t m_line_nr;
 	bool m_bol;
+	bool m_backslash_strings = false;
 	CIFToken m_lookahead;
 
 	// token buffer

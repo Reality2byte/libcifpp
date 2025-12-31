@@ -26,6 +26,7 @@
 
 #include "test-main.hpp"
 
+#include <catch2/catch_test_macros.hpp>
 #include <cif++.hpp>
 
 #include <stdexcept>
@@ -61,6 +62,55 @@ TEST_CASE("text_1")
 
 	CHECK(cif::icompare("aap", "noot") < 0);
 	CHECK(cif::icompare(std::string_view{"aap"}, std::string_view{"noot"}) < 0);
+}
+
+// --------------------------------------------------------------------
+
+TEST_CASE("text_2")
+{
+	// Test based on https://www.iucr.org/resources/cif/spec/version1.1/semantics
+
+	// There is a problem with this specification though, the fourth example
+	// as given on the website consists of three lines, the first being blank.
+
+	auto f = R"(
+#\
+data_X
+
+# Here is another example of folding. The following three text fields would be equivalent: 
+loop_
+_cat.f1
+;C:\foldername\filename
+;
+
+;\
+C:\foldername\filename
+;
+
+;\
+C:\foldername\file\
+name
+;
+
+# but the next example would be a two-line value where the first line had the value "C:\foldername\file\" and the second had the value "name":
+
+;
+C:\foldername\file\
+name
+;
+	)"_cf;
+
+	auto &db = f.front();
+	auto &cat = db["cat"];
+	for (size_t ix = 0; std::string v : cat.rows<std::string>("f1"))
+	{
+		if (++ix == 4)
+			CHECK(v == R"(
+C:\foldername\file\
+name)");
+		else
+			CHECK(v == R"(C:\foldername\filename)");
+	}
 }
 
 // --------------------------------------------------------------------

@@ -1464,9 +1464,9 @@ bool reconstruct_pdbx(file &file)
 	auto &db = file.front();
 
 	if (auto ac = db.get("audit_conform"); ac != nullptr)
-		return reconstruct_pdbx(file, validator_factory::instance().get(*ac));
+		return reconstruct_pdbx(file, validator_factory::instance()[*ac]);
 	else
-		return reconstruct_pdbx(file, validator_factory::instance().get("mmcif_pdbx.dic"));
+		return reconstruct_pdbx(file, validator_factory::instance()["mmcif_pdbx.dic"]);
 }
 
 bool reconstruct_pdbx(file &file, const validator &validator)
@@ -1689,9 +1689,9 @@ void fixup_pdbx(file &file)
 	auto &db = file.front();
 
 	if (auto ac = db.get("audit_conform"); ac != nullptr)
-		fixup_pdbx(file, validator_factory::instance().get(*ac));
+		fixup_pdbx(file, validator_factory::instance()[*ac]);
 	else
-		fixup_pdbx(file, validator_factory::instance().get("mmcif_pdbx.dic"));
+		fixup_pdbx(file, validator_factory::instance()["mmcif_pdbx.dic"]);
 }
 
 void fixup_pdbx(file &file, const validator &validator)

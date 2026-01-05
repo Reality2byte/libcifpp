@@ -25,6 +25,7 @@
  */
 
 #include "cif++.hpp"
+#include "cif++/validate.hpp"
 
 namespace cif::pdb
 {
@@ -65,6 +66,13 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 	return result;
 }
 
+bool is_valid_pdbx_file(const file &file)
+{
+	std::error_code ec;
+	bool result = is_valid_pdbx_file(file, validator_factory::instance()["mmcif_pdbx.dic"], ec);
+	return result and not(bool) ec;
+}
+
 bool is_valid_pdbx_file(const file &file, const validator &v)
 {
 	std::error_code ec;
@@ -79,9 +87,9 @@ bool is_valid_pdbx_file(const file &file, std::error_code &ec)
 	if (file.empty())
 		ec = make_error_code(validation_error::empty_file);
 	else if (auto ac = file.front().get("audit_conform"); ac != nullptr)
-		result = is_valid_pdbx_file(file, validator_factory::instance().get(*ac), ec);
+		result = is_valid_pdbx_file(file, validator_factory::instance()[*ac], ec);
 	else
-		result = is_valid_pdbx_file(file, validator_factory::instance().get("mmcif_pdbx.dic"), ec);
+		result = is_valid_pdbx_file(file, validator_factory::instance()["mmcif_pdbx.dic"], ec);
 
 	return result;
 }

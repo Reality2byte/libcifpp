@@ -48,12 +48,24 @@ void datablock::load_dictionary()
 	{
 		try
 		{
-			set_validator(&validator_factory::instance().get(*audit_conform));
+			set_validator(validator_factory::instance().get(*audit_conform));
 		}
 		catch (const std::exception &ex)
 		{
 			std::clog << ex.what() << '\n';
 		}
+	}
+}
+
+void datablock::load_dictionary(std::string_view dict)
+{
+	try
+	{
+		set_validator(validator_factory::instance().get(dict));
+	}
+	catch (const std::exception &ex)
+	{
+		std::clog << ex.what() << '\n';
 	}
 }
 

@@ -26,6 +26,7 @@
 
 #pragma once
 
+#include "cif++/text.hpp"
 #include "cif++/row.hpp"
 #include "cif++/format.hpp"
 
@@ -1074,6 +1075,16 @@ condition operator==(const key &key, const T &v)
 {
 	// TODO: change key_equals_etc... to use std::variant<double,int64_t> or something
 	return condition(new detail::key_equals_number_condition_impl(key.m_item_name, static_cast<double>(v)));
+}
+
+/**
+ * @brief Operator to create an not-equals condition based on a key @a key and a numeric value @a v
+ */
+template <Numeric T>
+condition operator!=(const key &key, const T &v)
+{
+	// TODO: change key_equals_etc... to use std::variant<double,int64_t> or something
+	return condition(new detail::not_condition_impl(key == v));
 }
 
 /**

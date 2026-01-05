@@ -278,13 +278,13 @@ TEST_CASE("item_2")
 	CHECK(i0.value() == ".");
 
 	cif::item i1("test1", std:: optional<float>());
-	CHECK(i1.value() == "?");
+	CHECK(i1.is_unknown());
 
 	cif::item i2("test1", std::make_optional<float>(1.f));
 	CHECK(i2.value() == "1");
 
 	cif::item i3("test1", std::optional<float>(), 2);
-	CHECK(i3.value() == "?");
+	CHECK(i3.is_unknown());
 
 	cif::item i4("test1", std::make_optional<float>(1.f), 2);
 	CHECK(i4.value() == "1.00");
@@ -2038,7 +2038,7 @@ TEST_CASE("r1")
 	/*
 	    Rationale:
 
-	    The pdbx_mmcif dictionary contains inconsistent child-parent relations. E.g. atom_site is parent
+	    The mmcif_pdbx.dic dictionary contains inconsistent child-parent relations. E.g. atom_site is parent
 	    of pdbx_nonpoly_scheme which itself is a parent of pdbx_entity_nonpoly. If I want to rename a residue
 	    I cannot update pdbx_nonpoly_scheme since changing a parent changes children, but not vice versa.
 

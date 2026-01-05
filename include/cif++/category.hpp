@@ -26,14 +26,11 @@
 
 #pragma once
 
-#include "cif++/forward_decl.hpp"
-
 #include "cif++/condition.hpp"
+#include "cif++/forward_decl.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
-
-#include <array>
 
 /** \file category.hpp
  * Documentation for the cif::category class
@@ -181,6 +178,27 @@ class category
 
 	const std::string &name() const { return m_name; } ///< Returns the name of the category
 
+	/// \brief Rename category to @a new_name
+	void name(std::string_view new_name)
+	{
+		m_name = new_name;
+		m_dirty = true;
+	}
+
+	/// \brief Return true if the category has been modified since last open/save
+	constexpr bool is_dirty() const
+	{
+		return m_dirty;
+	}
+
+	/// \brief Mark the category as modified according to @a dirty
+	void set_dirty(bool dirty)
+	{
+		m_dirty = dirty;
+	}
+
+	// --------------------------------------------------------------------
+	
 	[[deprecated("use key_items instead")]] iset key_fields() const; ///< Returns the cif::iset of key item names. Retrieved from the @ref category_validator for this category
 
 	iset key_items() const; ///< Returns the cif::iset of key item names. Retrieved from the @ref category_validator for this category
@@ -1056,60 +1074,6 @@ class category
 	}
 
 	// --------------------------------------------------------------------
-	// Naming used to be very inconsistent. For backward compatibility,
-	// the old function names are here as deprecated variants.
-
-	/// \brief Return the index number for \a column_name
-	[[deprecated("Use get_item_ix instead")]] uint16_t get_column_ix(std::string_view column_name) const
-	{
-		return get_item_ix(column_name);
-	}
-
-	/// @brief Return the name for column with index @a ix
-	/// @param ix The index number
-	/// @return The name of the column
-	[[deprecated("use get_item_name instead")]] std::string_view get_column_name(uint16_t ix) const
-	{
-		return get_item_name(ix);
-	}
-
-	/// @brief Make sure a item with name @a item_name is known and return its index number
-	/// @param item_name The name of the item
-	/// @return The index number of the item
-	[[deprecated("use add_item instead")]] uint16_t add_column(std::string_view item_name)
-	{
-		return add_item(item_name);
-	}
-
-	/** @brief Remove column name @a colum_name
-	 * @param column_name The column to be removed
-	 */
-	[[deprecated("use remove_item instead")]] void remove_column(std::string_view column_name)
-	{
-		remove_item(column_name);
-	}
-
-	/** @brief Rename column @a from_name to @a to_name */
-	[[deprecated("use rename_item instead")]] void rename_column(std::string_view from_name, std::string_view to_name)
-	{
-		rename_item(from_name, to_name);
-	}
-
-	/// @brief Return whether a column with name @a name exists in this category
-	/// @param name The name of the column
-	/// @return True if the column exists
-	[[deprecated("use has_item instead")]] bool has_column(std::string_view name) const
-	{
-		return has_item(name);
-	}
-
-	/// @brief Return the cif::iset of columns in this category
-	[[deprecated("use get_items instead")]] iset get_columns() const
-	{
-		return get_items();
-	}
-
-	// --------------------------------------------------------------------
 	/// \brief Return the index number for \a item_name
 
 	uint16_t get_item_ix(std::string_view item_name) const;
@@ -1135,6 +1099,9 @@ class category
 	 */
 	void remove_item(std::string_view item_name);
 
+	/// \brief Drop items in this category that contain empty values in all rows.
+	void drop_empty_items();
+
 	/** @brief Rename item @a from_name to @a to_name */
 	void rename_item(std::string_view from_name, std::string_view to_name);
 
@@ -1146,8 +1113,14 @@ class category
 		return get_item_ix(name) < m_items.size();
 	}
 
-	/// @brief Return the cif::iset of items in this category
-	iset get_items() const;
+	/// @brief Return the items in this category
+	std::vector<std::string> get_items() const;
+
+	/// @brief Return the number of items (colums) in this category
+	size_t get_item_count() const noexcept
+	{
+		return m_items.size();
+	}
 
 	// --------------------------------------------------------------------
 
@@ -1177,16 +1150,48 @@ class category
 	/// Write the contents of the category to the std::ostream @a os
 	void write(std::ostream &os) const;
 
+	/// \brief Various supported output formats
+	enum class output_format
+	{
+		cif,	  // Output in mmCIF format
+		csv,      // comma separated values
+		tsv,      // tab separated values
+		list,     // values delimited by a '|' character
+		column,   // output in columns
+		markdown, //
+		table,	  // ascii art table
+		box,      // table with unicode line characters
+	};
+
+	/// @brief
+	/// @brief Write the contents of the category to the std::ostream @a os and
+	/// use @a order as the order of the items. If @a addMissingItems is
+	/// false, items that do not contain any value will be suppressed. Use this version
+	/// to write out
+	/// @param os The std::ostream to write to
+	/// @param fmt The format to use
+	/// @param order The order in which the items should appear
+	/// @param addMissingItems When false, empty items are suppressed from the output
+	void write(std::ostream &os, output_format fmt,
+		const std::vector<std::string> &order, bool addMissingItems = true);
+
 	/// @brief Write the contents of the category to the std::ostream @a os and
 	/// use @a order as the order of the items. If @a addMissingItems is
 	/// false, items that do not contain any value will be suppressed
 	/// @param os The std::ostream to write to
 	/// @param order The order in which the items should appear
 	/// @param addMissingItems When false, empty items are suppressed from the output
-	void write(std::ostream &os, const std::vector<std::string> &order, bool addMissingItems = true);
+	void write(std::ostream &os, const std::vector<std::string> &order, bool addMissingItems = true)
+	{
+		write(os, output_format::cif, order, addMissingItems);
+	}
 
   private:
-	void write(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_cif(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_delimited(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems,
+		std::string_view delimiter, bool aligned, bool header) const;
+	void write_markdown(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems) const;
+	void write_table(std::ostream &os, const std::vector<uint16_t> &order, bool includeEmptyItems, bool ascii) const;
 
   public:
 	/// friend function to make it possible to do:
@@ -1286,6 +1291,8 @@ class category
 	uint32_t m_last_unique_num = 0;
 	class category_index *m_index = nullptr;
 	row *m_head = nullptr, *m_tail = nullptr;
+
+	bool m_dirty = false;	// Keep track of modifications
 };
 
 } // namespace cif

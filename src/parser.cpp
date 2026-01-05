@@ -353,6 +353,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				{
 					retract();
 					result = CIFToken::VALUE;
+					m_token_value = "?";
 				}
 				else
 					state = State::Value;

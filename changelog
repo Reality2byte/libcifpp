@@ -1,3 +1,6 @@
+Version 10.0.0
+- Added a SQLite interface.
+
 Version 9.0.5
 - Added exists to compound_factory
 - Added sub_matrix, fix and extend determinant calculation

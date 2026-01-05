@@ -49,6 +49,7 @@ list(
 	spinner
 	reconstruction
 	validate-pdbx
+	cql
 	matrix
 )
 

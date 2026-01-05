@@ -26,9 +26,12 @@
 
 #pragma once
 
+#include "cif++/condition.hpp"
 #include "cif++/row.hpp"
 
 #include <array>
+#include <cstdint>
+#include <numeric>
 
 /**
  * @file iterator.hpp
@@ -262,6 +265,11 @@ class iterator_impl<Category>
 		return m_current;
 	}
 
+	int64_t row_id() const
+	{
+		return reinterpret_cast<int64_t>(m_current.m_row);
+	}
+
 	iterator_impl &operator++()
 	{
 		if (m_current)
@@ -489,6 +497,9 @@ class iterator_proxy
 		std::swap(m_item_ix, rhs.m_item_ix);
 	}
 
+  protected:
+	iterator_proxy(category_type &cat);
+
   private:
 	category_type *m_category;
 	row_iterator m_begin, m_end;
@@ -530,6 +541,7 @@ class conditional_iterator_proxy
 		using pointer = value_type *;
 		using reference = value_type;
 
+		conditional_iterator_impl() = default;
 		conditional_iterator_impl(CategoryType &cat, row_iterator pos, const condition &cond, const std::array<uint16_t, N> &cix);
 		conditional_iterator_impl(const conditional_iterator_impl &i) = default;
 		conditional_iterator_impl &operator=(const conditional_iterator_impl &i) = default;
@@ -649,6 +661,15 @@ iterator_proxy<Category, Ts...>::iterator_proxy(Category &cat, row_iterator pos,
 		m_item_ix[i++] = m_category->get_item_ix(item);
 }
 
+template <typename Category, typename... Ts>
+iterator_proxy<Category, Ts...>::iterator_proxy(Category &cat)
+	: m_category(&cat)
+	, m_begin(cat.begin())
+	, m_end(cat.end())
+{
+	std::iota(m_item_ix.begin(), m_item_ix.end(), 0);
+}
+
 // --------------------------------------------------------------------
 
 template <typename Category, typename... Ts>
@@ -661,6 +682,8 @@ conditional_iterator_proxy<Category, Ts...>::conditional_iterator_impl::conditio
 {
 	if (m_condition == nullptr or m_condition->empty())
 		m_begin = m_end;
+	else
+		m_current = *m_begin;
 }
 
 template <typename Category, typename... Ts>

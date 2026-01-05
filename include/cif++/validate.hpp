@@ -30,7 +30,6 @@
 #include "cif++/text.hpp"
 
 #include <cassert>
-#include <filesystem>
 #include <list>
 #include <mutex>
 #include <optional>
@@ -343,11 +342,11 @@ struct item_validator
  */
 struct category_validator
 {
-	std::string m_name;                         ///< The name of the category
-	std::vector<std::string> m_keys;            ///< The list of items that make up the key
-	cif::iset m_groups;                         ///< The category groups this category belongs to
-	cif::iset m_mandatory_items;                ///< The mandatory items for this category
-	std::set<item_validator> m_item_validators; ///< The item validators for the items in this category
+	std::string m_name;                            ///< The name of the category
+	std::vector<std::string> m_keys;               ///< The list of items that make up the key
+	cif::iset m_groups;                            ///< The category groups this category belongs to
+	cif::iset m_mandatory_items;                   ///< The mandatory items for this category
+	std::vector<item_validator> m_item_validators; ///< The item validators for the items in this category
 
 	/// @brief return true if this category sorts before @a rhs
 	bool operator<(const category_validator &rhs) const
@@ -520,10 +519,18 @@ class validator_factory
 	static validator_factory &instance();
 
 	/// @brief Return validator with info recorded in @a audit_conform
-	const validator &get(const category &audit_conform);
+	const validator *get(const category &audit_conform);
 
 	/// @brief Return the single-file validator with name @a dictionary_name
-	const validator &get(std::string_view dictionary_name);
+	/// and the dictionary name may be a set of dictionaries separated by comma
+	const validator *get(std::string_view dictionary_name);
+
+	/// @brief Return validator with info recorded in @a audit_conform
+	const validator &operator[](const category &audit_conform);
+
+	/// @brief Return the single-file validator with name @a dictionary_name
+	/// and the dictionary name may be a set of dictionaries separated by comma
+	const validator &operator[](std::string_view dictionary_name);
 
 	/// @brief Return true if the version @a found is equal or higher than @a expected for dictionary @a name
 	static bool check_version(std::string_view name, std::string_view expected, std::string_view found);
@@ -534,6 +541,21 @@ class validator_factory
 		std::unique_lock lock(m_mutex);
 		return m_validators.emplace_back(std::move(v));
 	}
+
+#if __cplusplus >= 202302L
+	/// @brief Return validator with info recorded in @a audit_conform
+	static validator &operator[](const category &audit_conform)
+	{
+		return instance()[audit_conform];
+	}
+
+	/// @brief Return the single-file validator with name @a dictionary_name
+	/// and the dictionary name may be a set of dictionaries separated by comma
+	static validator &operator[](std::string_view dict)
+	{
+		return instance()[dict];
+	}
+#endif
 
   private:
 	validator_factory() = default;

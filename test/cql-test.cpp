@@ -478,26 +478,57 @@ _cat_2.desc
 
 	std::istream is_data(&data_buffer);
 	f.load(is_data, validator);
-	
+
 	auto &db = f.front();
 
-	cif::cql::connection connection(db);
-	cif::cql::transaction tx(connection);
-
-	for (const auto &desc : tx.stream<std::string>(R"(SELECT b.desc FROM cat_1 a, cat_2 b WHERE a.id = b.parent_id AND a.name = 'Noot')"))
+	SECTION("stream")
 	{
-		CHECK(desc == "walnoot bijvoorbeeld");
+		cif::cql::connection connection(db);
+		cif::cql::transaction tx(connection);
+
+		for (const auto &desc : tx.stream<std::string>(R"(SELECT b.desc FROM cat_1 a, cat_2 b WHERE a.id = b.parent_id AND a.name = 'Noot')"))
+		{
+			CHECK(desc == "walnoot bijvoorbeeld");
+		}
 	}
 
 	// Check cascading delete
-	tx.exec("DELETE FROM cat_1 WHERE id = 1");
-	CHECK(db["cat_1"].size() == 2);
-	CHECK(db["cat_2"].size() == 1);
+	SECTION("delete")
+	{
+		cif::cql::connection connection(db);
+		cif::cql::transaction tx(connection);
 
-	tx.rollback();
-	CHECK(db["cat_1"].size() == 3);
-	CHECK(db["cat_2"].size() == 3);
+		tx.exec("DELETE FROM cat_1 WHERE id = 1");
+		CHECK(db["cat_1"].size() == 2);
+		CHECK(db["cat_2"].size() == 1);
 
+		tx.rollback();
+		CHECK(db["cat_1"].size() == 3);
+		CHECK(db["cat_2"].size() == 3);
+	}
+
+	// Check cascading update
+	SECTION("update")
+	{
+		cif::cql::connection connection(db);
+		cif::cql::transaction tx(connection);
+
+		tx.exec("UPDATE cat_1 SET id = 4 WHERE id = 1");
+		CHECK(db["cat_1"].size() == 3);
+		CHECK(db["cat_2"].size() == 3);
+		CHECK(db["cat_1"].count(cif::key("id") == 4) == 1);
+		CHECK(db["cat_2"].count(cif::key("parent_id") == 4) == 2);
+
+		std::cout << db;
+
+		tx.rollback();
+		CHECK(db["cat_1"].size() == 3);
+		CHECK(db["cat_2"].size() == 3);
+		CHECK_FALSE(db["cat_1"].contains(cif::key("id") == 4));
+		CHECK_FALSE(db["cat_2"].contains(cif::key("parent_id") == 4));
+
+		std::cout << db;
+	}
 }
 
 // --------------------------------------------------------------------
@@ -521,7 +552,7 @@ _table1.name
 	{
 		(void)tx.exec("DROP TABLE table1;");
 		tx.commit();
-	
+
 		CHECK(db.empty());
 	}
 
@@ -530,7 +561,7 @@ _table1.name
 	// {
 	// 	(void)tx.exec("DROP TABLE table1;");
 	// 	tx.rollback();
-	
+
 	// 	CHECK(not db.empty());
 	// 	CHECK(db["table1"].size() == 2);
 	// }

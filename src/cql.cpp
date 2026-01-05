@@ -26,6 +26,7 @@
 
 #include "cif++/cql.hpp"
 
+#include "./sqlite3/sqlite3.h"
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"
@@ -34,8 +35,6 @@
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
-
-#include "./sqlite3/sqlite3.h"
 
 #include <cstdint>
 #include <exception>
@@ -135,7 +134,7 @@ struct connection_impl
 	datablock &m_db;
 	sqlite3 *m_sqlite_db = nullptr;
 	int m_next_result_nr = 1;
-	std::vector<virtual_table*> m_vtabs;
+	std::vector<virtual_table *> m_vtabs;
 	bool m_db_modified = false;
 
 	connection_impl(datablock &db);
@@ -144,8 +143,6 @@ struct connection_impl
 	{
 		sqlite3_close(m_sqlite_db);
 	}
-
-	void callBeginFor(virtual_table &table);
 
 	int Connect(sqlite3 *db, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr);
 
@@ -255,48 +252,6 @@ int connection_impl::Create(sqlite3 *db, void *pAux, int argc, const char *const
 	return Connect(db, pAux, argc, argv, ppVtab, pzErr);
 }
 
-void connection_impl::callBeginFor(virtual_table &tab)
-{
-	std::stack<std::string> cats_stack;
-	cats_stack.push(tab.m_cat.name());
-
-	std::vector<std::string> cats;
-
-	while (not cats_stack.empty())
-	{
-		auto cat = cats_stack.top();
-		cats_stack.pop();
-
-		if (find(cats.begin(), cats.end(), cat) != cats.end())
-			continue;
-	
-		cats.emplace_back(cat);
-	
-		auto ccat = m_db.get(cat);
-		if (not ccat)
-			continue;
-
-		if (auto v = ccat->get_validator(); v != nullptr)
-		{
-			for (auto link : v->get_links_for_parent(cat))
-			{
-				auto vtabi = std::find_if(m_vtabs.begin(), m_vtabs.end(), [name=link->m_child_category](virtual_table *vt)
-				{
-					return vt->m_cat.name() == name;
-				});
-
-				if (vtabi == m_vtabs.end())
-					continue;
-
-				cats_stack.push(link->m_child_category);
-			}
-		}
-	}
-
-	for (auto cat : cats)
-		sqlite3_call_vtab_begin(m_sqlite_db, cat.c_str());
-}
-
 // --------------------------------------------------------------------
 
 int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
@@ -317,7 +272,8 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 	{
 		// Try to keep the order the same as in the parsed category
 
-		auto &items = vtab->m_items;;
+		auto &items = vtab->m_items;
+		;
 		for (auto item : cat->get_items())
 			items.emplace_back(item);
 
@@ -326,7 +282,6 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 			if (std::find(items.begin(), items.end(), iv.m_item_name) == items.end())
 				items.emplace_back(iv.m_item_name);
 		}
-
 
 		// Make sure all items are known in the category
 		for (auto item : items)
@@ -452,7 +407,7 @@ int connection_impl::Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int 
 	else
 	{
 		auto item = rh[ix];
-	
+
 		if (item.is_null() or item.is_unknown())
 			sqlite3_result_null(ctx);
 		else if (auto cv = cat.get_cat_validator(); cv != nullptr)
@@ -479,7 +434,6 @@ int connection_impl::Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int 
 		else
 			sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
 	}
-
 
 	return SQLITE_OK;
 }
@@ -760,8 +714,6 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 {
 	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
 
-	p->m_connection_impl.callBeginFor(*p);
-
 	int rc = SQLITE_ERROR;
 
 	try
@@ -770,8 +722,51 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 
 		if (argc == 1) // DELETE
 		{
-			p->m_cat.erase(row_handle{ p->m_cat, *reinterpret_cast<const cif::row *>(addr) });
 			rc = SQLITE_OK;
+			row_handle rh{ p->m_cat, *reinterpret_cast<const cif::row *>(addr) };
+
+			if (auto v = p->m_cat.get_validator())
+			{
+				auto &db = p->m_db;
+
+				for (auto link : v->get_links_for_parent(p->m_cat.name()))
+				{
+					auto childCat = const_cast<category *>(db.get(link->m_child_category));
+					if (childCat == nullptr)
+						continue;
+
+					std::ostringstream sql;
+					sql << "DELETE FROM " << link->m_child_category << " WHERE ";
+					for (size_t i = 0; i < link->m_child_keys.size(); ++i)
+					{
+						if (i > 0)
+							sql << " AND ";
+						sql << link->m_child_keys[i] << " = ?" << (i + 1);
+					}
+
+					sqlite3_stmt *sub_stmt;
+					auto sqls = sql.str();
+					rc = sqlite3_prepare_v2(p->m_connection_impl.m_sqlite_db, sqls.c_str(), sqls.length(), &sub_stmt, nullptr);
+
+					for (size_t i = 0; rc == SQLITE_OK and i < link->m_parent_keys.size(); ++i)
+					{
+						auto txt = rh[link->m_parent_keys[i]].text();
+						rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), txt.length(), nullptr);
+					}
+
+					if (rc == SQLITE_OK)
+						rc = sqlite3_step(sub_stmt);
+					(void)sqlite3_finalize(sub_stmt);
+
+					if (rc != SQLITE_DONE)
+						break;
+
+					rc = SQLITE_OK;
+				}
+			}
+
+			if (rc == SQLITE_OK)
+				p->m_cat.erase(rh);
 		}
 		else if (addr == 0) // INSERT
 		{
@@ -826,6 +821,74 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 						break;
 				}
 			}
+
+			if (auto v = p->m_cat.get_validator())
+			{
+				auto &db = p->m_db;
+
+				for (auto link : v->get_links_for_parent(p->m_cat.name()))
+				{
+					auto childCat = const_cast<category *>(db.get(link->m_child_category));
+					if (childCat == nullptr)
+						continue;
+
+					std::vector<std::tuple<int,std::string_view>> ixs;
+					for (auto &ri : data)
+					{
+						auto i = std::find(link->m_parent_keys.begin(), link->m_parent_keys.end(), ri.name());
+						if (i == link->m_parent_keys.end())
+							continue;	// no update needed
+						ixs.emplace_back(i - link->m_parent_keys.begin(), ri.value());
+					}
+
+					if (ixs.empty())
+						continue;
+
+					std::ostringstream sql;
+					sql << "UPDATE " << link->m_child_category;
+					
+					for (bool first = true; auto [i, txt] : ixs)
+					{
+						if (not std::exchange(first, false))
+							sql << ",";
+						sql << " SET " << link->m_child_keys[i] << " = ?" << (i + 1);
+					}
+					
+					sql << " WHERE ";
+					for (bool first = true; auto [i, txt] : ixs)
+					{
+						if (not std::exchange(first, false))
+							sql << " AND ";
+						sql << link->m_child_keys[i] << " = ?" << (i + ixs.size() + 1);
+					}
+
+					sqlite3_stmt *sub_stmt;
+					auto sqls = sql.str();
+					rc = sqlite3_prepare_v2(p->m_connection_impl.m_sqlite_db, sqls.c_str(), sqls.length(), &sub_stmt, nullptr);
+
+					for (auto [i, txt] : ixs)
+					{
+						// set
+						if  (rc == SQLITE_OK)
+							rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), txt.length(), nullptr);
+
+						// where
+						auto wtxt = rh[link->m_parent_keys[i]].text();
+						rc = sqlite3_bind_text(sub_stmt, i + ixs.size() + 1, wtxt.data(), wtxt.length(), nullptr);
+					}
+
+					if (rc == SQLITE_OK)
+						rc = sqlite3_step(sub_stmt);
+					(void)sqlite3_finalize(sub_stmt);
+
+					if (rc != SQLITE_DONE)
+						break;
+
+					rc = SQLITE_OK;
+				}
+			}
+
+
 
 			rh.assign(data);
 			*pRowid = addr;

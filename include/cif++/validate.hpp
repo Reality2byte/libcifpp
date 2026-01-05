@@ -89,7 +89,7 @@ class validation_category_impl : public std::error_category
 	 * @return const char*
 	 */
 
-	const char *name() const noexcept override
+	[[nodiscard]] const char *name() const noexcept override
 	{
 		return "cif::validation";
 	}
@@ -101,7 +101,7 @@ class validation_category_impl : public std::error_category
 	 * @return std::string
 	 */
 
-	std::string message(int ev) const override
+	[[nodiscard]] std::string message(int ev) const override
 	{
 		switch (static_cast<validation_error>(ev))
 		{
@@ -143,7 +143,7 @@ class validation_category_impl : public std::error_category
 	 *
 	 */
 
-	bool equivalent(const std::error_code & /*code*/, int /*condition*/) const noexcept override
+	[[nodiscard]] bool equivalent(const std::error_code & /*code*/, int /*condition*/) const noexcept override
 	{
 		return false;
 	}
@@ -162,12 +162,12 @@ inline std::error_category &validation_category()
 
 inline std::error_code make_error_code(validation_error e)
 {
-	return std::error_code(static_cast<int>(e), validation_category());
+	return { static_cast<int>(e), validation_category() };
 }
 
 inline std::error_condition make_error_condition(validation_error e)
 {
-	return std::error_condition(static_cast<int>(e), validation_category());
+	return { static_cast<int>(e), validation_category() };
 }
 
 // --------------------------------------------------------------------
@@ -272,7 +272,7 @@ struct type_validator
 	/// primitive type of this type. A value of zero indicates the
 	/// values are equal. Less than zero means @a a sorts before @a b
 	/// and a value larger than zero likewise means the opposite
-	int compare(std::string_view a, std::string_view b) const;
+	[[nodiscard]] int compare(std::string_view a, std::string_view b) const;
 };
 
 /** @brief Item alias, items can be renamed over time
@@ -280,10 +280,10 @@ struct type_validator
 
 struct item_alias
 {
-	item_alias(const std::string &alias_name, const std::string &dictionary, const std::string &version)
-		: m_name(alias_name)
-		, m_dict(dictionary)
-		, m_vers(version)
+	item_alias(std::string alias_name, std::string dictionary, std::string version)
+		: m_name(std::move(alias_name))
+		, m_dict(std::move(dictionary))
+		, m_vers(std::move(version))
 	{
 	}
 
@@ -358,10 +358,10 @@ struct category_validator
 	void add_item_validator(item_validator &&v);
 
 	/// @brief Return the item_validator for item @a item_name, may return nullptr
-	const item_validator *get_validator_for_item(std::string_view item_name) const;
+	[[nodiscard]] const item_validator *get_validator_for_item(std::string_view item_name) const;
 
 	/// @brief Return the item_validator for an item that has as alias name @a item_name, may return nullptr
-	const item_validator *get_validator_for_aliased_item(std::string_view item_name) const;
+	[[nodiscard]] const item_validator *get_validator_for_aliased_item(std::string_view item_name) const;
 };
 
 /**
@@ -446,22 +446,22 @@ class validator
 	void add_type_validator(type_validator &&v);
 
 	/// @brief Return the type validator for @a type_code, may return nullptr
-	const type_validator *get_validator_for_type(std::string_view type_code) const;
+	[[nodiscard]] const type_validator *get_validator_for_type(std::string_view type_code) const;
 
 	/// @brief Add category_validator @a v to the list of category validators
 	void add_category_validator(category_validator &&v);
 
 	/// @brief Return the category validator for @a category, may return nullptr
-	const category_validator *get_validator_for_category(std::string_view category) const;
+	[[nodiscard]] const category_validator *get_validator_for_category(std::string_view category) const;
 
 	/// @brief Add link_validator @a v to the list of link validators
 	void add_link_validator(link_validator &&v);
 
 	/// @brief Return the list of link validators for which the parent is @a category
-	std::vector<const link_validator *> get_links_for_parent(std::string_view category) const;
+	[[nodiscard]] std::vector<const link_validator *> get_links_for_parent(std::string_view category) const;
 
 	/// @brief Return the list of link validators for which the child is @a category
-	std::vector<const link_validator *> get_links_for_child(std::string_view category) const;
+	[[nodiscard]] std::vector<const link_validator *> get_links_for_child(std::string_view category) const;
 
 	/// @brief Bottleneck function to report an error in validation
 	void report_error(validation_error err, bool fatal = true) const
@@ -488,14 +488,14 @@ class validator
 	void fill_audit_conform(category &audit_conform) const;
 
 	/// @brief Return true if this validator matches @a audit_conform
-	bool matches_audit_conform(const category &audit_conform) const;
+	[[nodiscard]] bool matches_audit_conform(const category &audit_conform) const;
 
 	/// @brief Add info
 	void append_audit_conform(const std::string &name, const std::optional<std::string> &version);
 
   private:
 	// name is fully qualified here:
-	item_validator *get_validator_for_item(std::string_view name) const;
+	[[nodiscard]] item_validator *get_validator_for_item(std::string_view name) const;
 
 	category m_audit_conform;
 

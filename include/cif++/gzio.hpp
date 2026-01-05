@@ -245,8 +245,8 @@ class basic_igzip_streambuf : public basic_streambuf<CharT, Traits>
 
 		close();
 
-		m_zstream.reset(new z_stream_s);
-		m_gzheader.reset(new gz_header_s);
+		m_zstream = std::make_unique<z_stream_s>();
+		m_gzheader = std::make_unique<gz_header_s>();
 
 		auto &zstream = *m_zstream.get();
 		zstream = z_stream_s{};
@@ -431,8 +431,8 @@ class basic_ogzip_streambuf : public basic_streambuf<CharT, Traits>
 
 		close();
 
-		m_zstream.reset(new z_stream_s);
-		m_gzheader.reset(new gz_header_s);
+		m_zstream = std::make_unique<z_stream_s>();
+		m_gzheader = std::make_unique<gz_header_s>();
 
 		auto &zstream = *m_zstream.get();
 		zstream = z_stream_s{};
@@ -774,7 +774,7 @@ class basic_ifstream : public basic_istream<CharT, Traits>
 	/// \brief Return true if the file is open
 	/// \return m_filebuf.is_open()
 
-	bool is_open() const
+	[[nodiscard]] bool is_open() const
 	{
 		return m_filebuf.is_open();
 	}
@@ -1054,7 +1054,7 @@ class basic_ofstream : public basic_ostream<CharT, Traits>
 	/// \brief Return true if the file is open
 	/// \return m_filebuf.is_open()
 
-	bool is_open() const
+	[[nodiscard]] bool is_open() const
 	{
 		return m_filebuf.is_open();
 	}

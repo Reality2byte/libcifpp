@@ -26,6 +26,7 @@
 
 #include "test-main.hpp"
 
+#include <algorithm>
 #include <catch2/catch_test_macros.hpp>
 #include <cif++.hpp>
 
@@ -1613,9 +1614,9 @@ _cat_2.parent_id3
 	CHECK(CR2set.size() == 3);
 
 	std::vector<int> CRids;
-	std::transform(CR2set.begin(), CR2set.end(), std::back_inserter(CRids), [](cif::row_handle r)
+	std::ranges::transform(CR2set, std::back_inserter(CRids), [](cif::row_handle r)
 		{ return r["id"].as<int>(); });
-	std::sort(CRids.begin(), CRids.end());
+	std::ranges::sort(CRids);
 	CHECK(CRids == std::vector<int>({ 4, 5, 6 }));
 
 	// check a rename in parent and child

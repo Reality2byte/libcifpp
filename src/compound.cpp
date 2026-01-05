@@ -30,8 +30,6 @@
 #include "cif++/category.hpp"  // for category
 #include "cif++/datablock.hpp" // for datablock
 #include "cif++/file.hpp"      // for file
-#include "cif++/item.hpp"      // for item
-#include "cif++/iterator.hpp"  // for iterator_proxy
 #include "cif++/parser.hpp"    // for parser
 #include "cif++/point.hpp"     // for distance, point
 #include "cif++/row.hpp"       // for tie, row_initializer, tie_wrap
@@ -46,7 +44,6 @@
 #include <iomanip>      // for operator<<, quoted
 #include <iostream>     // for clog, cout, cerr
 #include <limits>       // for numeric_limits
-#include <list>         // for _List_iterator
 #include <map>          // for allocator, map, _Rb_tree_iterator
 #include <memory>       // for shared_ptr, unique_ptr, __shared_ptr_...
 #include <optional>     // for optional
@@ -309,21 +306,21 @@ const std::map<std::string, char> compound_factory::kBaseMap{
 class compound_factory_impl : public std::enable_shared_from_this<compound_factory_impl>
 {
   public:
-	compound_factory_impl();
+	compound_factory_impl() = default;
 	compound_factory_impl(const fs::path &file, std::shared_ptr<compound_factory_impl> next);
 
-	virtual ~compound_factory_impl()
+	virtual ~compound_factory_impl() // NOLINT(modernize-use-equals-default)
 	{
 		for (auto c : m_compounds)
 			delete c;
 	}
 
-	virtual bool exists_self(const std::string &id) const
+	[[nodiscard]] virtual bool exists_self(const std::string &id) const
 	{
 		if (m_missing.contains(id))
 			return false;
 
-		if (std::find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c)
+		if (std::ranges::find_if(m_compounds, [id](compound *c)
 				{ return c->id() == id; }) != m_compounds.end())
 			return true;
 
@@ -383,10 +380,6 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 	cif::iset m_missing;
 	std::shared_ptr<compound_factory_impl> m_next;
 };
-
-compound_factory_impl::compound_factory_impl()
-{
-}
 
 compound_factory_impl::compound_factory_impl(std::shared_ptr<compound_factory_impl> next)
 	: m_next(next)

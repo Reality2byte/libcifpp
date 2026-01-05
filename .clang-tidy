@@ -1,5 +1,9 @@
 Checks: '-*,
          modernize*,
          -modernize-use-trailing-return-type,
-         -modernize-avoid-c-arrays
+         -modernize-avoid-c-arrays,
+         -modernize-use-designated-initializers
          '
+
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: 'Eigen|Eigen/Eigenvalues'

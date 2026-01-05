@@ -31,6 +31,7 @@
 #include "cif++/text.hpp"
 #include "cif++/utilities.hpp"
 
+#include <algorithm>
 #include <cassert>
 #include <charconv>
 #include <cstring>
@@ -106,9 +107,9 @@ class item
 	/// \brief constructor for an item with name \a name and as
 	/// content the formatted floating point value \a value with
 	/// precision \a precision
-	template <typename T, std::enable_if_t<std::is_floating_point_v<T>, int> = 0>
+	template <typename T>
 	item(std::string_view name, const T &value, int precision)
-		: m_name(name)
+		requires (std::is_floating_point_v<T>) : m_name(name)
 	{
 		using namespace std;
 		using namespace cif;
@@ -116,7 +117,7 @@ class item
 		char buffer[32];
 
 		auto r = to_chars(buffer, buffer + sizeof(buffer) - 1, value, chars_format::fixed, precision);
-		if ((bool)r.ec)
+		if (r.ec != std::errc{})
 			throw std::runtime_error("Could not format number");
 
 		m_value.assign(buffer, r.ptr - buffer);
@@ -125,9 +126,9 @@ class item
 	/// \brief constructor for an item with name \a name and as
 	/// content a formatted floating point value \a value with
 	/// so-called general formatting
-	template <typename T, std::enable_if_t<std::is_floating_point_v<T>, int> = 0>
+	template <typename T>
 	item(const std::string_view name, const T &value)
-		: m_name(name)
+		requires (std::is_floating_point_v<T>) : m_name(name)
 	{
 		using namespace std;
 		using namespace cif;
@@ -135,7 +136,7 @@ class item
 		char buffer[32];
 
 		auto r = to_chars(buffer, buffer + sizeof(buffer) - 1, value, chars_format::general);
-		if ((bool)r.ec)
+		if (r.ec != std::errc{})
 			throw std::runtime_error("Could not format number");
 
 		m_value.assign(buffer, r.ptr - buffer);
@@ -143,14 +144,14 @@ class item
 
 	/// \brief constructor for an item with name \a name and as
 	/// content the formatted integral value \a value
-	template <typename T, std::enable_if_t<std::is_integral_v<T> and not std::is_same_v<T, bool>, int> = 0>
+	template <typename T>
 	item(const std::string_view name, const T &value)
-		: m_name(name)
+		requires (std::is_integral_v<T> and not std::is_same_v<T, bool>) : m_name(name)
 	{
 		char buffer[32];
 
 		auto r = std::to_chars(buffer, buffer + sizeof(buffer) - 1, value);
-		if ((bool)r.ec)
+		if (r.ec != std::errc{})
 			throw std::runtime_error("Could not format number");
 
 		m_value.assign(buffer, r.ptr - buffer);
@@ -158,9 +159,9 @@ class item
 
 	/// \brief constructor for an item with name \a name and as
 	/// content the formatted boolean value \a value
-	template <typename T, std::enable_if_t<std::is_same_v<T, bool>, int> = 0>
+	template <typename T>
 	item(const std::string_view name, const T &value)
-		: m_name(name)
+		requires (std::is_same_v<T, bool>) : m_name(name)
 	{
 		m_value.assign(value ? "y" : "n");
 	}
@@ -175,9 +176,9 @@ class item
 
 	/// \brief constructor for an item with name \a name and as
 	/// content value \a value
-	template <typename T, std::enable_if_t<std::is_same_v<T, std::string>, int> = 0>
+	template <typename T>
 	item(const std::string_view name, T &&value)
-		: m_name(name)
+		requires (std::is_same_v<T, std::string>) : m_name(name)
 		, m_value(std::move(value))
 	{
 	}
@@ -200,9 +201,9 @@ class item
 	/// \brief constructor for an item with name \a name and as
 	/// content the formatted floating point value \a value with
 	/// precision \a precision
-	template <typename T, std::enable_if_t<std::is_floating_point_v<T>, int> = 0>
+	template <typename T>
 	item(std::string_view name, const std::optional<T> &value, int precision)
-		: m_name(name)
+		requires (std::is_floating_point_v<T>) : m_name(name)
 	{
 		if (value.has_value())
 		{
@@ -220,24 +221,24 @@ class item
 	item &operator=(item &&rhs) noexcept = default;
 	/** @endcond */
 
-	std::string_view name() const { return m_name; }            ///< Return the name of the item
-	std::string_view value() const & { return m_value; }        ///< Return the value of the item
-	std::string value() const && { return std::move(m_value); } ///< Return the value of the item
+	[[nodiscard]] std::string_view name() const { return m_name; }            ///< Return the name of the item
+	[[nodiscard]] std::string_view value() const & { return m_value; }        ///< Return the value of the item
+	[[nodiscard]] std::string value() const && { return std::move(m_value); } ///< Return the value of the item
 
 	/// \brief replace the content of the stored value with \a v
 	void value(std::string_view v) { m_value = v; }
 
 	/// \brief empty means either null or unknown
-	bool empty() const { return is_null() or is_unknown() or m_value.empty(); }
+	[[nodiscard]] bool empty() const { return is_null() or is_unknown() or m_value.empty(); }
 
 	/// \brief returns true if the item contains '.'
-	bool is_null() const { return m_value == "."; }
+	[[nodiscard]] bool is_null() const { return m_value == "."; }
 
 	/// \brief returns true if the item contains '?'
-	bool is_unknown() const { return m_value == "?"; }
+	[[nodiscard]] bool is_unknown() const { return m_value == "?"; }
 
 	/// \brief the length of the value string
-	std::size_t length() const { return m_value.length(); }
+	[[nodiscard]] std::size_t length() const { return m_value.length(); }
 
 	/// \brief support for structured binding
 	template <std::size_t N>
@@ -278,12 +279,12 @@ struct item_value
 		if (m_length >= kBufferSize)
 		{
 			m_data = new char[m_length + 1];
-			std::copy(text.begin(), text.end(), m_data);
+			std::ranges::copy(text, m_data);
 			m_data[m_length] = 0;
 		}
 		else
 		{
-			std::copy(text.begin(), text.end(), m_local_data);
+			std::ranges::copy(text, m_local_data);
 			m_local_data[m_length] = 0;
 		}
 	}
@@ -335,7 +336,7 @@ struct item_value
 	// nice performance gain since we avoid many calls to strlen.
 
 	/** Return the content of the item as a std::string_view */
-	constexpr inline std::string_view text() const
+	[[nodiscard]] constexpr inline std::string_view text() const
 	{
 		const char *ptr = m_length >= kBufferSize ? m_data : m_local_data;
 		return (m_length == 1 and *ptr == '?') ? std::string_view{} : std::string_view{ ptr, m_length };
@@ -425,7 +426,7 @@ struct item_handle
 
 	/** Return the contents of this item as type @tparam T */
 	template <typename T = std::string>
-	auto as() const -> T
+	[[nodiscard]] auto as() const -> T
 	{
 		using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
 		return item_value_as<value_type>::convert(*this);
@@ -435,7 +436,7 @@ struct item_handle
 	 * set, use @a dv as the default value.
 	 */
 	template <typename T>
-	auto value_or(const T &dv) const
+	[[nodiscard]] auto value_or(const T &dv) const
 	{
 		return empty() ? dv : this->as<T>();
 	}
@@ -452,7 +453,7 @@ struct item_handle
 	 * @return -1, 0 or 1
 	 */
 	template <typename T>
-	int compare(const T &value, bool icase = true) const
+	[[nodiscard]] int compare(const T &value, bool icase = true) const
 	{
 		return item_value_as<T>::compare(*this, value, icase);
 	}
@@ -462,7 +463,7 @@ struct item_handle
 	 * return true if both are equal.
 	 */
 	template <typename T>
-	bool operator==(const T &value) const
+	[[nodiscard]] bool operator==(const T &value) const
 	{
 		// TODO: icase or not icase?
 		return item_value_as<T>::compare(*this, value, true) == 0;
@@ -475,7 +476,7 @@ struct item_handle
 	 * return true if both are not equal.
 	 */
 	template <typename T>
-	bool operator!=(const T &value) const
+	[[nodiscard]] bool operator!=(const T &value) const
 	{
 		return not operator==(value);
 	}
@@ -485,7 +486,7 @@ struct item_handle
 	 * only contains '.' meaning null or '?' meaning unknown
 	 * in a mmCIF context
 	 */
-	bool empty() const
+	[[nodiscard]] bool empty() const
 	{
 		auto txt = text();
 		return txt.empty() or (txt.length() == 1 and (txt.front() == '.' or txt.front() == '?'));
@@ -495,21 +496,21 @@ struct item_handle
 	explicit operator bool() const { return not empty(); }
 
 	/// is_null return true if the item contains '.'
-	bool is_null() const
+	[[nodiscard]] bool is_null() const
 	{
 		auto txt = text();
 		return txt.length() == 1 and txt.front() == '.';
 	}
 
 	/// is_unknown returns true if the item contains '?'
-	bool is_unknown() const
+	[[nodiscard]] bool is_unknown() const
 	{
 		auto txt = text();
 		return txt.length() == 1 and txt.front() == '?';
 	}
 
 	/** Return a std::string_view for the contents */
-	std::string_view text() const;
+	[[nodiscard]] std::string_view text() const;
 
 	/**
 	 * @brief Construct a new item handle object
@@ -564,7 +565,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_arithmetic_v<T> an
 			                               ? from_chars(b + 1, e, result)
 			                               : from_chars(b, e, result);
 
-			if ((bool)r.ec or r.ptr != e)
+			if (r.ec != std::errc{} or r.ptr != e)
 			{
 				result = {};
 				if (cif::VERBOSE)
@@ -601,7 +602,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_arithmetic_v<T> an
 			                               ? from_chars(b + 1, e, v)
 			                               : from_chars(b, e, v);
 
-			if ((bool)r.ec or r.ptr != e)
+			if (r.ec != std::errc{} or r.ptr != e)
 			{
 				if (cif::VERBOSE)
 				{

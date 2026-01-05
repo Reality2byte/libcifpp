@@ -43,7 +43,7 @@ jobs:
     - name: Install Catch2 macOS
       if: matrix.os == 'macos-latest'
       run: >
-        brew install catch2 sqlite
+        brew install catch2
 
     - name: Configure CMake
       run: >

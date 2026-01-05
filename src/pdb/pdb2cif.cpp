@@ -26,6 +26,7 @@
 
 #include "pdb2cif_remark_3.hpp"
 
+#include <algorithm>
 #include <cif++/compound.hpp>
 #include <cif++/gzio.hpp>
 #include <cif++/model.hpp>
@@ -36,6 +37,7 @@
 #include <set>
 #include <stack>
 #include <stdexcept>
+#include <utility>
 
 // --------------------------------------------------------------------
 // attempt to come up with better error handling
@@ -53,12 +55,12 @@ namespace detail
 	class pdbCategory : public std::error_category
 	{
 	  public:
-		const char *name() const noexcept
+		[[nodiscard]] const char *name() const noexcept
 		{
 			return "pdb";
 		}
 
-		std::string message(int value) const
+		[[nodiscard]] std::string message(int value) const
 		{
 			switch (value)
 			{
@@ -151,10 +153,6 @@ PDBRecord::PDBRecord(uint32_t lineNr, const std::string &name, const std::string
 
 	strcpy(mName, name.c_str());
 	strcpy(mValue, value.c_str());
-}
-
-PDBRecord::~PDBRecord()
-{
 }
 
 void *PDBRecord::operator new(std::size_t size, std::size_t vLen)
@@ -429,11 +427,7 @@ std::tuple<std::string, std::string> SpecificationListParser::GetNextSpecificati
 class PDBFileParser
 {
   public:
-	PDBFileParser()
-		: mData(nullptr)
-		, mRec(nullptr)
-	{
-	}
+	PDBFileParser() = default;
 
 	~PDBFileParser()
 	{
@@ -482,13 +476,13 @@ class PDBFileParser
 		bool branch = false;
 		PDBRecord *asn = nullptr;
 
-		HET(const std::string &hetID, char chainID, int seqNum, char iCode, int numHetAtoms = 0, const std::string &text = {})
-			: hetID(hetID)
+		HET(std::string hetID, char chainID, int seqNum, char iCode, int numHetAtoms = 0, std::string text = {})
+			: hetID(std::move(hetID))
 			, chainID(chainID)
 			, seqNum(seqNum)
 			, iCode(iCode)
 			, numHetAtoms(numHetAtoms)
-			, text(text)
+			, text(std::move(text))
 		{
 		}
 	};
@@ -566,13 +560,13 @@ class PDBFileParser
 	class SUGAR_TREE : public std::vector<SUGAR>
 	{
 	  public:
-		std::string entityName() const
+		[[nodiscard]] std::string entityName() const
 		{
 			return empty() ? "" : entityName(begin());
 		}
 
 	  private:
-		std::string entityName(const_iterator sugar) const
+		[[nodiscard]] std::string entityName(const_iterator sugar) const
 		{
 			std::string result;
 
@@ -661,24 +655,20 @@ class PDBFileParser
 	{
 		PDBChain(const std::string &structureID, char chainID, int molID)
 			: mDbref{ structureID, chainID }
-			, mWaters(0)
-			, mTerIndex(0)
 			, mMolID(molID)
-			, mNextSeqNum(1)
-			, mNextDbSeqNum(1)
 		{
 		}
 
 		DBREF mDbref;
 		std::vector<PDBSeqRes> mSeqres, mHet;
-		int mWaters;
-		int mTerIndex;
+		int mWaters = 0;
+		int mTerIndex = 0;
 
 		int mMolID;
 
 		// scratch values for reading SEQRES records
-		int mNextSeqNum;
-		int mNextDbSeqNum;
+		int mNextSeqNum = 1;
+		int mNextDbSeqNum = 1;
 
 		// scratch value for aligning
 		struct AtomRes
@@ -693,14 +683,14 @@ class PDBFileParser
 		std::vector<AtomRes> mResiduesSeen;
 
 		int AlignResToSeqRes();
-		bool SameSequence(const PDBChain &rhs) const;
+		[[nodiscard]] bool SameSequence(const PDBChain &rhs) const;
 	};
 
 	// ----------------------------------------------------------------
 
 	PDBCompound &GetOrCreateCompound(int molID)
 	{
-		auto i = std::find_if(mCompounds.begin(), mCompounds.end(), [molID](PDBCompound &comp) -> bool
+		auto i = std::ranges::find_if(mCompounds, [molID](PDBCompound &comp) -> bool
 			{ return comp.mMolID == molID; });
 		if (i == mCompounds.end())
 		{
@@ -717,7 +707,7 @@ class PDBFileParser
 	// locate the PDBChain record for a chain ID, or create it with dummy data if missing
 	PDBChain &GetChainForID(char chainID, int numRes = 0)
 	{
-		auto i = std::find_if(mChains.begin(), mChains.end(), [chainID](PDBChain &ch) -> bool
+		auto i = std::ranges::find_if(mChains, [chainID](PDBChain &ch) -> bool
 			{ return ch.mDbref.chainID == chainID; });
 
 		if (i == mChains.end())
@@ -777,22 +767,22 @@ class PDBFileParser
 
 	// ----------------------------------------------------------------
 
-	char vC(std::size_t column) const
+	[[nodiscard]] char vC(std::size_t column) const
 	{
 		return mRec->vC(column);
 	}
 
-	std::string vS(std::size_t columnFirst, std::size_t columnLast = std::numeric_limits<std::size_t>::max()) const
+	[[nodiscard]] std::string vS(std::size_t columnFirst, std::size_t columnLast = std::numeric_limits<std::size_t>::max()) const
 	{
 		return mRec->vS(columnFirst, columnLast);
 	}
 
-	std::string vF(std::size_t columnFirst, std::size_t columnLast) const
+	[[nodiscard]] std::string vF(std::size_t columnFirst, std::size_t columnLast) const
 	{
 		return mRec->vF(columnFirst, columnLast);
 	}
 
-	int vI(int columnFirst, int columnLast) const
+	[[nodiscard]] int vI(int columnFirst, int columnLast) const
 	{
 		return mRec->vI(columnFirst, columnLast);
 	}
@@ -800,7 +790,7 @@ class PDBFileParser
 	// ----------------------------------------------------------------
 
 	// Map a PDB residue location to a seqnum in a struct_asym
-	std::tuple<std::string, int, bool> MapResidue(char chainID, int resSeq, char iCode) const
+	[[nodiscard]] std::tuple<std::string, int, bool> MapResidue(char chainID, int resSeq, char iCode) const
 	{
 		auto key = std::make_tuple(chainID, resSeq, iCode);
 
@@ -814,7 +804,7 @@ class PDBFileParser
 		}
 	}
 
-	std::tuple<std::string, int, bool> MapResidue(char chainID, int resSeq, char iCode, std::error_code &ec) const
+	[[nodiscard]] std::tuple<std::string, int, bool> MapResidue(char chainID, int resSeq, char iCode, std::error_code &ec) const
 	{
 		auto key = std::make_tuple(chainID, resSeq, iCode);
 
@@ -892,7 +882,7 @@ class PDBFileParser
 				if (year < 1950)
 					year += 100;
 
-				s = cif::format("{:04}-{:02}-{:02}", year, month, day);
+				s = std::format("{:04}-{:02}-{:02}", year, month, day);
 			}
 			else if (regex_match(s, m, rx2))
 			{
@@ -904,7 +894,7 @@ class PDBFileParser
 				if (year < 1950)
 					year += 100;
 
-				s = cif::format("{:04}-{:02}", year, month);
+				s = std::format("{:04}-{:02}", year, month);
 			}
 			else
 				ec = error::make_error_code(error::pdbErrors::invalidDate);
@@ -1006,8 +996,8 @@ class PDBFileParser
 
 	// ----------------------------------------------------------------
 
-	PDBRecord *mData;
-	PDBRecord *mRec;
+	PDBRecord *mData = nullptr;
+	PDBRecord *mRec = nullptr;
 	cif::datablock mDatablock;
 
 	std::string mStructureID;
@@ -1124,7 +1114,7 @@ void PDBFileParser::PreParseInput(std::istream &is)
 		if (not cs.empty())
 		{
 			auto r = std::from_chars(cs.data(), cs.data() + cs.length(), result);
-			if ((bool)r.ec)
+			if (r.ec != std::errc{})
 				throw std::runtime_error("Continuation std::string '" + cs + "' is not valid");
 		}
 
@@ -1389,7 +1379,7 @@ void PDBFileParser::PreParseInput(std::istream &is)
 			{
 				auto f = cur->vF(74, 78);
 				auto r = cif::from_chars(f.data(), f.data() + f.length(), link.distance);
-				if ((bool)r.ec and cif::VERBOSE > 0)
+				if (r.ec != std::errc{} and cif::VERBOSE > 0)
 					std::cerr << "Error parsing link distance at line " << cur->mLineNr << '\n';
 			}
 			//	74 – 78         Real(5.2)      Length          Link distance
@@ -3332,18 +3322,18 @@ void PDBFileParser::ParseRemark350()
 								{ "type", type },
 								// { "name", "" },
 							    // { "symmetryOperation", "" },
-								{ "matrix[1][1]", cif::format("{:12.10f}", mat[0]) },
-								{ "matrix[1][2]", cif::format("{:12.10f}", mat[1]) },
-								{ "matrix[1][3]", cif::format("{:12.10f}", mat[2]) },
-								{ "vector[1]", cif::format("{:12.10f}", vec[0]) },
-								{ "matrix[2][1]", cif::format("{:12.10f}", mat[3]) },
-								{ "matrix[2][2]", cif::format("{:12.10f}", mat[4]) },
-								{ "matrix[2][3]", cif::format("{:12.10f}", mat[5]) },
-								{ "vector[2]", cif::format("{:12.10f}", vec[1]) },
-								{ "matrix[3][1]", cif::format("{:12.10f}", mat[6]) },
-								{ "matrix[3][2]", cif::format("{:12.10f}", mat[7]) },
-								{ "matrix[3][3]", cif::format("{:12.10f}", mat[8]) },
-								{ "vector[3]", cif::format("{:12.10f}", vec[2]) }
+								{ "matrix[1][1]", std::format("{:12.10f}", mat[0]) },
+								{ "matrix[1][2]", std::format("{:12.10f}", mat[1]) },
+								{ "matrix[1][3]", std::format("{:12.10f}", mat[2]) },
+								{ "vector[1]", std::format("{:12.10f}", vec[0]) },
+								{ "matrix[2][1]", std::format("{:12.10f}", mat[3]) },
+								{ "matrix[2][2]", std::format("{:12.10f}", mat[4]) },
+								{ "matrix[2][3]", std::format("{:12.10f}", mat[5]) },
+								{ "vector[2]", std::format("{:12.10f}", vec[1]) },
+								{ "matrix[3][1]", std::format("{:12.10f}", mat[6]) },
+								{ "matrix[3][2]", std::format("{:12.10f}", mat[7]) },
+								{ "matrix[3][3]", std::format("{:12.10f}", mat[8]) },
+								{ "vector[3]", std::format("{:12.10f}", vec[2]) }
 							});
 																			// clang-format on
 
@@ -5288,7 +5278,7 @@ void PDBFileParser::ParseConnectivtyAnnotation()
 
 				double d;
 				auto r = cif::from_chars(distance.data(), distance.data() + distance.length(), d);
-				if ((bool)r.ec)
+				if (r.ec != std::errc{})
 				{
 					if (cif::VERBOSE > 0)
 						std::cerr << "Distance value '" << distance << "' is not a valid float in LINK record\n";
@@ -5844,7 +5834,7 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 
 			auto f = [](float f) -> std::string
 			{
-				return cif::format("{:6.4f}", f);
+				return std::format("{:6.4f}", f);
 			};
 
 			// clang-format off

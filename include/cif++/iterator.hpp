@@ -180,7 +180,7 @@ class iterator_impl
 
   private:
 	template <std::size_t... Is>
-	tuple_type get(std::index_sequence<Is...>) const
+	[[nodiscard]] tuple_type get(std::index_sequence<Is...>) const
 	{
 		return m_current ? tuple_type{ m_current[m_item_ix[Is]].template as<Ts>()... } : tuple_type{};
 	}
@@ -265,7 +265,7 @@ class iterator_impl<Category>
 		return m_current;
 	}
 
-	int64_t row_id() const
+	[[nodiscard]] int64_t row_id() const
 	{
 		return reinterpret_cast<int64_t>(m_current.m_row);
 	}
@@ -428,7 +428,7 @@ class iterator_impl<Category, T>
 	/** @endcond */
 
   private:
-	value_type get() const
+	[[nodiscard]] value_type get() const
 	{
 		return m_current ?  m_current[m_item_ix].template as<value_type>() : value_type{};
 	}
@@ -467,7 +467,7 @@ class iterator_proxy
 	using row_iterator = iterator_impl<category_type>;
 
 	iterator_proxy(category_type &cat, row_iterator pos, char const *const items[N]);
-	iterator_proxy(category_type &cat, row_iterator pos, std::initializer_list<char const *> items);
+	iterator_proxy(category_type &cat, row_iterator pos, std::initializer_list<char const *> items); // NOLINT(modernize-pass-by-value)
 
 	iterator_proxy(iterator_proxy &&p);
 	iterator_proxy &operator=(iterator_proxy &&p);
@@ -476,17 +476,17 @@ class iterator_proxy
 	iterator_proxy &operator=(const iterator_proxy &) = delete;
 	/** @endcond */
 
-	iterator begin() const { return iterator(m_begin, m_item_ix); } ///< Return the iterator pointing to the first row
-	iterator end() const { return iterator(m_end, m_item_ix); }     ///< Return the iterator pointing past the last row
+	[[nodiscard]] iterator begin() const { return iterator(m_begin, m_item_ix); } ///< Return the iterator pointing to the first row
+	[[nodiscard]] iterator end() const { return iterator(m_end, m_item_ix); }     ///< Return the iterator pointing past the last row
 
-	bool empty() const { return m_begin == m_end; }               ///< Return true if the range is empty
+	[[nodiscard]] bool empty() const { return m_begin == m_end; }               ///< Return true if the range is empty
 	explicit operator bool() const { return not empty(); }        ///< Easy way to detect if the range is empty
-	std::size_t size() const { return std::distance(begin(), end()); } ///< Return size of the range
+	[[nodiscard]] std::size_t size() const { return std::distance(begin(), end()); } ///< Return size of the range
 
 	// row front() { return *begin(); }
 	// row back() { return *(std::prev(end())); }
 
-	category_type &category() const { return *m_category; } ///< Return the category the iterator belong to
+	[[nodiscard]] category_type &category() const { return *m_category; } ///< Return the category the iterator belong to
 
 	/** swap */
 	void swap(iterator_proxy &rhs)
@@ -603,7 +603,7 @@ class conditional_iterator_proxy
 	using reference = typename iterator::reference;
 
 	template <typename... Ns>
-	conditional_iterator_proxy(CategoryType &cat, row_iterator pos, condition &&cond, Ns... names);
+	conditional_iterator_proxy(CategoryType &cat, row_iterator pos, condition &&cond, Ns... names); // NOLINT(modernize-pass-by-value)
 
 	conditional_iterator_proxy(conditional_iterator_proxy &&p);
 	conditional_iterator_proxy &operator=(conditional_iterator_proxy &&p);
@@ -613,17 +613,17 @@ class conditional_iterator_proxy
 
 	/** @endcond */
 
-	iterator begin() const; ///< Return the iterator pointing to the first row
-	iterator end() const;   ///< Return the iterator pointing past the last row
+	[[nodiscard]] iterator begin() const; ///< Return the iterator pointing to the first row
+	[[nodiscard]] iterator end() const;   ///< Return the iterator pointing past the last row
 
-	bool empty() const;                                           ///< Return true if the range is empty
+	[[nodiscard]] bool empty() const;                                           ///< Return true if the range is empty
 	explicit operator bool() const { return not empty(); }        ///< Easy way to detect if the range is empty
-	std::size_t size() const { return std::distance(begin(), end()); } ///< Return size of the range
+	[[nodiscard]] std::size_t size() const { return std::distance(begin(), end()); } ///< Return size of the range
 
 	row_handle front() { return *begin(); } ///< Return reference to the first row
 	// row_handle back() { return *begin(); }
 
-	CategoryType &category() const { return *m_cat; } ///< Category the iterators belong to
+	[[nodiscard]] CategoryType &category() const { return *m_cat; } ///< Category the iterators belong to
 
 	/** swap */
 	void swap(conditional_iterator_proxy &rhs);

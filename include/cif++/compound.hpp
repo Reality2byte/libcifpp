@@ -30,11 +30,8 @@
 #include "cif++/datablock.hpp"
 #include "cif++/exports.hpp"
 #include "cif++/point.hpp"
-#include "cif++/utilities.hpp"
 
 #include <map>
-#include <set>
-#include <tuple>
 #include <vector>
 
 /// \file compound.hpp
@@ -201,6 +198,9 @@ class compound
 class compound_factory
 {
   public:
+	compound_factory(const compound_factory &) = delete;
+	compound_factory &operator=(const compound_factory &) = delete;
+
 	/// \brief Initialise a singleton instance.
 	///
 	/// If you have a multithreaded application and want to have different
@@ -243,41 +243,41 @@ class compound_factory
 
 	/// Return whether @a res_name is a valid and known peptide
 	[[deprecated("use is_peptide or is_std_peptide instead)")]]
-	bool is_known_peptide(const std::string &res_name) const;
+	[[nodiscard]] bool is_known_peptide(const std::string &res_name) const;
 
 	/// Return whether @a res_name is a valid and known base
 	[[deprecated("use is_base or is_std_base instead)")]]
-	bool is_known_base(const std::string &res_name) const;
+	[[nodiscard]] bool is_known_base(const std::string &res_name) const;
 
 	/// Return whether @a res_name is a peptide
-	bool is_peptide(std::string_view res_name) const;
+	[[nodiscard]] bool is_peptide(std::string_view res_name) const;
 
 	/// Return whether @a res_name is a base
-	bool is_base(std::string_view res_name) const;
+	[[nodiscard]] bool is_base(std::string_view res_name) const;
 
 	/// Return whether @a res_name is one of the standard peptides
-	bool is_std_peptide(std::string_view res_name) const;
+	[[nodiscard]] bool is_std_peptide(std::string_view res_name) const;
 
 	/// Return whether @a res_name is one of the standard bases
-	bool is_std_base(std::string_view res_name) const;
+	[[nodiscard]] bool is_std_base(std::string_view res_name) const;
 
 	/// Return whether @a res_name is a monomer (either base or peptide)
-	bool is_monomer(std::string_view res_name) const;
+	[[nodiscard]] bool is_monomer(std::string_view res_name) const;
 
 	/// Return whether @a res_name is one of the standard bases or peptides
-	bool is_std_monomer(std::string_view res_name) const
+	[[nodiscard]] bool is_std_monomer(std::string_view res_name) const
 	{
 		return is_std_base(res_name) or is_std_peptide(res_name);
 	}
 
 	/// Return whether @a res_name is water
-	bool is_water(std::string_view res_name) const
+	[[nodiscard]] bool is_water(std::string_view res_name) const
 	{
 		return res_name == "HOH" or res_name == "H2O" or res_name == "WAT";
 	}
 
 	/// Return whether @a res_name already exists, without creating it.
-	bool exists(std::string_view res_name) const;
+	[[nodiscard]] bool exists(std::string_view res_name) const;
 
 	/// \brief Create the compound object for \a id
 	///
@@ -294,7 +294,7 @@ class compound_factory
 
 	void report_missing_compound(std::string_view compound_id);
 
-	bool get_report_missing() const { return m_report_missing; }
+	[[nodiscard]] bool get_report_missing() const { return m_report_missing; }
 
 	void set_report_missing(bool report)
 	{
@@ -303,9 +303,6 @@ class compound_factory
 
   private:
 	compound_factory();
-
-	compound_factory(const compound_factory &) = delete;
-	compound_factory &operator=(const compound_factory &) = delete;
 
 	static std::unique_ptr<compound_factory> s_instance;
 	static thread_local std::unique_ptr<compound_factory> tl_instance;

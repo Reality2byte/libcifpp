@@ -26,13 +26,13 @@
 
 #pragma once
 
-#include <utility>
-
 #include "cif++/condition.hpp"
 #include "cif++/forward_decl.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
+
+#include <utility>
 
 /** \file category.hpp
  * Documentation for the cif::category class
@@ -390,7 +390,7 @@ class category
 	/// @param names The names for the items requested
 
 	template <typename... Ts, typename... Ns>
-	iterator_proxy<const category, Ts...> rows(Ns... names) const
+	[[nodiscard]] iterator_proxy<const category, Ts...> rows(Ns... names) const
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
 		return iterator_proxy<const category, Ts...>(*this, begin(), { names... });
@@ -785,8 +785,9 @@ class category
 	/// @param item The item to use for the value
 	/// @param cond The condition to search for
 	/// @return The value found or the minimal value for the type
-	template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
+	template <typename T>
 	T find_max(std::string_view item, condition &&cond) const
+		requires(std::is_arithmetic_v<T>)
 	{
 		T result = std::numeric_limits<T>::min();
 
@@ -803,8 +804,9 @@ class category
 	/// @tparam The type of the value to return
 	/// @param item The item to use for the value
 	/// @return The value found or the minimal value for the type
-	template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
-	T find_max(std::string_view item) const
+	template <typename T>
+	[[nodiscard]] T find_max(std::string_view item) const
+		requires(std::is_arithmetic_v<T>)
 	{
 		return find_max<T>(item, all());
 	}
@@ -814,8 +816,9 @@ class category
 	/// @param item The item to use for the value
 	/// @param cond The condition to search for
 	/// @return The value found or the maximum value for the type
-	template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
-	T find_min(std::string_view item, condition &&cond) const
+	template <typename T>
+	[[nodiscard]] T find_min(std::string_view item, condition &&cond) const
+		requires(std::is_arithmetic_v<T>)
 	{
 		T result = std::numeric_limits<T>::max();
 
@@ -832,8 +835,9 @@ class category
 	/// @tparam The type of the value to return
 	/// @param item The item to use for the value
 	/// @return The value found or the maximum value for the type
-	template <typename T, std::enable_if_t<std::is_arithmetic_v<T>, int> = 0>
-	T find_min(std::string_view item) const
+	template <typename T>
+	[[nodiscard]] T find_min(std::string_view item) const
+		requires(std::is_arithmetic_v<T>)
 	{
 		return find_min<T>(item, all());
 	}
@@ -1030,6 +1034,7 @@ class category
 	{
 		auto rs = find(std::move(cond));
 		std::vector<row_handle> rows;
+		// NOLINTNEXTLINE
 		std::copy(rs.begin(), rs.end(), std::back_inserter(rows));
 		update_value(rows, item_name, std::move(value_provider));
 	}
@@ -1052,6 +1057,7 @@ class category
 	{
 		auto rs = find(std::move(cond));
 		std::vector<row_handle> rows;
+		// NOLINTNEXTLINE
 		std::copy(rs.begin(), rs.end(), std::back_inserter(rows));
 		update_value(rows, item_name, value);
 	}

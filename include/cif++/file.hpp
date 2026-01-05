@@ -100,7 +100,7 @@ class file : public std::list<datablock>
 	}
 
 	/** @cond */
-	file(const file &rhs)
+	file(const file &rhs) // NOLINT
 		: std::list<datablock>(rhs)
 	{
 	}
@@ -128,7 +128,7 @@ class file : public std::list<datablock>
 	 * @return true If the content is valid
 	 * @return false If the content is not valid
 	 */
-	bool is_valid() const;
+	[[nodiscard]] bool is_valid() const;
 
 	/**
 	 * @brief Validate the content and return true if everything was valid.
@@ -150,12 +150,12 @@ class file : public std::list<datablock>
 	 * @return true If all links were valid
 	 * @return false If all links were not valid
 	 */
-	bool validate_links() const;
+	[[nodiscard]] bool validate_links() const;
 
 	/**
 	 * @brief Return true if a datablock with the name @a name is part of this file
 	 */
-	bool contains(std::string_view name) const;
+	[[nodiscard]] bool contains(std::string_view name) const;
 
 	/**
 	 * @brief return a reference to the first datablock in the file
@@ -169,7 +169,7 @@ class file : public std::list<datablock>
 	/**
 	 * @brief return a const reference to the first datablock in the file
 	 */
-	const datablock &front() const
+	[[nodiscard]] const datablock &front() const
 	{
 		assert(not empty());
 		return std::list<datablock>::front();

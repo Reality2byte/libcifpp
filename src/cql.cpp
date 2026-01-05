@@ -66,7 +66,7 @@ size_t row_ref::size() const noexcept
 
 field_ref row_ref::operator[](std::string_view name) const
 {
-	for (int ix = 0; auto &item : m_result_impl->m_cat.get_items())
+	for (uint16_t ix = 0; auto &item : m_result_impl->m_cat.get_items())
 	{
 		if (iequals(item, name))
 			return { m_row, ix, m_result_impl };

@@ -1,4 +1,4 @@
-#define CATCH_CONFIG_RUNNER 1
+#define CATCH_CONFIG_RUNNER 1 // NOLINT
 
 #include "test-main.hpp"
 

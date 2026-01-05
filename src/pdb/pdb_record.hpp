@@ -44,7 +44,7 @@ struct PDBRecord
 	char mValue[1];
 
 	PDBRecord(uint32_t lineNr, const std::string &name, const std::string &value);
-	~PDBRecord();
+	~PDBRecord() = default;
 
 	void *operator new(std::size_t);
 	void *operator new(std::size_t size, std::size_t vLen);

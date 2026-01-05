@@ -322,16 +322,16 @@ class atom_type_traits
 	///
 	/// @param charge The charge for which the structure values should be returned, use kWSKFVal to return the *Cval* and *Siva* values
 	/// @return The scattering factors as a SFData struct
-	const SFData &wksf(int charge = 0) const;
+	[[nodiscard]] const SFData &wksf(int charge = 0) const;
 
 	/// @brief Return the electron scattering factor values for the element
 	///
 	/// @return The scattering factors as a SFData struct
-	const SFData &elsf() const;
+	[[nodiscard]] const SFData &elsf() const;
 
 	/// Clipper doesn't like atoms with charges that do not have a scattering factor. And
 	/// rightly so, but we need to know in advance if this is the case
-	bool has_sf(int charge) const;
+	[[nodiscard]] bool has_sf(int charge) const;
 
   private:
 	const struct atom_type_info *m_info;

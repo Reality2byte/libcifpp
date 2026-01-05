@@ -25,6 +25,7 @@
  */
 
 #include "cif++/model.hpp"
+
 #include "cif++.hpp"
 #include "cif++/point.hpp"
 
@@ -51,9 +52,9 @@ void atom::atom_impl::moveTo(const point &p)
 
 	auto r = row();
 
-	r.assign("Cartn_x", cif::format("{:.3f}", p.m_x), false, false);
-	r.assign("Cartn_y", cif::format("{:.3f}", p.m_y), false, false);
-	r.assign("Cartn_z", cif::format("{:.3f}", p.m_z), false, false);
+	r.assign("Cartn_x", std::format("{:.3f}", p.m_x), false, false);
+	r.assign("Cartn_y", std::format("{:.3f}", p.m_y), false, false);
+	r.assign("Cartn_z", std::format("{:.3f}", p.m_z), false, false);
 
 	m_location = p;
 }
@@ -73,7 +74,7 @@ int atom::atom_impl::get_property_int(std::string_view name) const
 		auto s = get_property(name);
 
 		std::from_chars_result r = std::from_chars(s.data(), s.data() + s.length(), result);
-		if ((bool)r.ec and VERBOSE > 0)
+		if (r.ec != std::errc{} and VERBOSE > 0)
 			std::cerr << "Error converting " << s << " to number for property " << name << '\n';
 	}
 	return result;
@@ -87,7 +88,7 @@ float atom::atom_impl::get_property_float(std::string_view name) const
 		auto s = get_property(name);
 
 		std::from_chars_result r = cif::from_chars(s.data(), s.data() + s.length(), result);
-		if ((bool)r.ec and VERBOSE > 0)
+		if (r.ec != std::errc{} and VERBOSE > 0)
 			std::cerr << "Error converting " << s << " to number for property " << name << '\n';
 	}
 	return result;
@@ -2344,7 +2345,7 @@ std::string structure::create_non_poly(const std::string &compound_id, bool skip
 	auto compound = cif::compound_factory::instance().create(compound_id);
 	if (compound == nullptr)
 		throw std::runtime_error(std::format("{} is not a known compound", compound_id));
-	
+
 	std::vector<cif::row_initializer> atoms;
 	for (auto a : compound->atoms())
 	{

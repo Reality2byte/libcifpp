@@ -104,14 +104,15 @@ namespace detail
 			return m_row[m_items[ix]];
 		}
 
-		template <typename... Ts, std::enable_if_t<N == sizeof...(Ts), int> = 0>
+		template <typename... Ts>
 		operator std::tuple<Ts...>() const
+			requires(N == sizeof...(Ts))
 		{
 			return get<Ts...>(std::index_sequence_for<Ts...>{});
 		}
 
 		template <typename... Ts, std::size_t... Is>
-		std::tuple<Ts...> get(std::index_sequence<Is...>) const
+		[[nodiscard]] std::tuple<Ts...> get(std::index_sequence<Is...>) const
 		{
 			return std::tuple<Ts...>{ m_row[m_items[Is]].template as<Ts>()... };
 		}
@@ -137,7 +138,7 @@ namespace detail
 			// of the row should be equal to the number of items in the tuple
 			// you are trying to tie.
 
-			using RType = std::tuple<typename std::remove_reference<Ts>::type...>;
+			using RType = std::tuple<std::remove_reference_t<Ts>...>;
 
 			m_value = static_cast<RType>(rr);
 		}
@@ -174,7 +175,7 @@ class row : public std::vector<item_value>
 	/**
 	 * @brief Return the const item_value pointer for item at index @a ix
 	 */
-	const item_value *get(uint16_t ix) const
+	[[nodiscard]] const item_value *get(uint16_t ix) const
 	{
 		return ix < size() ? &data()[ix] : nullptr;
 	}
@@ -235,19 +236,19 @@ class row_handle
 	}
 
 	/// \brief return the category this row belongs to
-	const category &get_category() const
+	[[nodiscard]] const category &get_category() const
 	{
 		return *m_category;
 	}
 
 	/// \brief return the row ID
-	int64_t row_id() const
+	[[nodiscard]] int64_t row_id() const
 	{
 		return reinterpret_cast<int64_t>(m_row);
 	}
 
 	/// \brief Return true if the row is empty or uninitialised
-	bool empty() const
+	[[nodiscard]] bool empty() const
 	{
 		return m_category == nullptr or m_row == nullptr;
 	}
@@ -285,14 +286,15 @@ class row_handle
 	/// \brief Return an object that can be used in combination with cif::tie
 	/// to assign the values for the items @a items
 	template <typename... C>
-	auto get(C... items) const
+	[[nodiscard]] auto get(C... items) const
 	{
 		return detail::get_row_result<C...>(*this, { get_item_ix(items)... });
 	}
 
 	/// \brief Return a tuple of values of types @a Ts for the items @a items
-	template <typename... Ts, typename... C, std::enable_if_t<sizeof...(Ts) == sizeof...(C) and sizeof...(C) != 1, int> = 0>
+	template <typename... Ts, typename... C>
 	std::tuple<Ts...> get(C... items) const
+		requires(sizeof...(Ts) == sizeof...(C) and sizeof...(C) != 1)
 	{
 		return detail::get_row_result<Ts...>(*this, { get_item_ix(items)... });
 	}
@@ -306,7 +308,7 @@ class row_handle
 
 	/// \brief Get the value of item @a item cast to type @a T
 	template <typename T>
-	T get(std::string_view item) const
+	[[nodiscard]] T get(std::string_view item) const
 	{
 		return operator[](get_item_ix(item)).template as<T>();
 	}
@@ -354,8 +356,8 @@ class row_handle
 	bool operator!=(const row_handle &rhs) const { return m_category != rhs.m_category or m_row != rhs.m_row; }
 
   private:
-	uint16_t get_item_ix(std::string_view name) const;
-	std::string_view get_item_name(uint16_t ix) const;
+	[[nodiscard]] uint16_t get_item_ix(std::string_view name) const;
+	[[nodiscard]] std::string_view get_item_name(uint16_t ix) const;
 
 	uint16_t add_item(std::string_view name);
 
@@ -366,7 +368,7 @@ class row_handle
 		return m_row;
 	}
 
-	const row *get_row() const
+	[[nodiscard]] const row *get_row() const
 	{
 		return m_row;
 	}
@@ -412,8 +414,9 @@ class row_initializer : public std::vector<item>
 	}
 
 	/// \brief constructor taking a range of items
-	template <typename ItemIter, std::enable_if_t<std::is_same_v<typename ItemIter::value_type, item>, int> = 0>
+	template <typename ItemIter>
 	row_initializer(ItemIter b, ItemIter e)
+		requires(std::is_same_v<typename ItemIter::value_type, item>)
 		: std::vector<item>(b, e)
 	{
 	}

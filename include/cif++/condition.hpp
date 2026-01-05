@@ -26,10 +26,11 @@
 
 #pragma once
 
-#include "cif++/text.hpp"
 #include "cif++/row.hpp"
+#include "cif++/text.hpp"
 
 #include <cassert>
+#include <exception>
 #include <format>
 #include <functional>
 #include <iostream>
@@ -576,7 +577,7 @@ namespace detail
 		template <typename COMP>
 		key_compare_condition_impl(std::string item_name, COMP &&comp, std::string s)
 			: m_item_name(std::move(item_name))
-			, m_compare(std::move(comp))
+			, m_compare(std::forward<COMP>(comp))
 			, m_str(std::move(s))
 		{
 		}
@@ -652,16 +653,10 @@ namespace detail
 			bool result = false;
 			for (auto &f : get_category_items(c))
 			{
-				try
+				if (r[f].compare(mValue) == 0)
 				{
-					if (r[f].compare(mValue) == 0)
-					{
-						result = true;
-						break;
-					}
-				}
-				catch (...)
-				{
+					result = true;
+					break;
 				}
 			}
 
@@ -699,7 +694,7 @@ namespace detail
 						break;
 					}
 				}
-				catch (...)
+				catch (const std::exception &ex) // NOLINT(bugprone-empty-catch)
 				{
 				}
 			}

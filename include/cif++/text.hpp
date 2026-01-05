@@ -88,16 +88,16 @@ namespace cif
 // our own case conversion routines.
 
 /// \brief return whether string @a is equal to string @a b ignoring changes in character case
-bool iequals(std::string_view a, std::string_view b);
+bool iequals(std::string_view a, std::string_view b) noexcept;
 
 /// \brief compare string @a is to string @a b ignoring changes in character case
-int icompare(std::string_view a, std::string_view b);
+int icompare(std::string_view a, std::string_view b) noexcept;
 
 /// \brief return whether string @a is equal to string @a b ignoring changes in character case
-bool iequals(const char *a, const char *b);
+bool iequals(const char *a, const char *b) noexcept;
 
 /// \brief compare string @a is to string @a b ignoring changes in character case
-int icompare(const char *a, const char *b);
+int icompare(const char *a, const char *b) noexcept;
 
 /// \brief convert the string @a s to lower case in situ
 void to_lower(std::string &s);

@@ -191,7 +191,7 @@ TEST_CASE("cc_1")
 		float tv;
 		const auto &[ptr, ec] = cif::from_chars(txt.data(), txt.data() + txt.length(), tv);
 
-		CHECK_FALSE((bool)ec);
+		CHECK(ec == std::errc{});
 		CHECK(tv == val);
 		if (ch != 0)
 			CHECK(*ptr == ch);
@@ -209,7 +209,7 @@ TEST_CASE("cc_2")
 		char buffer[64] = {};
 		const auto &[ptr, ec] = std::to_chars(buffer, buffer + sizeof(buffer), val, std::chars_format::fixed, prec);
 
-		CHECK_FALSE((bool)ec);
+		CHECK(ec == std::errc{});
 
 		// This line generates a linker error on Windows:
 		// CHECK(buffer == test);
@@ -266,9 +266,11 @@ TEST_CASE("item_1")
 	CHECK(i2.value() == mi2.value());
 	CHECK(i3.value() == mi3.value());
 
+	// NOLINTBEGIN(bugprone-use-after-move)
 	CHECK(ci1.empty());
 	CHECK(ci2.empty());
 	CHECK(ci3.empty());
+	// NOLINTEND(bugprone-use-after-move)
 }
 
 TEST_CASE("item_2")
@@ -408,7 +410,7 @@ TEST_CASE("c_2")
 	CHECK(not c3.empty());
 	CHECK(c3.size() == 3);
 
-	CHECK(c.empty());
+	CHECK(c.empty()); // NOLINT(bugprone-use-after-move)
 	CHECK(c.size() == 0);
 
 	c = c3;
@@ -520,9 +522,9 @@ _test.name
 
 		switch (id)
 		{
-			case 1: CHECK(*name == "aap"); break;
-			case 2: CHECK(*name == "noot"); break;
-			case 3: CHECK(*name == "mies"); break;
+			case 1: CHECK(name.value_or("") == "aap"); break;
+			case 2: CHECK(name.value_or("") == "noot"); break;
+			case 3: CHECK(name.value_or("") == "mies"); break;
 			default: CHECK(name.has_value() == false);
 		}
 	}
@@ -2021,7 +2023,7 @@ _test.name
 
 	v = db["test"].find_first<std::optional<int>>(cif::key("id") == 1, "id");
 	CHECK(v.has_value());
-	CHECK(*v == 1);
+	CHECK(*v == 1); // NOLINT(bugprone-unchecked-optional-access)
 
 	v = db["test"].find_first<std::optional<int>>(cif::key("id") == 6, "id");
 	CHECK(not v.has_value());
@@ -3447,9 +3449,9 @@ _name
 
 		switch (id)
 		{
-			case 1: CHECK(*name == "aap"); break;
-			case 2: CHECK(*name == "noot"); break;
-			case 3: CHECK(*name == "mies"); break;
+			case 1: CHECK(name.value_or("") == "aap"); break;
+			case 2: CHECK(name.value_or("") == "noot"); break;
+			case 3: CHECK(name.value_or("") == "mies"); break;
 			default: CHECK(name.has_value() == false);
 		}
 	}
@@ -3526,7 +3528,7 @@ _test.value
 
 	auto v = test.find1<std::optional<float>>("id"_key == 1, "value");
 	CHECK(v.has_value());
-	CHECK(*v == 1.0f);
+	CHECK(*v == 1.0f); // NOLINT(bugprone-unchecked-optional-access)
 
 	v = test.find1<std::optional<float>>("id"_key == 4, "value");
 	CHECK(v.has_value() == false);

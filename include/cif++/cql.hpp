@@ -46,7 +46,6 @@ namespace cif::cql
 {
 
 class result;
-class row;
 class transaction;
 class connection;
 

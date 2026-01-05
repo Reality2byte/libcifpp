@@ -61,25 +61,23 @@ const uint8_t kCharToLowerMap[256] = {
 
 // --------------------------------------------------------------------
 
-bool iequals(std::string_view a, std::string_view b)
+bool iequals(std::string_view a, std::string_view b) noexcept
 {
 	bool result = a.length() == b.length();
 	for (auto ai = a.begin(), bi = b.begin(); result and ai != a.end(); ++ai, ++bi)
 		result = kCharToLowerMap[uint8_t(*ai)] == kCharToLowerMap[uint8_t(*bi)];
-	// result = tolower(*ai) == tolower(*bi);
 	return result;
 }
 
-bool iequals(const char *a, const char *b)
+bool iequals(const char *a, const char *b) noexcept
 {
 	bool result = true;
 	for (; result and *a and *b; ++a, ++b)
 		result = kCharToLowerMap[uint8_t(*a)] == kCharToLowerMap[uint8_t(*b)];
-
 	return result and *a == *b;
 }
 
-int icompare(std::string_view a, std::string_view b)
+int icompare(std::string_view a, std::string_view b) noexcept
 {
 	int d = 0;
 	auto ai = a.begin(), bi = b.begin();
@@ -98,7 +96,7 @@ int icompare(std::string_view a, std::string_view b)
 	return d;
 }
 
-int icompare(const char *a, const char *b)
+int icompare(const char *a, const char *b) noexcept
 {
 	int d = 0;
 

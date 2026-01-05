@@ -179,7 +179,7 @@ class item
 	template <typename T>
 	item(const std::string_view name, T &&value)
 		requires (std::is_same_v<T, std::string>) : m_name(name)
-		, m_value(std::move(value))
+		, m_value(std::forward<T>(value))
 	{
 	}
 
@@ -453,7 +453,7 @@ struct item_handle
 	 * @return -1, 0 or 1
 	 */
 	template <typename T>
-	[[nodiscard]] int compare(const T &value, bool icase = true) const
+	[[nodiscard]] int compare(const T &value, bool icase = true) const noexcept
 	{
 		return item_value_as<T>::compare(*this, value, icase);
 	}
@@ -463,7 +463,7 @@ struct item_handle
 	 * return true if both are equal.
 	 */
 	template <typename T>
-	[[nodiscard]] bool operator==(const T &value) const
+	[[nodiscard]] bool operator==(const T &value) const noexcept
 	{
 		// TODO: icase or not icase?
 		return item_value_as<T>::compare(*this, value, true) == 0;
@@ -476,7 +476,7 @@ struct item_handle
 	 * return true if both are not equal.
 	 */
 	template <typename T>
-	[[nodiscard]] bool operator!=(const T &value) const
+	[[nodiscard]] bool operator!=(const T &value) const noexcept
 	{
 		return not operator==(value);
 	}
@@ -583,7 +583,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_arithmetic_v<T> an
 		return result;
 	}
 
-	static int compare(const item_handle &ref, const T &value, bool icase)
+	static int compare(const item_handle &ref, const T &value, bool icase) noexcept
 	{
 		int result = 0;
 
@@ -638,7 +638,7 @@ struct item_handle::item_value_as<std::optional<T>>
 		return result;
 	}
 
-	static int compare(const item_handle &ref, std::optional<T> value, bool icase)
+	static int compare(const item_handle &ref, std::optional<T> value, bool icase) noexcept
 	{
 		if (ref.empty() and not value)
 			return 0;
@@ -663,7 +663,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, bool>>>
 		return result;
 	}
 
-	static int compare(const item_handle &ref, bool value, bool icase)
+	static int compare(const item_handle &ref, bool value, bool icase) noexcept
 	{
 		bool rv = convert(ref);
 		return value && rv ? 0
@@ -681,7 +681,7 @@ struct item_handle::item_value_as<char[N]>
 		return { ref.text().data(), ref.text().size() };
 	}
 
-	static int compare(const item_handle &ref, const char (&value)[N], bool icase)
+	static int compare(const item_handle &ref, const char (&value)[N], bool icase) noexcept
 	{
 		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
 	}
@@ -697,7 +697,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, const ch
 		return { ref.text().data(), ref.text().size() };
 	}
 
-	static int compare(const item_handle &ref, const char *value, bool icase)
+	static int compare(const item_handle &ref, const char *value, bool icase) noexcept
 	{
 		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
 	}
@@ -713,7 +713,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, std::str
 		return { ref.text().data(), ref.text().size() };
 	}
 
-	static int compare(const item_handle &ref, const std::string_view &value, bool icase)
+	static int compare(const item_handle &ref, const std::string_view &value, bool icase) noexcept
 	{
 		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
 	}
@@ -729,7 +729,7 @@ struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, std::str
 		return { ref.text().data(), ref.text().size() };
 	}
 
-	static int compare(const item_handle &ref, const std::string &value, bool icase)
+	static int compare(const item_handle &ref, const std::string &value, bool icase) noexcept
 	{
 		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
 	}

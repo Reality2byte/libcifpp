@@ -1,4 +1,7 @@
 Checks: '-*,
+         bugprone-*,
+         -bugprone-easily-swappable-parameters,
+         cert-*,
          modernize*,
          -modernize-use-trailing-return-type,
          -modernize-avoid-c-arrays,

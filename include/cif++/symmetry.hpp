@@ -35,7 +35,6 @@
 #include <string>
 
 #if defined(__cpp_impl_three_way_comparison)
-# include <compare>
 # include <utility>
 #endif
 
@@ -130,14 +129,14 @@ struct symop_data
 	/// \brief return an int representing the value stored in the two bits at offset @a offset
 	[[nodiscard]] inline constexpr int unpack3(int offset) const
 	{
-		int result = (m_packed >> offset) bitand 0x03;
+		int result = static_cast<int>((m_packed >> offset) bitand 0x03);
 		return result == 3 ? -1 : result;
 	}
 
 	/// \brief return an int representing the value stored in the three bits at offset @a offset
 	[[nodiscard]] inline constexpr int unpack7(int offset) const
 	{
-		return (m_packed >> offset) bitand 0x07;
+		return static_cast<int>((m_packed >> offset) bitand 0x07);
 	}
 
 	/// \brief return an array of 15 ints representing the values stored

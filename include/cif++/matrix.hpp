@@ -29,9 +29,7 @@
 #include <array>
 #include <cassert>
 #include <cmath>
-#include <cstdint>
 #include <ostream>
-#include <tuple>
 #include <type_traits>
 #include <vector>
 
@@ -56,7 +54,7 @@ namespace cif
  * @tparam M The type of the derived class
  */
 template <typename M>
-class matrix_expression
+class matrix_expression // NOLINT(bugprone-crtp-constructor-accessibility)
 {
   public:
 	[[nodiscard]] constexpr std::size_t dim_m() const { return static_cast<const M &>(*this).dim_m(); } ///< Return the size (dimension) in direction m

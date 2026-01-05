@@ -106,9 +106,9 @@ point center_points(std::vector<point> &Points)
 		t.m_z += pt.m_z;
 	}
 
-	t.m_x /= Points.size();
-	t.m_y /= Points.size();
-	t.m_z /= Points.size();
+	t.m_x /= static_cast<float>(Points.size());
+	t.m_y /= static_cast<float>(Points.size());
+	t.m_z /= static_cast<float>(Points.size());
 
 	for (point &pt : Points)
 	{
@@ -162,7 +162,7 @@ double RMSd(const std::vector<point> &a, const std::vector<point> &b)
 		sum += d.sum();
 	}
 
-	return std::sqrt(sum / a.size());
+	return std::sqrt(sum / static_cast<double>(a.size()));
 }
 
 // The next function returns the largest solution for a quartic equation

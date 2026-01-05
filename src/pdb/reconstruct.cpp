@@ -643,7 +643,7 @@ void checkAtomRecords(datablock &db)
 
 			float v;
 			auto s = row.get<std::string>(item_name);
-			if (auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.length(), v); (bool)ec)
+			if (auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.length(), v); ec != std::errc{})
 				continue;
 
 			if (s.length() < prec + 1UL or s[s.length() - prec - 1] != '.')

@@ -111,10 +111,10 @@ class multiple_results_error : public std::runtime_error
 // These should be moved elsewhere, one day.
 
 /// \cond
-template <typename _Tp>
+template <typename T>
 inline constexpr bool is_optional_v = false;
-template <typename _Tp>
-inline constexpr bool is_optional_v<std::optional<_Tp>> = true;
+template <typename T>
+inline constexpr bool is_optional_v<std::optional<T>> = true;
 /// \endcond
 
 // --------------------------------------------------------------------

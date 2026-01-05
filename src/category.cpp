@@ -860,7 +860,7 @@ bool category::is_valid() const
 
 				iv->validate_value(vi->text(), ec);
 
-				if ((bool)ec)
+				if (ec != std::errc{})
 				{
 					m_validator->report_error(ec, m_name, m_items[cix].m_name, false);
 					continue;

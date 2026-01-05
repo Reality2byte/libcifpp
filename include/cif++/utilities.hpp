@@ -138,14 +138,7 @@ namespace colour
 			friend std::basic_ostream<char_type, traits_type> &operator<<(
 				std::basic_ostream<char_type, traits_type> &os, const coloured_string_t &cs)
 			{
-				bool use_colour = false;
-
-				if (os.rdbuf() == std::cout.rdbuf() and isatty(STDOUT_FILENO))
-					use_colour = true;
-				else if (os.rdbuf() == std::cerr.rdbuf() and isatty(STDERR_FILENO))
-					use_colour = true;
-
-				if (use_colour)
+				if ((os.rdbuf() == std::cout.rdbuf() and isatty(STDOUT_FILENO)) or (os.rdbuf() == std::cerr.rdbuf() and isatty(STDERR_FILENO)))
 				{
 					os << "\033[" << cs.m_fore_colour << ';' << cs.m_style << ';' << cs.m_back_colour << 'm'
 					   << cs.m_str

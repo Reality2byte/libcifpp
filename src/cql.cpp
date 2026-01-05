@@ -26,7 +26,6 @@
 
 #include "cif++/cql.hpp"
 
-#include "./sqlite3/sqlite3.h"
 #include "cif++/category.hpp"
 #include "cif++/condition.hpp"
 #include "cif++/datablock.hpp"
@@ -35,6 +34,8 @@
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
+
+#include <sqlite3.h>
 
 #include <cstdint>
 #include <exception>

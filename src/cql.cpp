@@ -35,14 +35,15 @@
 #include "cif++/text.hpp"
 #include "cif++/validate.hpp"
 
-#include <sqlite3.h>
-
+#include <algorithm>
 #include <cstdint>
 #include <exception>
 #include <iomanip>
 #include <memory>
 #include <regex>
+#include <sqlite3.h>
 #include <sstream>
+#include <stack>
 #include <stdexcept>
 #include <system_error>
 #include <utility>
@@ -77,7 +78,7 @@ field_ref row_ref::operator[](std::string_view name) const
 // --------------------------------------------------------------------
 
 result::result(category &&cat, const std::string &query)
-	: m_impl(new result_impl{ std::forward<category>(cat), query })
+	: m_impl(new result_impl{ .m_cat = std::forward<category>(cat), .m_query = query })
 {
 }
 
@@ -208,16 +209,16 @@ sqlite3_module connection_impl::s_module{
 	/* xRowid      */ Rowid,
 	/* xUpdate     */ Update,
 	/* xBegin      */ Begin,
-	/* xSync       */ 0,
+	/* xSync       */ nullptr,
 	/* xCommit     */ Commit,
 	/* xRollback   */ Rollback,
-	/* xFindFunction */ 0,
+	/* xFindFunction */ nullptr,
 	/* xRename     */ Rename,
-	/* xSavepoint  */ 0,
-	/* xRelease    */ 0,
-	/* xRollbackTo */ 0,
-	/* xShadowName */ 0,
-	/* xIntegrity  */ 0
+	/* xSavepoint  */ nullptr,
+	/* xRelease    */ nullptr,
+	/* xRollbackTo */ nullptr,
+	/* xShadowName */ nullptr,
+	/* xIntegrity  */ nullptr
 };
 
 /*
@@ -236,7 +237,7 @@ sqlite3_module connection_impl::s_module{
 
 int connection_impl::Connect(sqlite3 *db, void *pAux, int argc, const char *const *argv, sqlite3_vtab **ppVtab, char **pzErr)
 {
-	connection_impl *impl = reinterpret_cast<connection_impl *>(pAux);
+	auto *impl = reinterpret_cast<connection_impl *>(pAux);
 	try
 	{
 		return impl->Connect(db, argc, argv, ppVtab, pzErr);
@@ -280,7 +281,7 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 
 		for (auto iv : cv->m_item_validators)
 		{
-			if (std::find(items.begin(), items.end(), iv.m_item_name) == items.end())
+			if (std::ranges::find(items, iv.m_item_name) == items.end())
 				items.emplace_back(iv.m_item_name);
 		}
 
@@ -334,10 +335,11 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 */
 int connection_impl::Destroy(sqlite3_vtab *pVtab)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+	auto *p = reinterpret_cast<virtual_table *>(pVtab);
 
 	auto &conn = p->m_connection_impl;
-	conn.m_vtabs.erase(std::remove(conn.m_vtabs.begin(), conn.m_vtabs.end(), p), conn.m_vtabs.end());
+	auto e = std::ranges::remove(conn.m_vtabs, p);
+	conn.m_vtabs.erase(e.begin(), e.end());
 
 	auto &db = p->m_db;
 	db.remove(p->m_cat);
@@ -351,10 +353,11 @@ int connection_impl::Destroy(sqlite3_vtab *pVtab)
 */
 int connection_impl::Disconnect(sqlite3_vtab *pVtab)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+	auto *p = reinterpret_cast<virtual_table *>(pVtab);
 
 	auto &conn = p->m_connection_impl;
-	conn.m_vtabs.erase(std::remove(conn.m_vtabs.begin(), conn.m_vtabs.end(), p), conn.m_vtabs.end());
+	auto e = std::ranges::remove(conn.m_vtabs, p);
+	conn.m_vtabs.erase(e.begin(), e.end());
 
 	delete p;
 
@@ -524,7 +527,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 				else
 				{
 					double value;
-					const auto &[ptr, ec] = std::from_chars(m[3].str().data(), m[3].str().data() + m[3].str().length(), value);
+					const auto &[ptr, ec] = cif::from_chars(m[3].str().data(), m[3].str().data() + m[3].str().length(), value);
 					if (ec != std::errc{})
 						throw std::system_error(std::make_error_code(ec));
 
@@ -569,7 +572,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 */
 int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+	auto *p = reinterpret_cast<virtual_table *>(pVtab);
 
 	try
 	{
@@ -615,7 +618,7 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 							break;
 						default:
 						{
-							std::string s = (const char *)sqlite3_value_text(val);
+							std::string s = reinterpret_cast<const char *>(sqlite3_value_text(val));
 							if (s.find("\n") == std::string::npos)
 								os << std::quoted(s) << "\n";
 							else
@@ -713,7 +716,7 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 
 int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv, sqlite_int64 *pRowid)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
+	auto *p = reinterpret_cast<virtual_table *>(pVTab);
 
 	int rc = SQLITE_ERROR;
 
@@ -789,7 +792,7 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 							data.emplace_back(p->m_items[i - 2], "?");
 							break;
 						default:
-							data.emplace_back(p->m_items[i - 2], (const char *)sqlite3_value_text(argv[i]));
+							data.emplace_back(p->m_items[i - 2], reinterpret_cast<const char *>(sqlite3_value_text(argv[i])));
 							break;
 					}
 				}
@@ -818,7 +821,7 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 						data.emplace_back(p->m_items[i - 2], "?");
 						break;
 					default:
-						data.emplace_back(p->m_items[i - 2], (const char *)sqlite3_value_text(argv[i]));
+						data.emplace_back(p->m_items[i - 2], reinterpret_cast<const char *>(sqlite3_value_text(argv[i])));
 						break;
 				}
 			}
@@ -833,12 +836,12 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 					if (childCat == nullptr)
 						continue;
 
-					std::vector<std::tuple<int,std::string_view>> ixs;
+					std::vector<std::tuple<int, std::string_view>> ixs;
 					for (auto &ri : data)
 					{
-						auto i = std::find(link->m_parent_keys.begin(), link->m_parent_keys.end(), ri.name());
+						auto i = std::ranges::find(link->m_parent_keys, ri.name());
 						if (i == link->m_parent_keys.end())
-							continue;	// no update needed
+							continue; // no update needed
 						ixs.emplace_back(i - link->m_parent_keys.begin(), ri.value());
 					}
 
@@ -847,14 +850,14 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 
 					std::ostringstream sql;
 					sql << "UPDATE " << link->m_child_category;
-					
+
 					for (bool first = true; auto [i, txt] : ixs)
 					{
 						if (not std::exchange(first, false))
 							sql << ",";
 						sql << " SET " << link->m_child_keys[i] << " = ?" << (i + 1);
 					}
-					
+
 					sql << " WHERE ";
 					for (bool first = true; auto [i, txt] : ixs)
 					{
@@ -870,7 +873,7 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 					for (auto [i, txt] : ixs)
 					{
 						// set
-						if  (rc == SQLITE_OK)
+						if (rc == SQLITE_OK)
 							rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), txt.length(), nullptr);
 
 						// where
@@ -889,8 +892,6 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 				}
 			}
 
-
-
 			rh.assign(data);
 			*pRowid = addr;
 			rc = SQLITE_OK;
@@ -907,21 +908,21 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 
 int connection_impl::Rename(sqlite3_vtab *pVtab, const char *zNew)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVtab);
+	auto *p = reinterpret_cast<virtual_table *>(pVtab);
 	p->m_cat.name(zNew);
 	return SQLITE_OK;
 }
 
 int connection_impl::Begin(sqlite3_vtab *pVTab)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
+	auto *p = reinterpret_cast<virtual_table *>(pVTab);
 	p->m_rollback_buffer.push(p->m_cat);
 	return SQLITE_OK;
 }
 
 int connection_impl::Commit(sqlite3_vtab *pVTab)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
+	auto *p = reinterpret_cast<virtual_table *>(pVTab);
 	if (not p->m_rollback_buffer.empty())
 		p->m_rollback_buffer.pop();
 	return SQLITE_OK;
@@ -929,7 +930,7 @@ int connection_impl::Commit(sqlite3_vtab *pVTab)
 
 int connection_impl::Rollback(sqlite3_vtab *pVTab)
 {
-	virtual_table *p = reinterpret_cast<virtual_table *>(pVTab);
+	auto *p = reinterpret_cast<virtual_table *>(pVTab);
 	if (not p->m_rollback_buffer.empty())
 	{
 		std::swap(p->m_cat, p->m_rollback_buffer.top());
@@ -1078,7 +1079,7 @@ result connection::exec(std::string query, std::string &tail)
 
 		sqlite3_finalize(stmt);
 
-		return result(std::move(cat), sql);
+		return { std::move(cat), sql };
 	}
 	catch (const std::exception &ex)
 	{

@@ -88,7 +88,7 @@ namespace colour
 	/// @brief The defined colours
 	enum colour_type
 	{
-		black = 0,
+		black,
 		red,
 		green,
 		yellow,
@@ -96,7 +96,8 @@ namespace colour
 		magenta,
 		cyan,
 		white,
-		none = 9
+		_unused,
+		none
 	};
 
 	/// @brief The defined styles
@@ -127,6 +128,7 @@ namespace colour
 			{
 			}
 
+			coloured_string_t(coloured_string_t &) = delete;
 			coloured_string_t &operator=(coloured_string_t &) = delete;
 
 			/**

@@ -116,7 +116,7 @@ struct compound_atom
 		z;                                                    ///< The z component of the coordinates for each atom specified as orthogonal angstroms.
 
 	/// Return the location of the atom as a point
-	point get_location() const
+	[[nodiscard]] point get_location() const
 	{
 		return { x, y, z };
 	}
@@ -146,34 +146,34 @@ class compound
   public:
 	// accessors
 
-	std::string id() const { return m_id; }                   ///< Return the alphanumeric code for the chemical component.
-	std::string name() const { return m_name; }               ///< Return the name of the chemical component.
-	std::string type() const { return m_type; }               ///< Return the type of monomer.
-	std::string formula() const { return m_formula; }         ///< Return the chemical formula of the chemical component.
-	float formula_weight() const { return m_formula_weight; } ///< Return the formula mass of the chemical component in Daltons.
-	int formal_charge() const { return m_formal_charge; }     ///< Return the formal charge on the chemical component.
+	[[nodiscard]] std::string id() const { return m_id; }                   ///< Return the alphanumeric code for the chemical component.
+	[[nodiscard]] std::string name() const { return m_name; }               ///< Return the name of the chemical component.
+	[[nodiscard]] std::string type() const { return m_type; }               ///< Return the type of monomer.
+	[[nodiscard]] std::string formula() const { return m_formula; }         ///< Return the chemical formula of the chemical component.
+	[[nodiscard]] float formula_weight() const { return m_formula_weight; } ///< Return the formula mass of the chemical component in Daltons.
+	[[nodiscard]] int formal_charge() const { return m_formal_charge; }     ///< Return the formal charge on the chemical component.
 
-	const std::vector<compound_atom> &atoms() const { return m_atoms; } ///< Return the list of atoms for this compound
-	const std::vector<compound_bond> &bonds() const { return m_bonds; } ///< Return the list of bonds for this compound
+	[[nodiscard]] const std::vector<compound_atom> &atoms() const { return m_atoms; } ///< Return the list of atoms for this compound
+	[[nodiscard]] const std::vector<compound_bond> &bonds() const { return m_bonds; } ///< Return the list of bonds for this compound
 
-	compound_atom get_atom_by_atom_id(const std::string &atom_id) const; ///< Return the atom with id @a atom_id
+	[[nodiscard]] compound_atom get_atom_by_atom_id(const std::string &atom_id) const; ///< Return the atom with id @a atom_id
 
-	bool atoms_bonded(const std::string &atomId_1, const std::string &atomId_2) const; ///< Return true if @a atomId_1 is bonded to @a atomId_2
-	float bond_length(const std::string &atomId_1, const std::string &atomId_2) const; ///< Return the bond length between @a atomId_1 and @a atomId_2
+	[[nodiscard]] bool atoms_bonded(const std::string &atomId_1, const std::string &atomId_2) const; ///< Return true if @a atomId_1 is bonded to @a atomId_2
+	[[nodiscard]] float bond_length(const std::string &atomId_1, const std::string &atomId_2) const; ///< Return the bond length between @a atomId_1 and @a atomId_2
 
-	bool is_water() const ///< Return if the compound is actually a water
+	[[nodiscard]] bool is_water() const ///< Return if the compound is actually a water
 	{
 		return m_id == "HOH" or m_id == "H2O" or m_id == "WAT";
 	}
 
 	/** \brief Return whether this compound has a type of either 'peptide linking' or 'L-peptide linking' */
-	bool is_peptide() const;
+	[[nodiscard]] bool is_peptide() const;
 
 	/** \brief Return whether this compound has a type of either 'DNA linking' or 'RNA linking' */
-	bool is_base() const;
+	[[nodiscard]] bool is_base() const;
 
-	char one_letter_code() const { return m_one_letter_code; }; ///< Return the one letter code to use in a canonical sequence. If unknown the value '\0' is returned
-	std::string parent_id() const { return m_parent_id; };      ///< Return the parent id code in case a parent is specified (e.g. MET for MSE)
+	[[nodiscard]] char one_letter_code() const { return m_one_letter_code; }; ///< Return the one letter code to use in a canonical sequence. If unknown the value '\0' is returned
+	[[nodiscard]] std::string parent_id() const { return m_parent_id; };      ///< Return the parent id code in case a parent is specified (e.g. MET for MSE)
 
   private:
 	friend class compound_factory_impl;

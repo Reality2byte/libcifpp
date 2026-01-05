@@ -31,6 +31,7 @@
 #include "cif++/utilities.hpp"
 #include "cif++/validate.hpp"
 
+#include <algorithm>
 #include <numeric>
 #include <stack>
 #include <utility>
@@ -68,7 +69,8 @@ class row_comparator
 
 			using namespace std::placeholders;
 
-			m_comparator.emplace_back(ix, std::bind(&type_validator::compare, tv, _1, _2));
+			m_comparator.emplace_back(ix, [tv](auto &&a1, auto &&a2)
+				{ return tv->compare(std::forward<decltype(a1)>(a1), std::forward<decltype(a2)>(a2)); });
 		}
 	}
 
@@ -145,8 +147,8 @@ class category_index
 		delete m_root;
 	}
 
-	row *find(const category &cat, row *k) const;
-	row *find_by_value(const category &cat, const category::key_type &k) const;
+	[[nodiscard]] row *find(const category &cat, row *k) const;
+	[[nodiscard]] row *find_by_value(const category &cat, const category::key_type &k) const;
 
 	void insert(category &cat, row *r);
 	void erase(category &cat, row *r);
@@ -169,7 +171,7 @@ class category_index
 		return result;
 	}
 
-	std::size_t size() const;
+	[[nodiscard]] std::size_t size() const;
 	//	bool isValid() const;
 
   private:
@@ -177,9 +179,6 @@ class category_index
 	{
 		entry(row *r)
 			: m_row(r)
-			, m_left(nullptr)
-			, m_right(nullptr)
-			, m_red(true)
 		{
 		}
 
@@ -190,9 +189,9 @@ class category_index
 		}
 
 		row *m_row;
-		entry *m_left;
-		entry *m_right;
-		bool m_red;
+		entry *m_left = nullptr;
+		entry *m_right = nullptr;
+		bool m_red = true;
 	};
 
 	entry *insert(category &cat, entry *h, row *v);
@@ -328,12 +327,11 @@ class category_index
 	}
 
 	row_comparator m_row_comparator;
-	entry *m_root;
+	entry *m_root = nullptr;
 };
 
 category_index::category_index(category &cat)
 	: m_row_comparator(cat)
-	, m_root(nullptr)
 {
 	for (auto r : cat)
 		insert(cat, r.get_row());
@@ -611,7 +609,7 @@ void category::remove_item(std::string_view item_name)
 void category::drop_empty_items()
 {
 	std::vector<bool> is_empty(m_items.size(), true);
-	
+
 	for (auto &row : *this)
 	{
 		for (size_t ix = 0; ix < m_items.size(); ++ix)
@@ -634,13 +632,13 @@ void category::drop_empty_items()
 
 void category::rename_item(std::string_view from_name, std::string_view to_name)
 {
-	for (std::size_t ix = 0; ix < m_items.size(); ++ix)
+	for (auto &item : m_items)
 	{
-		if (not iequals(from_name, m_items[ix].m_name))
+		if (not iequals(from_name, item.m_name))
 			continue;
 
-		m_items[ix].m_name = to_name;
-		m_items[ix].m_validator = m_cat_validator ? m_cat_validator->get_validator_for_item(to_name) : nullptr;
+		item.m_name = to_name;
+		item.m_validator = m_cat_validator ? m_cat_validator->get_validator_for_item(to_name) : nullptr;
 
 		break;
 	}
@@ -988,9 +986,9 @@ condition category::get_parents_condition(row_handle rh, const category &parentC
 	condition result;
 
 	auto links = m_validator->get_links_for_child(m_name);
-	links.erase(remove_if(links.begin(), links.end(), [n = parentCat.m_name](auto &l)
-					{ return l->m_parent_category != n; }),
-		links.end());
+	auto e = std::ranges::remove_if(links, [n = parentCat.m_name](auto &l)
+		{ return l->m_parent_category != n; });
+	links.erase(e.begin(), e.end());
 
 	if (not links.empty())
 	{
@@ -1030,9 +1028,9 @@ condition category::get_children_condition(row_handle rh, const category &childC
 		mandatoryChildItems = childCatValidator->m_mandatory_items;
 
 	auto links = m_validator->get_links_for_parent(m_name);
-	links.erase(remove_if(links.begin(), links.end(), [n = childCat.m_name](auto &l)
-					{ return l->m_child_category != n; }),
-		links.end());
+	auto e = std::ranges::remove_if(links, [n = childCat.m_name](auto &l)
+		{ return l->m_child_category != n; });
+	links.erase(e.begin(), e.end());
 
 	if (not links.empty())
 	{
@@ -1105,7 +1103,7 @@ std::vector<row_handle> category::get_children(row_handle r, const category &chi
 
 	for (auto child : childCat.find(get_children_condition(r, childCat)))
 	{
-		if (std::find(result.begin(), result.end(), child) == result.end())
+		if (std::ranges::find(result, child) == result.end())
 			result.push_back(child);
 	}
 
@@ -1121,7 +1119,7 @@ std::vector<row_handle> category::get_parents(row_handle r, const category &pare
 
 	for (auto parent : parentCat.find(get_parents_condition(r, parentCat)))
 	{
-		if (std::find(result.begin(), result.end(), parent) == result.end())
+		if (std::ranges::find(result, parent) == result.end())
 			result.push_back(parent);
 	}
 
@@ -1327,7 +1325,7 @@ std::string category::get_unique_id(std::function<std::string(int)> generator)
 
 		for (;;)
 		{
-			if (m_index->find_by_value(*this, { { id_name, result } }) == nullptr)
+			if (m_index->find_by_value(*this, { { .name = id_name, .value = result } }) == nullptr)
 				break;
 			result = generator(static_cast<int>(m_last_unique_num++));
 		}
@@ -1356,7 +1354,7 @@ std::string category::get_unique_value(std::string_view item_name)
 
 		if (iv and iv->m_type and iv->m_type->m_primitive_type == DDL_PrimitiveType::Numb)
 		{
-			uint64_t v = find_max<uint64_t>(item_name);
+			auto v = find_max<uint64_t>(item_name);
 			result = std::to_string(v + 1);
 		}
 	}
@@ -1414,7 +1412,7 @@ void category::update_value(const std::vector<row_handle> &rows, std::string_vie
 
 		for (auto &&[childCat, linked] : m_child_links)
 		{
-			if (std::find(linked->m_parent_keys.begin(), linked->m_parent_keys.end(), item_name) == linked->m_parent_keys.end())
+			if (std::ranges::find(linked->m_parent_keys, item_name) == linked->m_parent_keys.end())
 				continue;
 
 			condition cond;
@@ -1560,7 +1558,7 @@ void category::update_value(row *row, uint16_t item, std::string_view value, boo
 
 		for (auto &&[childCat, linked] : m_child_links)
 		{
-			if (std::find(linked->m_parent_keys.begin(), linked->m_parent_keys.end(), iv->m_item_name) == linked->m_parent_keys.end())
+			if (std::ranges::find(linked->m_parent_keys, iv->m_item_name) == linked->m_parent_keys.end())
 				continue;
 
 			condition cond;
@@ -1770,7 +1768,7 @@ category::iterator category::insert_impl(const_iterator pos, row *n)
 
 		m_dirty = true;
 
-		return iterator(*this, n);
+		return { *this, n };
 	}
 	catch (const std::exception &e)
 	{
@@ -1814,11 +1812,8 @@ void category::sort(std::function<int(row_handle, row_handle)> f)
 	for (auto itemRow = m_head; itemRow != nullptr; itemRow = itemRow->m_next)
 		rows.emplace_back(*this, *itemRow);
 
-	std::stable_sort(rows.begin(), rows.end(),
-		[&f](row_handle ia, row_handle ib)
-		{
-			return f(ia, ib) < 0;
-		});
+	std::ranges::stable_sort(rows, [&f](row_handle ia, row_handle ib)
+		{ return f(ia, ib) < 0; });
 
 	m_head = rows.front().get_row();
 	m_tail = rows.back().get_row();
@@ -1968,7 +1963,7 @@ void category::write(std::ostream &os, output_format fmt, const std::vector<std:
 	{
 		for (uint16_t i = 0; i < m_items.size(); ++i)
 		{
-			if (std::find(order.begin(), order.end(), i) == order.end())
+			if (std::ranges::find(order, i) == order.end())
 				order.push_back(i);
 		}
 	}
@@ -2621,7 +2616,7 @@ bool category::operator==(const category &rhs) const
 	if (validator != nullptr)
 		catValidator = validator->get_validator_for_category(a.name());
 
-	typedef std::function<int(std::string_view, std::string_view)> compType;
+	using compType = std::function<int(std::string_view, std::string_view)>;
 	std::vector<std::tuple<std::string, compType>> item_names;
 	std::vector<std::string> keys;
 	std::vector<std::size_t> keyIx;
@@ -2630,8 +2625,8 @@ bool category::operator==(const category &rhs) const
 	{
 		for (auto &item_name : a.get_items())
 		{
-			item_names.push_back(std::make_tuple(item_name, [](std::string_view va, std::string_view vb)
-				{ return va.compare(vb); }));
+			item_names.emplace_back(item_name, [](std::string_view va, std::string_view vb)
+				{ return va.compare(vb); });
 			keyIx.push_back(keys.size());
 			keys.push_back(item_name);
 		}
@@ -2648,13 +2643,14 @@ bool category::operator==(const category &rhs) const
 			auto tv = iv->m_type;
 			if (tv == nullptr)
 				throw std::runtime_error("missing type validator");
-			item_names.push_back(std::make_tuple(item_name, std::bind(&cif::type_validator::compare, tv, std::placeholders::_1, std::placeholders::_2)));
+			item_names.emplace_back(item_name, [tv](auto &&a1, auto &&a2)
+				{ return tv->compare(std::forward<decltype(a1)>(a1), std::forward<decltype(a2)>(a2)); });
 
 			auto pred = [item_name](const std::string &s) -> bool
 			{
 				return cif::iequals(item_name, s) == 0;
 			};
-			if (find_if(keys.begin(), keys.end(), pred) == keys.end())
+			if (std::ranges::find_if(keys, pred) == keys.end())
 				keyIx.push_back(item_names.size() - 1);
 		}
 	}

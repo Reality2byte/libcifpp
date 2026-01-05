@@ -268,7 +268,7 @@ std::string cif_id_for_number(int number)
 		number = (number - r) / 26 - 1;
 	} while (number >= 0);
 
-	std::reverse(result.begin(), result.end());
+	std::ranges::reverse(result);
 
 	assert(not result.empty());
 
@@ -494,7 +494,7 @@ std::vector<std::string> wrapLine(const std::string &text, std::size_t width)
 		j = i;
 	}
 
-	reverse(result.begin(), result.end());
+	std::ranges::reverse(result);
 
 	return result;
 }
@@ -506,7 +506,7 @@ std::vector<std::string> word_wrap(const std::string &text, std::size_t width)
 	{
 		if (p.empty())
 		{
-			result.push_back("");
+			result.emplace_back("");
 			continue;
 		}
 

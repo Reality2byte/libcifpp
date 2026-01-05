@@ -925,16 +925,6 @@ class category
 
 	// --------------------------------------------------------------------
 
-	// void insert(const_iterator pos, const row_initializer &row)
-	// {
-	// 	insert_impl(pos, row);
-	// }
-
-	// void insert(const_iterator pos, row_initializer &&row)
-	// {
-	// 	insert_impl(pos, std::move(row));
-	// }
-
 	/// Erase the row pointed to by @a pos and return the iterator to the
 	/// row following pos.
 	iterator erase(iterator pos);
@@ -1240,6 +1230,8 @@ class category
 
 	void delete_row(row *r);
 
+	iterator erase(iterator pos, bool cascade);
+
 	row_handle create_copy(row_handle r);
 
 	struct item_entry
@@ -1287,7 +1279,6 @@ class category
 	const validator *m_validator = nullptr;
 	const category_validator *m_cat_validator = nullptr;
 	std::vector<link> m_parent_links, m_child_links;
-	bool m_cascade = true;
 	uint32_t m_last_unique_num = 0;
 	class category_index *m_index = nullptr;
 	row *m_head = nullptr, *m_tail = nullptr;

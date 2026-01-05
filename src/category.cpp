@@ -514,7 +514,6 @@ category::category(std::string_view name)
 category::category(const category &rhs)
 	: m_name(rhs.m_name)
 	, m_items(rhs.m_items)
-	, m_cascade(rhs.m_cascade)
 {
 	for (auto r = rhs.m_head; r != nullptr; r = r->m_next)
 		insert_impl(end(), clone_row(*r));
@@ -534,7 +533,6 @@ void swap(category &a, category &b) noexcept
 	std::swap(a.m_cat_validator, b.m_cat_validator);
 	std::swap(a.m_parent_links, b.m_parent_links);
 	std::swap(a.m_child_links, b.m_child_links);
-	std::swap(a.m_cascade, b.m_cascade);
 	std::swap(a.m_index, b.m_index);
 	std::swap(a.m_head, b.m_head);
 	std::swap(a.m_tail, b.m_tail);
@@ -1556,7 +1554,7 @@ void category::update_value(row *row, uint16_t item, std::string_view value, boo
 
 	// see if we need to update any child categories that depend on this value
 	auto iv = col.m_validator;
-	if (updateLinked and iv != nullptr /*and m_cascade*/)
+	if (updateLinked and iv != nullptr)
 	{
 		row_handle rh(*this, *row);
 

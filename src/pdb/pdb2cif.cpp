@@ -26,20 +26,16 @@
 
 #include "pdb2cif_remark_3.hpp"
 
-#include "cif++.hpp"
+#include <cif++/compound.hpp>
+#include <cif++/gzio.hpp>
+#include <cif++/model.hpp>
+#include <cif++/pdb.hpp>
+#include <cif++/symmetry.hpp>
 
-#include <iomanip>
 #include <map>
 #include <set>
 #include <stack>
 #include <stdexcept>
-
-using cif::category;
-using cif::datablock;
-using cif::iequals;
-using cif::key;
-using cif::to_lower;
-using cif::to_lower_copy;
 
 // --------------------------------------------------------------------
 // attempt to come up with better error handling
@@ -6374,7 +6370,7 @@ void read_pdb_file(std::istream &pdbFile, cif::file &cifFile)
 	{
 		cifFile.front().load_dictionary();
 		if (cifFile.front().get_validator() == nullptr)
-			cifFile.front().set_validator(&validator_factory::instance().get("mmcif_pdbx.dic"));
+			cifFile.front().set_validator(validator_factory::instance().get("mmcif_pdbx.dic"));
 
 		if (not cifFile.is_valid() and cif::VERBOSE >= 0)
 			std::cerr << "Resulting mmCIF file is not valid!\n";
@@ -6444,7 +6440,7 @@ file read(std::istream &is)
 	{
 		auto &db = result.front();
 		if (db.get_validator() == nullptr)
-			db.set_validator(&validator_factory::instance().get("mmcif_pdbx.dic"));
+			db.set_validator(validator_factory::instance().get("mmcif_pdbx.dic"));
 		if (db.is_valid())
 			db.get_validator()->fill_audit_conform(db["audit_conform"]);
 	}

@@ -1988,7 +1988,7 @@ TEST_CASE("r1")
 	/*
 	    Rationale:
 
-	    The pdbx_mmcif dictionary contains inconsistent child-parent relations. E.g. atom_site is parent
+	    The mmcif_pdbx.dic dictionary contains inconsistent child-parent relations. E.g. atom_site is parent
 	    of pdbx_nonpoly_scheme which itself is a parent of pdbx_entity_nonpoly. If I want to rename a residue
 	    I cannot update pdbx_nonpoly_scheme since changing a parent changes children, but not vice versa.
 

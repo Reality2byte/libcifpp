@@ -25,6 +25,7 @@
  */
 
 #include "cif++/validate.hpp"
+
 #include "cif++/category.hpp"
 #include "cif++/dictionary_parser.hpp"
 #include "cif++/utilities.hpp"
@@ -34,6 +35,7 @@
 #include <iomanip>
 #include <iostream>
 #include <mutex>
+#include <stdexcept>
 
 // The validator depends on regular expressions. Unfortunately,
 // the implementation of std::regex in g++ is buggy and crashes
@@ -546,19 +548,18 @@ validator_factory &validator_factory::instance()
 	return s_instance;
 }
 
-const validator &validator_factory::get(std::string_view dictionary_name)
+const validator *validator_factory::get(std::string_view dictionary_name)
 {
 	category audit_conform("audit_conform");
-	for (auto part : cif::split(dictionary_name, ";", true))
+	for (auto part : cif::split(dictionary_name, ";,", true))
 		audit_conform.emplace({ { "dict_name", part } });
 
 	return get(audit_conform);
 }
 
-const validator &validator_factory::get(const category &audit_conform)
+const validator *validator_factory::get(const category &audit_conform)
 {
-	if (audit_conform.empty())
-		throw std::runtime_error("Empty audit_conform category, cannot create a validator");
+	const validator *result = nullptr;
 
 	std::lock_guard lock(m_mutex);
 
@@ -566,42 +567,60 @@ const validator &validator_factory::get(const category &audit_conform)
 	for (auto &v : m_validators)
 	{
 		if (v.matches_audit_conform(audit_conform))
-			return v;
+			result = &v;
 	}
 
 	// If the audit conform contains only one record, this is easy
-	if (audit_conform.size() == 1)
+	if (result == nullptr and audit_conform.size() == 1)
 	{
 		const auto &[name, version] =
 			audit_conform.front().get<std::string, std::optional<std::string>>("dict_name", "dict_version");
 		if (not name.empty())
-			return m_validators.emplace_back(construct_validator(name, version));
+			result = &m_validators.emplace_back(construct_validator(name, version));
 	}
 
-	// A new, merged dictionary
-
-	std::optional<validator> v;
-	for (const auto &[name, version] : audit_conform.rows<std::string, std::optional<std::string>>("dict_name", "dict_version"))
+	if (result == nullptr)
 	{
-		if (name.empty())
-			continue;
-
-		if (not v)
-			v = construct_validator(name, version);
-		else
+		// A new, merged dictionary
+		std::optional<validator> v;
+		for (const auto &[name, version] : audit_conform.rows<std::string, std::optional<std::string>>("dict_name", "dict_version"))
 		{
-			auto data = load_resource(name);
-			if (not data)
-				throw std::runtime_error("Could not load dictionary " + std::string{ name });
+			if (name.empty())
+				continue;
 
-			v->parse(*data);
+			if (not v) // first dict
+				v = construct_validator(name, version);
+			else // additional/extending dict
+			{
+				auto data = load_resource(name);
+				if (not data)
+					throw std::runtime_error("Could not load dictionary " + std::string{ name });
+
+				v->parse(*data);
+			}
 		}
+
+		if (v)
+			result = &m_validators.emplace_back(std::move(*v));
 	}
 
-	if (not v)
-		throw std::runtime_error("Missing dictionary information?");
+	return result;
+}
 
-	return m_validators.emplace_back(std::move(*v));
+const validator &validator_factory::operator[](const category &audit_conform)
+{
+	auto v = get(audit_conform);
+	if (v == nullptr)
+		throw std::runtime_error("Could not load dictionary for audit_conform");
+	return *v;
+}
+
+const validator &validator_factory::operator[](std::string_view dictionary_name)
+{
+	auto v = get(dictionary_name);
+	if (v == nullptr)
+		throw std::runtime_error("Could not load dictionary for " + std::string{ dictionary_name });
+	return *v;
 }
 
 validator validator_factory::construct_validator(std::string_view name, std::optional<std::string> version)

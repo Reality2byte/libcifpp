@@ -1478,7 +1478,7 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 
 		best.parser->fixup();
 
-		auto &validator = cif::validator_factory::instance().get("mmcif_pdbx.dic");
+		auto &validator = cif::validator_factory::instance()["mmcif_pdbx.dic"];
 
 		for (auto &cat1 : best.parser->mDb)
 		{

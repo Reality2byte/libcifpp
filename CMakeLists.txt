@@ -289,17 +289,17 @@ list(APPEND project_sources
 )
 
 if(BUILD_SQLITE_INTERFACE)
-    find_package(sqlite3 QUIET)
-    if(sqlite3_FOUND)
-        target_link_libraries(cifpp PRIVATE sqlite3)
+    find_package(SQLite3 REQUIRED)
+    if(SQLite3_FOUND)
+        target_link_libraries(cifpp PRIVATE SQLite::SQLite3)
     else()
-        FetchContent_Populate(sqlite3
+        FetchContent_Populate(SQLite3
             URL https://sqlite.org/2025/sqlite-amalgamation-3510100.zip
             URL_HASH SHA3_256=856b52ffe7383d779bb86a0ed1ddc19c41b0e5751fa14ce6312f27534e629b64
             EXCLUDE_FROM_ALL)
 
-        list(APPEND project_sources $<BUILD_INTERFACE:${sqlite3_SOURCE_DIR}>/sqlite3.c)
-        target_include_directories(cifpp PRIVATE $<BUILD_INTERFACE:${sqlite3_SOURCE_DIR}>)
+        list(APPEND project_sources $<BUILD_INTERFACE:${SQLite3_SOURCE_DIR}>/SQLite3.c)
+        target_include_directories(cifpp PRIVATE $<BUILD_INTERFACE:${SQLite3_SOURCE_DIR}>)
     endif()
 endif()
 

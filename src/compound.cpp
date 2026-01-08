@@ -218,7 +218,7 @@ compound_atom compound::get_atom_by_atom_id(const std::string &atom_id) const
 
 bool compound::atoms_bonded(const std::string &atomId_1, const std::string &atomId_2) const
 {
-	auto i = find_if(m_bonds.begin(), m_bonds.end(),
+	auto i = std::ranges::find_if(m_bonds,
 		[&](const compound_bond &b)
 		{
 			return (b.atom_id[0] == atomId_1 and b.atom_id[1] == atomId_2) or (b.atom_id[0] == atomId_2 and b.atom_id[1] == atomId_1);
@@ -229,7 +229,7 @@ bool compound::atoms_bonded(const std::string &atomId_1, const std::string &atom
 
 float compound::bond_length(const std::string &atomId_1, const std::string &atomId_2) const
 {
-	auto i = find_if(m_bonds.begin(), m_bonds.end(),
+	auto i = std::ranges::find_if(m_bonds,
 		[&](const compound_bond &b)
 		{
 			return (b.atom_id[0] == atomId_1 and b.atom_id[1] == atomId_2) or (b.atom_id[0] == atomId_2 and b.atom_id[1] == atomId_1);

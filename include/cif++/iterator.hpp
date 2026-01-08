@@ -689,8 +689,8 @@ conditional_iterator_proxy<Category, Ts...>::conditional_iterator_impl::conditio
 template <typename Category, typename... Ts>
 conditional_iterator_proxy<Category, Ts...>::conditional_iterator_proxy(conditional_iterator_proxy &&p)
 	: m_cat(nullptr)
-	, mCBegin(p.mCBegin)
-	, mCEnd(p.mCEnd)
+	, mCBegin(std::move(p.mCBegin))
+	, mCEnd(std::move(p.mCEnd))
 	, mCix(p.mCix)
 {
 	std::swap(m_cat, p.m_cat);

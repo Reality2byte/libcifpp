@@ -363,7 +363,7 @@ row *category_index::find_by_value(const category &cat, const category::key_type
 	{
 		auto fld = cat.get_item_name(f);
 
-		auto ki = find_if(k.begin(), k.end(), [&fld](auto &i)
+		auto ki = std::ranges::find_if(k, [&fld](auto &i)
 			{ return i.name == fld; });
 		if (ki == k.end())
 			k2.emplace_back(std::string{ fld }, "");

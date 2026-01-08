@@ -209,7 +209,7 @@ class basic_igzip_streambuf : public basic_streambuf<CharT, Traits>
 		return *this;
 	}
 
-	~basic_igzip_streambuf()
+	~basic_igzip_streambuf() override
 	{
 		close();
 	}
@@ -396,7 +396,7 @@ class basic_ogzip_streambuf : public basic_streambuf<CharT, Traits>
 		return *this;
 	}
 
-	~basic_ogzip_streambuf()
+	~basic_ogzip_streambuf() override
 	{
 		close();
 	}
@@ -658,7 +658,7 @@ class basic_ifstream : public basic_istream<CharT, Traits>
 	/// \brief Default constructor, does not open a file since none is specified
 	basic_ifstream() = default;
 
-	~basic_ifstream()
+	~basic_ifstream() override
 	{
 		close();
 	}
@@ -922,7 +922,7 @@ class basic_ofstream : public basic_ostream<CharT, Traits>
 
 	basic_ofstream() = default;
 
-	~basic_ofstream()
+	~basic_ofstream() override
 	{
 		close();
 	}

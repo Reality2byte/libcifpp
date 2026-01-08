@@ -300,7 +300,7 @@ class progress_bar
 	void flush();
 
   private:
-	struct progress_bar_impl *m_impl;
+	struct progress_bar_impl *m_impl = nullptr;
 };
 
 // --------------------------------------------------------------------

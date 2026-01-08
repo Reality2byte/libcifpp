@@ -214,11 +214,11 @@ sqlite3_module connection_impl::s_module{
 	/* xRollback   */ Rollback,
 	/* xFindFunction */ nullptr,
 	/* xRename     */ Rename,
-	/* xSavepoint  */ nullptr,
-	/* xRelease    */ nullptr,
-	/* xRollbackTo */ nullptr,
-	/* xShadowName */ nullptr,
-	/* xIntegrity  */ nullptr
+	// /* xSavepoint  */ nullptr,
+	// /* xRelease    */ nullptr,
+	// /* xRollbackTo */ nullptr,
+	// /* xShadowName */ nullptr,
+	// /* xIntegrity  */ nullptr
 };
 
 /*

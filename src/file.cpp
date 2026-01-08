@@ -25,7 +25,6 @@
  */
 
 #include "cif++/file.hpp"
-#include "cif++/condition.hpp"
 #include "cif++/gzio.hpp"
 
 namespace cif

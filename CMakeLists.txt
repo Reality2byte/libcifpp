@@ -278,7 +278,6 @@ list(APPEND project_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/point.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/symmetry.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/model.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/cql.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/cif2pdb.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/pdb2cif.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/pdb_record.hpp
@@ -287,21 +286,6 @@ list(APPEND project_sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/reconstruct.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pdb/validate-pdbx.cpp
 )
-
-if(BUILD_SQLITE_INTERFACE)
-    find_package(SQLite3 REQUIRED)
-    if(SQLite3_FOUND)
-        target_link_libraries(cifpp PRIVATE SQLite::SQLite3)
-    else()
-        FetchContent_Populate(SQLite3
-            URL https://sqlite.org/2025/sqlite-amalgamation-3510100.zip
-            URL_HASH SHA3_256=856b52ffe7383d779bb86a0ed1ddc19c41b0e5751fa14ce6312f27534e629b64
-            EXCLUDE_FROM_ALL)
-
-        list(APPEND project_sources $<BUILD_INTERFACE:${SQLite3_SOURCE_DIR}>/SQLite3.c)
-        target_include_directories(cifpp PRIVATE $<BUILD_INTERFACE:${SQLite3_SOURCE_DIR}>)
-    endif()
-endif()
 
 list(APPEND project_headers
     include/cif++.hpp
@@ -326,10 +310,27 @@ list(APPEND project_headers
     include/cif++/row.hpp
     include/cif++/symmetry.hpp
     include/cif++/text.hpp
-    include/cif++/cql.hpp
     include/cif++/utilities.hpp
     include/cif++/validate.hpp
 )
+
+if(BUILD_SQLITE_INTERFACE)
+    find_package(SQLite3 QUIET)
+    if(SQLite3_FOUND)
+        target_link_libraries(cifpp PRIVATE SQLite::SQLite3)
+    else()
+        FetchContent_Populate(SQLite3
+            URL https://sqlite.org/2025/sqlite-amalgamation-3510100.zip
+            URL_HASH SHA3_256=856b52ffe7383d779bb86a0ed1ddc19c41b0e5751fa14ce6312f27534e629b64
+            EXCLUDE_FROM_ALL)
+
+        list(APPEND project_sources $<BUILD_INTERFACE:${sqlite3_SOURCE_DIR}>/sqlite3.c)
+        target_include_directories(cifpp PRIVATE $<BUILD_INTERFACE:${sqlite3_SOURCE_DIR}>)
+    endif()
+
+    list(APPEND project_sources ${CMAKE_CURRENT_SOURCE_DIR}/src/cql.cpp)
+    list(APPEND project_headers include/cif++/cql.hpp)
+endif()
 
 if(TARGET my-eigen3)
     add_dependencies(cifpp my-eigen3)

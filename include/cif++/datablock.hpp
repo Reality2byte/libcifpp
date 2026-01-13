@@ -243,7 +243,7 @@ class datablock : public std::list<category>
 namespace std
 {
 
-template <typename T, typename Alloc>
+template <>
 inline void swap(cif::datablock &x, cif::datablock &y) noexcept // NOLINT(bugprone-std-namespace-modification,cert-dcl58-cpp)
 {
 	x.swap(y);

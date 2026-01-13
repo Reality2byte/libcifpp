@@ -46,12 +46,12 @@ datablock::datablock(const datablock &db)
 
 datablock::datablock(datablock &&db) noexcept
 {
-	std::swap(*this, db);
+	swap(db);
 }
 
 datablock &datablock::operator=(datablock db) noexcept
 {
-	std::swap(*this, db);
+	swap(db);
 	return *this;
 }
 

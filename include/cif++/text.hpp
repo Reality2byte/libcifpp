@@ -29,17 +29,21 @@
 #include "cif++/exports.hpp"
 
 #include <charconv>
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <limits>
+#include <iterator>
 #include <set>
 #include <sstream>
+#include <string>
+#include <string_view>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #if __has_include(<experimental/type_traits>)
 
-#include <experimental/type_traits>
+# include <experimental/type_traits>
 namespace std_experimental = std::experimental;
 
 #else
@@ -327,7 +331,6 @@ inline char tolower(int ch)
 
 [[deprecated("use split_item_name instead")]]
 std::tuple<std::string, std::string> split_tag_name(std::string_view item_name);
-
 
 /** \brief return a tuple consisting of the category and item name for @a item_name
  *

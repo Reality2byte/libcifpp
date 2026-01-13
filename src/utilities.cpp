@@ -34,11 +34,13 @@
 #include <condition_variable>
 #include <cstring>
 #include <deque>
+#include <exception>
 #include <format>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <map>
+#include <memory>
 #include <mutex>
 #include <sstream>
 #include <string>
@@ -46,7 +48,7 @@
 #include <utility>
 
 #if __cpp_lib_jthread >= 201911L
-#include <stop_token>
+# include <stop_token>
 #endif
 
 namespace fs = std::filesystem;
@@ -112,7 +114,7 @@ void write_to_console(const std::string &s)
 
 #else
 
-# include <limits.h>
+# include <climits>
 # include <sys/ioctl.h>
 # include <termios.h>
 
@@ -148,7 +150,7 @@ struct progress_bar_impl
 	{
 	}
 
-	virtual ~progress_bar_impl() {}
+	virtual ~progress_bar_impl() = default;
 
 	virtual void consumed(uint64_t n);
 	virtual void progress(uint64_t p);
@@ -181,9 +183,9 @@ void progress_bar_impl::message(const std::string &msg)
 void progress_bar_impl::print_done()
 {
 	std::chrono::duration<double> elapsed = std::chrono::system_clock::now() - m_start;
-	std::string days, hours, minutes, seconds;
+	std::string days, hours, minutes;
 
-	uint64_t s = static_cast<uint64_t>(std::trunc(elapsed.count()));
+	auto s = static_cast<int>(std::rint(elapsed.count()));
 	if (s > 24 * 60 * 60)
 	{
 		days = std::format("{:d}d ", s / (24 * 60 * 60));
@@ -202,7 +204,7 @@ void progress_bar_impl::print_done()
 		s %= 60;
 	}
 
-	std::string msg = std::format("{} done in {}{}{}{:.1f}s", m_action, days, hours, minutes, s + 1e-6 * (elapsed.count() - s));
+	std::string msg = std::format("{} done in {}{}{}{:.1f}s", m_action, days, hours, minutes, s + 1e-6 * static_cast<double>(elapsed.count() - s));
 
 	uint32_t width = get_terminal_width();
 
@@ -221,10 +223,17 @@ struct simple_progress_bar_impl : public progress_bar_impl
 	{
 	}
 
-	~simple_progress_bar_impl()
+	~simple_progress_bar_impl() override
 	{
-		if (m_printed_any)
-			print_done();
+		try
+		{
+			if (m_printed_any)
+				print_done();
+		}
+		catch (const std::exception &ex)
+		{
+			std::cerr << "error finishing progress bar: " << ex.what() << '\n';
+		}
 	}
 
 	void consumed(uint64_t n) override
@@ -282,7 +291,7 @@ struct fancy_progress_bar_impl : public progress_bar_impl
 	{
 	}
 
-	~fancy_progress_bar_impl();
+	~fancy_progress_bar_impl() override;
 
 #if __cpp_lib_jthread >= 201911L
 	void run(std::stop_token stoken);
@@ -390,8 +399,9 @@ void fancy_progress_bar_impl::run()
 			printedAny = true;
 		}
 	}
-	catch (...)
+	catch (const std::exception &ex)
 	{
+		std::cerr << "error finishing progress bar: " << ex.what() << '\n';
 	}
 
 	if (printedAny)
@@ -434,7 +444,7 @@ void fancy_progress_bar_impl::print_progress()
 	}
 
 	std::string bar;
-	bar.reserve(m_bar_width * 4);
+	bar.reserve(m_bar_width * 4UL);
 
 	for (uint32_t i = 0; i < m_bar_width; ++i)
 	{
@@ -470,7 +480,6 @@ void fancy_progress_bar_impl::print_progress()
 // --------------------------------------------------------------------
 
 progress_bar::progress_bar(int64_t max_value, const std::string &message)
-	: m_impl(nullptr)
 {
 	if (VERBOSE >= 0)
 	{
@@ -582,14 +591,14 @@ class rsrc_data
 		return s_instance;
 	}
 
-	const rsrc_imp *index() const { return m_index; }
+	[[nodiscard]] const rsrc_imp *index() const { return m_index; }
 
-	const char *data(unsigned int offset) const
+	[[nodiscard]] const char *data(unsigned int offset) const
 	{
 		return m_data + offset;
 	}
 
-	const char *name(unsigned int offset) const
+	[[nodiscard]] const char *name(unsigned int offset) const
 	{
 		return m_name + offset;
 	}
@@ -624,26 +633,18 @@ class rsrc
 	{
 	}
 
-	rsrc(const rsrc &other)
-		: m_impl(other.m_impl)
-	{
-	}
-
-	rsrc &operator=(const rsrc &other)
-	{
-		m_impl = other.m_impl;
-		return *this;
-	}
+	rsrc(const rsrc &other) = default;
+	rsrc &operator=(const rsrc &other) = default;
 
 	rsrc(std::filesystem::path path);
 
-	std::string name() const { return rsrc_data::instance().name(m_impl->m_name); }
+	[[nodiscard]] std::string name() const { return rsrc_data::instance().name(m_impl->m_name); }
 
-	const char *data() const { return rsrc_data::instance().data(m_impl->m_data); }
+	[[nodiscard]] const char *data() const { return rsrc_data::instance().data(m_impl->m_data); }
 
-	unsigned long size() const { return m_impl->m_size; }
+	[[nodiscard]] unsigned long size() const { return m_impl->m_size; }
 
-	explicit operator bool() const { return m_impl != NULL and m_impl->m_size > 0; }
+	explicit operator bool() const { return m_impl != nullptr and m_impl->m_size > 0; }
 
 	template <typename RSRC>
 	class iterator_t
@@ -660,16 +661,8 @@ class rsrc
 		{
 		}
 
-		iterator_t(const iterator_t &i)
-			: m_cur(i.m_cur)
-		{
-		}
-
-		iterator_t &operator=(const iterator_t &i)
-		{
-			m_cur = i.m_cur;
-			return *this;
-		}
+		iterator_t(const iterator_t &i) = default;
+		iterator_t &operator=(const iterator_t &i) = default;
 
 		reference operator*() { return m_cur; }
 		pointer operator->() { return &m_cur; }
@@ -699,17 +692,17 @@ class rsrc
 
 	using iterator = iterator_t<rsrc>;
 
-	iterator begin() const
+	[[nodiscard]] iterator begin() const
 	{
 		const rsrc_imp *impl = nullptr;
 		if (m_impl and m_impl->m_child)
 			impl = rsrc_data::instance().index() + m_impl->m_child;
-		return iterator(impl);
+		return { impl };
 	}
 
-	iterator end() const
+	[[nodiscard]] iterator end() const
 	{
-		return iterator(nullptr);
+		return { nullptr };
 	}
 
   private:
@@ -757,11 +750,11 @@ template <typename CharT, typename Traits>
 class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 {
   public:
-	typedef CharT char_type;
-	typedef Traits traits_type;
-	typedef typename traits_type::int_type int_type;
-	typedef typename traits_type::pos_type pos_type;
-	typedef typename traits_type::off_type off_type;
+	using char_type = CharT;
+	using traits_type = Traits;
+	using int_type = typename traits_type::int_type;
+	using pos_type = typename traits_type::pos_type;
+	using off_type = typename traits_type::off_type;
 
 	/// \brief constructor taking a \a path to the resource in memory
 	basic_streambuf(const std::string &path)
@@ -779,20 +772,20 @@ class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 
 	basic_streambuf(const basic_streambuf &) = delete;
 
-	basic_streambuf(basic_streambuf &&rhs)
+	basic_streambuf(basic_streambuf &&rhs) noexcept
 		: basic_streambuf(rhs.m_rsrc)
 	{
 	}
 
 	basic_streambuf &operator=(const basic_streambuf &) = delete;
 
-	basic_streambuf &operator=(basic_streambuf &&rhs)
+	basic_streambuf &operator=(basic_streambuf &&rhs) noexcept
 	{
 		swap(rhs);
 		return *this;
 	}
 
-	void swap(basic_streambuf &rhs)
+	void swap(basic_streambuf &rhs) noexcept
 	{
 		std::swap(m_begin, rhs.m_begin);
 		std::swap(m_end, rhs.m_end);
@@ -807,7 +800,7 @@ class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 		m_current = m_begin;
 	}
 
-	int_type underflow()
+	int_type underflow() override
 	{
 		if (m_current == m_end)
 			return traits_type::eof();
@@ -815,7 +808,7 @@ class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 		return traits_type::to_int_type(*m_current);
 	}
 
-	int_type uflow()
+	int_type uflow() override
 	{
 		if (m_current == m_end)
 			return traits_type::eof();
@@ -823,7 +816,7 @@ class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 		return traits_type::to_int_type(*m_current++);
 	}
 
-	int_type pbackfail(int_type ch)
+	int_type pbackfail(int_type ch) override
 	{
 		if (m_current == m_begin or (ch != traits_type::eof() and ch != m_current[-1]))
 			return traits_type::eof();
@@ -831,13 +824,13 @@ class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 		return traits_type::to_int_type(*--m_current);
 	}
 
-	std::streamsize showmanyc()
+	std::streamsize showmanyc() override
 	{
 		assert(std::less_equal<const char *>()(m_current, m_end));
 		return m_end - m_current;
 	}
 
-	pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which)
+	pos_type seekoff(off_type off, std::ios_base::seekdir dir, std::ios_base::openmode which) override
 	{
 		switch (dir)
 		{
@@ -866,7 +859,7 @@ class basic_streambuf : public std::basic_streambuf<CharT, Traits>
 		return m_current - m_begin;
 	}
 
-	pos_type seekpos(pos_type pos, std::ios_base::openmode which)
+	pos_type seekpos(pos_type pos, std::ios_base::openmode which) override
 	{
 		m_current = m_begin + pos;
 
@@ -895,28 +888,28 @@ template <typename CharT, typename Traits>
 class basic_istream : public std::basic_istream<CharT, Traits>
 {
   public:
-	typedef CharT char_type;
-	typedef Traits traits_type;
-	typedef typename traits_type::int_type int_type;
-	typedef typename traits_type::pos_type pos_type;
-	typedef typename traits_type::off_type off_type;
+	using char_type = CharT;
+	using traits_type = Traits;
+	using int_type = typename traits_type::int_type;
+	using pos_type = typename traits_type::pos_type;
+	using off_type = typename traits_type::off_type;
 
   private:
-	using __streambuf_type = basic_streambuf<CharT, Traits>;
-	using __istream_type = std::basic_istream<CharT, Traits>;
+	using _streambuf_type = basic_streambuf<CharT, Traits>;
+	using _istream_type = std::basic_istream<CharT, Traits>;
 
-	__streambuf_type m_buffer;
+	_streambuf_type m_buffer;
 
   public:
 	basic_istream(const std::string &path)
-		: __istream_type(&m_buffer)
+		: _istream_type(&m_buffer)
 		, m_buffer(path)
 	{
 		this->init(&m_buffer);
 	}
 
 	basic_istream(rsrc &resource)
-		: __istream_type(&m_buffer)
+		: _istream_type(&m_buffer)
 		, m_buffer(resource)
 	{
 		this->init(&m_buffer);
@@ -925,30 +918,30 @@ class basic_istream : public std::basic_istream<CharT, Traits>
 	basic_istream(const basic_istream &) = delete;
 
 	basic_istream(basic_istream &&rhs)
-		: __istream_type(std::move(rhs))
+		: _istream_type(std::move(rhs))
 		, m_buffer(std::move(rhs.m_buffer))
 	{
-		__istream_type::set_rdbuf(&m_buffer);
+		_istream_type::set_rdbuf(&m_buffer);
 	}
 
 	basic_istream &operator=(const basic_istream &) = delete;
 
 	basic_istream &operator=(basic_istream &&rhs)
 	{
-		__istream_type::operator=(std::move(rhs));
+		_istream_type::operator=(std::move(rhs));
 		m_buffer = std::move(rhs.m_buffer);
 		return *this;
 	}
 
 	void swap(basic_istream &rhs)
 	{
-		__istream_type::swap(rhs);
+		_istream_type::swap(rhs);
 		m_buffer.swap(rhs.m_buffer);
 	}
 
-	__streambuf_type *rdbuf() const
+	_streambuf_type *rdbuf() const
 	{
-		return const_cast<__streambuf_type *>(&m_buffer);
+		return const_cast<_streambuf_type *>(&m_buffer);
 	}
 };
 
@@ -996,8 +989,8 @@ class resource_pool
 
 	std::unique_ptr<std::istream> load(fs::path name);
 
-	const auto data_directories() { return mDirs; }
-	const auto file_resources() { return mLocalResources; }
+	const auto &data_directories() { return mDirs; }
+	const auto &file_resources() { return mLocalResources; }
 
   private:
 	resource_pool();
@@ -1006,18 +999,15 @@ class resource_pool
 	{
 		std::unique_ptr<std::ifstream> result;
 
-		try
+		std::error_code ec;
+		if (fs::exists(p, ec))
 		{
-			if (fs::exists(p))
-			{
-				std::unique_ptr<std::ifstream> file(new std::ifstream(p, std::ios::binary));
-				if (file->is_open())
-					result.reset(file.release());
-			}
+			std::unique_ptr<std::ifstream> file = std::make_unique<std::ifstream>(p, std::ios::binary);
+			if (file->is_open())
+				result.reset(file.release());
 		}
-		catch (...)
-		{
-		}
+		if (ec != std::errc{} or result == nullptr)
+			std::cerr << "Error opening resource file " << std::quoted(p.string()) << '\n';
 
 		return result;
 	}
@@ -1083,7 +1073,7 @@ std::unique_ptr<std::istream> resource_pool::load(fs::path name)
 	{
 		mrsrc::rsrc rsrc(name);
 		if (rsrc)
-			result.reset(new mrsrc::istream(rsrc));
+			result = std::make_unique<mrsrc::istream>(rsrc);
 	}
 
 	return result;

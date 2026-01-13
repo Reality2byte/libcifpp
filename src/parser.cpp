@@ -32,8 +32,6 @@
 
 #include <cassert>
 #include <iostream>
-#include <map>
-#include <stack>
 
 namespace cif
 {
@@ -43,7 +41,7 @@ namespace cif
 class reserved_words_automaton
 {
   public:
-	reserved_words_automaton() {}
+	reserved_words_automaton() = default;
 
 	enum move_result
 	{
@@ -57,12 +55,12 @@ class reserved_words_automaton
 		stop
 	};
 
-	constexpr bool finished() const
+	[[nodiscard]] constexpr bool finished() const
 	{
 		return m_state <= 0;
 	}
 
-	constexpr bool matched() const
+	[[nodiscard]] constexpr bool matched() const
 	{
 		return m_state < 0;
 	}
@@ -138,8 +136,8 @@ class reserved_words_automaton
 	static constexpr struct node
 	{
 		int16_t ch;
-		int8_t next_match;
-		int8_t next_nomatch;
+		int next_match;
+		int next_nomatch;
 	} s_dag[] = {
 		{ 0 },
 		{ 'D', 5, 2 },
@@ -373,7 +371,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				else if (ch == kEOF)
 					error("unterminated textfield");
 				else if (not is_any_print(ch) and cif::VERBOSE > 2)
-					warning("invalid character in text field '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string((int)ch) + ")");
+					warning("invalid character in text field '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string(ch) + ")");
 				break;
 
 			case State::TextItemBS2:
@@ -389,7 +387,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				else if (ch == kEOF)
 					error("unterminated textfield");
 				else if (not is_any_print(ch) and cif::VERBOSE > 2)
-					warning("invalid character in text field '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string((int)ch) + ")");
+					warning("invalid character in text field '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string(ch) + ")");
 				break;
 
 			case State::TextItemBSNL:
@@ -428,7 +426,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				else if (ch == quoteChar)
 					state = State::QuotedStringQuote;
 				else if (not is_any_print(ch) and cif::VERBOSE > 2)
-					warning("invalid character in quoted string: '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string((int)ch) + ")");
+					warning("invalid character in quoted string: '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string(ch) + ")");
 				break;
 
 			case State::QuotedStringQuote:
@@ -588,6 +586,7 @@ bool sac_parser::parse_single_datablock(const std::string &datablock)
 						if (bol)
 							state = qstring;
 						break;
+					default:;
 				}
 				break;
 
@@ -681,6 +680,7 @@ sac_parser::datablock_index sac_parser::index_datablocks()
 						if (bol)
 							state = qstring;
 						break;
+					default:;
 				}
 				break;
 
@@ -718,7 +718,7 @@ sac_parser::datablock_index sac_parser::index_datablocks()
 
 			case data_name:
 				if (is_non_blank(ch))
-					datablock.insert(datablock.end(), (char)std::toupper(ch));
+					datablock.insert(datablock.end(), static_cast<char>(std::toupper(ch)));
 				else if (is_space(ch))
 				{
 					if (not datablock.empty())

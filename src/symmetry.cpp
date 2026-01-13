@@ -25,16 +25,16 @@
  */
 
 #include "cif++/symmetry.hpp"
+
 #include "cif++/datablock.hpp"
 #include "cif++/point.hpp"
+#include "symop_table_data.hpp"
 
 #include <stdexcept>
 
-#include "symop_table_data.hpp"
-
 #if defined(_MSC_VER)
-#pragma warning (disable : 5054)	// warning C5054: operator '&': deprecated between enumerations of different types
-#pragma warning (disable : 4127)	// conditional expression is constant
+# pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types
+# pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
 #include <Eigen/Eigen>
@@ -128,9 +128,9 @@ std::string sym_op::string() const
 		throw std::runtime_error("Could not write out symmetry operation to string");
 
 	*r.ptr++ = '_';
-	*r.ptr++ = '0' + m_ta;
-	*r.ptr++ = '0' + m_tb;
-	*r.ptr++ = '0' + m_tc;
+	*r.ptr++ = static_cast<char>('0' + m_ta);
+	*r.ptr++ = static_cast<char>('0' + m_tb);
+	*r.ptr++ = static_cast<char>('0' + m_tc);
 	*r.ptr = 0;
 
 	return { b, static_cast<std::size_t>(r.ptr - b) };
@@ -345,9 +345,8 @@ int get_space_group_number(std::string_view spacegroup)
 	// not found, see if we can find a match based on xHM name
 	if (result == 0)
 	{
-		for (std::size_t i = 0; i < kNrOfSpaceGroups; ++i)
+		for (const auto &sp : kSpaceGroups)
 		{
-			auto &sp = kSpaceGroups[i];
 			if (sp.xHM == spacegroup)
 			{
 				result = sp.nr;

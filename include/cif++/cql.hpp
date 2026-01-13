@@ -27,17 +27,18 @@
 #pragma once
 
 #include "cif++/category.hpp"
-#include "cif++/datablock.hpp"
 #include "cif++/item.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
-#include "cif++/validate.hpp"
 
+#include <cstddef>
 #include <cstdint>
 #include <iterator>
 #include <memory>
+#include <ostream>
 #include <stdexcept>
 #include <string>
+#include <string_view>
 #include <utility>
 
 // --------------------------------------------------------------------
@@ -45,10 +46,7 @@
 namespace cif::cql
 {
 
-class result;
-class transaction;
 class connection;
-
 struct result_impl;
 
 // --------------------------------------------------------------------
@@ -200,13 +198,13 @@ class row_ref final
 
 	// --------------------------------------------------------------------
 
-	[[nodiscard]] const_field_iterator cbegin() const noexcept { return {m_row, 0, m_result_impl}; }
-	[[nodiscard]] const_field_iterator begin() const noexcept { return {m_row, 0, m_result_impl}; }
-	[[nodiscard]] const_field_iterator cend() const noexcept { return {m_row, static_cast<uint16_t>(size()), m_result_impl}; }
-	[[nodiscard]] const_field_iterator end() const noexcept { return {m_row, static_cast<uint16_t>(size()), m_result_impl}; }
+	[[nodiscard]] const_field_iterator cbegin() const noexcept { return { m_row, 0, m_result_impl }; }
+	[[nodiscard]] const_field_iterator begin() const noexcept { return { m_row, 0, m_result_impl }; }
+	[[nodiscard]] const_field_iterator cend() const noexcept { return { m_row, static_cast<uint16_t>(size()), m_result_impl }; }
+	[[nodiscard]] const_field_iterator end() const noexcept { return { m_row, static_cast<uint16_t>(size()), m_result_impl }; }
 
-	[[nodiscard]] field_ref front() const noexcept { return {m_row, 0, m_result_impl}; }
-	[[nodiscard]] field_ref back() const noexcept { return {m_row, static_cast<uint16_t>(size() - 1), m_result_impl}; }
+	[[nodiscard]] field_ref front() const noexcept { return { m_row, 0, m_result_impl }; }
+	[[nodiscard]] field_ref back() const noexcept { return { m_row, static_cast<uint16_t>(size() - 1), m_result_impl }; }
 
 	[[nodiscard]] size_t size() const noexcept;
 	[[nodiscard]] bool empty() const noexcept { return size() == 0; }

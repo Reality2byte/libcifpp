@@ -24,9 +24,14 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/item.hpp"
+
 #include "cif++/row.hpp"
 
 #include <cassert>
+#include <cstdint>
+#include <limits>
+#include <string_view>
 
 namespace cif
 {
@@ -34,7 +39,7 @@ namespace cif
 const item_handle item_handle::s_null_item;
 row_handle s_null_row_handle;
 
-item_handle::item_handle()
+item_handle::item_handle() noexcept
 	: m_item_ix(std::numeric_limits<uint16_t>::max())
 	, m_row_handle(s_null_row_handle)
 {
@@ -65,4 +70,4 @@ void item_handle::swap(item_handle &b)
 	m_row_handle.swap(m_item_ix, b.m_row_handle);
 }
 
-}
+} // namespace cif

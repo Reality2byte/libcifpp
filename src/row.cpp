@@ -24,7 +24,18 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/row.hpp"
+
 #include "cif++/category.hpp"
+#include "cif++/item.hpp"
+
+#include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <vector>
 
 namespace cif
 {
@@ -61,7 +72,7 @@ uint16_t row_handle::add_item(std::string_view name)
 	return m_category->add_item(name);
 }
 
-void row_handle::swap(uint16_t item, row_handle &b)
+void row_handle::swap(uint16_t item, row_handle &b) noexcept(false)
 {
 	if (not m_category)
 		throw std::runtime_error("uninitialized row");
@@ -81,7 +92,7 @@ row_initializer::row_initializer(row_handle rh)
 	row *r = rh.get_row();
 	auto &cat = *rh.m_category;
 
-	for (uint16_t ix = 0; ix < r->size(); ++ix)
+	for (size_t ix = 0; ix < r->size(); ++ix)
 	{
 		auto &i = r->operator[](ix);
 		if (not i)
@@ -106,7 +117,8 @@ void row_initializer::set_value(std::string_view name, std::string_view value)
 
 void row_initializer::set_value_if_empty(std::string_view name, std::string_view value)
 {
-	if (find_if(begin(), end(), [name](auto &i) { return i.name() == name; }) == end())
+	if (std::ranges::find_if(*this, [name](auto &i)
+			{ return i.name() == name; }) == end())
 		emplace_back(name, value);
 }
 

@@ -58,6 +58,7 @@ namespace fs = std::filesystem;
 
 namespace cif
 {
+using std::shared_ptr;
 
 // --------------------------------------------------------------------
 
@@ -263,7 +264,7 @@ bool compound::is_base() const
 // --------------------------------------------------------------------
 // known amino acids and bases
 
-const std::map<std::string, char> compound_factory::kAAMap{
+const std::map<std::string, char> compound_factory::kAAMap{ // NOLINT(bugprone-throwing-static-initialization,cert-err58-cpp)
 	{ "ALA", 'A' },
 	{ "ARG", 'R' },
 	{ "ASN", 'N' },
@@ -288,7 +289,7 @@ const std::map<std::string, char> compound_factory::kAAMap{
 	{ "ASX", 'B' }
 };
 
-const std::map<std::string, char> compound_factory::kBaseMap{
+const std::map<std::string, char> compound_factory::kBaseMap{ // NOLINT(bugprone-throwing-static-initialization,cert-err58-cpp)
 	{ "A", 'A' },
 	{ "C", 'C' },
 	{ "G", 'G' },
@@ -382,7 +383,7 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 };
 
 compound_factory_impl::compound_factory_impl(std::shared_ptr<compound_factory_impl> next)
-	: m_next(next)
+	: m_next(std::move(next))
 {
 }
 
@@ -399,7 +400,7 @@ compound *compound_factory_impl::create(const std::string &id)
 	if (m_missing.contains(id))
 		return nullptr;
 
-	if (auto i = find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c)
+	if (auto i = std::ranges::find_if(m_compounds, [id](compound *c)
 			{ return c->id() == id; });
 		i != m_compounds.end())
 		return *i;
@@ -418,7 +419,7 @@ compound *compound_factory_impl::create(const std::string &id)
 		}
 	}
 	else
-		ccd.reset(new std::ifstream(m_file));
+		ccd = std::make_unique<std::ifstream>(m_file);
 
 	cif::file file;
 
@@ -445,7 +446,7 @@ compound *compound_factory_impl::create(const std::string &id)
 				throw std::runtime_error("Could not locate the CCD components.cif file, please make sure the software is installed properly and/or use the update-libcifpp-data to fetch the data.");
 		}
 		else
-			ccd.reset(new std::ifstream(m_file));
+			ccd = std::make_unique<std::ifstream>(m_file);
 	}
 
 	if (cif::VERBOSE > 1)
@@ -483,9 +484,9 @@ compound *compound_factory_impl::create(const std::string &id)
 class local_compound_factory_impl : public compound_factory_impl
 {
   public:
-	local_compound_factory_impl(const cif::file &file, std::shared_ptr<compound_factory_impl> next)
+	local_compound_factory_impl(cif::file file, shared_ptr<compound_factory_impl> next)
 		: compound_factory_impl(next)
-		, m_local_file(file)
+		, m_local_file(std::move(file))
 	{
 	}
 
@@ -502,7 +503,7 @@ compound *local_compound_factory_impl::create(const std::string &id)
 	if (m_missing.contains(id))
 		return nullptr;
 
-	if (auto i = find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c)
+	if (auto i = std::ranges::find_if(m_compounds, [id](compound *c)
 			{ return c->id() == id; });
 		i != m_compounds.end())
 		return *i;
@@ -653,10 +654,6 @@ compound_factory::compound_factory()
 		std::cerr << "CCD components.cif resource was not found\n";
 }
 
-compound_factory::~compound_factory()
-{
-}
-
 compound_factory &compound_factory::instance()
 {
 	if (s_use_thread_local_instance)
@@ -688,7 +685,7 @@ void compound_factory::set_default_dictionary(const fs::path &inDictFile)
 
 	try
 	{
-		m_impl.reset(new compound_factory_impl(inDictFile, m_impl));
+		m_impl = std::make_shared<compound_factory_impl>(inDictFile, m_impl);
 	}
 	catch (const std::exception &)
 	{
@@ -703,7 +700,7 @@ void compound_factory::push_dictionary(const fs::path &inDictFile)
 
 	try
 	{
-		m_impl.reset(new compound_factory_impl(inDictFile, m_impl));
+		m_impl = std::make_shared<compound_factory_impl>(inDictFile, m_impl);
 	}
 	catch (const std::exception &)
 	{
@@ -715,7 +712,7 @@ void compound_factory::push_dictionary(const cif::file &inDictFile)
 {
 	try
 	{
-		m_impl.reset(new local_compound_factory_impl(inDictFile, m_impl));
+		m_impl = std::make_shared<local_compound_factory_impl>(inDictFile, m_impl);
 	}
 	catch (const std::exception &)
 	{

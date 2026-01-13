@@ -27,18 +27,24 @@
 #pragma once
 
 #include "cif++/exports.hpp"
-#include "cif++/forward_decl.hpp"
 #include "cif++/text.hpp"
 #include "cif++/utilities.hpp"
 
 #include <algorithm>
-#include <cassert>
+#include <cctype>
 #include <charconv>
-#include <cstring>
+#include <cstdint>
+#include <cstdlib>
 #include <iomanip>
 #include <iostream>
 #include <limits>
 #include <optional>
+#include <sstream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <type_traits>
 #include <utility>
 
 /** \file item.hpp
@@ -49,6 +55,8 @@
 
 namespace cif
 {
+
+class row_handle;
 
 // --------------------------------------------------------------------
 /** @brief item is a transient class that is used to pass data into rows
@@ -109,7 +117,8 @@ class item
 	/// precision \a precision
 	template <typename T>
 	item(std::string_view name, const T &value, int precision)
-		requires (std::is_floating_point_v<T>) : m_name(name)
+		requires(std::is_floating_point_v<T>)
+		: m_name(name)
 	{
 		using namespace std;
 		using namespace cif;
@@ -128,7 +137,8 @@ class item
 	/// so-called general formatting
 	template <typename T>
 	item(const std::string_view name, const T &value)
-		requires (std::is_floating_point_v<T>) : m_name(name)
+		requires(std::is_floating_point_v<T>)
+		: m_name(name)
 	{
 		using namespace std;
 		using namespace cif;
@@ -146,7 +156,8 @@ class item
 	/// content the formatted integral value \a value
 	template <typename T>
 	item(const std::string_view name, const T &value)
-		requires (std::is_integral_v<T> and not std::is_same_v<T, bool>) : m_name(name)
+		requires(std::is_integral_v<T> and not std::is_same_v<T, bool>)
+		: m_name(name)
 	{
 		char buffer[32];
 
@@ -161,7 +172,8 @@ class item
 	/// content the formatted boolean value \a value
 	template <typename T>
 	item(const std::string_view name, const T &value)
-		requires (std::is_same_v<T, bool>) : m_name(name)
+		requires(std::is_same_v<T, bool>)
+		: m_name(name)
 	{
 		m_value.assign(value ? "y" : "n");
 	}
@@ -178,7 +190,8 @@ class item
 	/// content value \a value
 	template <typename T>
 	item(const std::string_view name, T &&value)
-		requires (std::is_same_v<T, std::string>) : m_name(name)
+		requires(std::is_same_v<T, std::string>)
+		: m_name(name)
 		, m_value(std::forward<T>(value))
 	{
 	}
@@ -203,7 +216,8 @@ class item
 	/// precision \a precision
 	template <typename T>
 	item(std::string_view name, const std::optional<T> &value, int precision)
-		requires (std::is_floating_point_v<T>) : m_name(name)
+		requires(std::is_floating_point_v<T>)
+		: m_name(name)
 	{
 		if (value.has_value())
 		{
@@ -534,7 +548,7 @@ struct item_handle
 	}
 
   private:
-	item_handle();
+	item_handle() noexcept;
 
 	uint16_t m_item_ix;
 	row_handle &m_row_handle;

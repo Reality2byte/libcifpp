@@ -9,5 +9,10 @@ Checks: '-*,
          performance
          '
 
-HeaderFilterRegex: '.*'
-ExcludeHeaderFilterRegex: 'Eigen|Eigen/Eigenvalues'
+# HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: 'Eigen|Eigen/Eigenvalues|eigen3/Eigen/Eigenvalues|sqlite3.h'
+CheckOptions:
+  - key: bugprone-narrowing-conversions.WarnOnIntegerNarrowingConversion
+    value: false
+  - key: bugprone-narrowing-conversions.WarnOnIntegerToFloatingPointNarrowingConversion
+    value: false

@@ -26,7 +26,9 @@
 
 #pragma once
 
-#include "cif++/file.hpp"
+#include <cstdint>
+#include <limits>
+#include <string>
 
 /// \file pdb_record.hpp
 
@@ -37,7 +39,7 @@ namespace cif::pdb
 
 struct PDBRecord
 {
-	PDBRecord *mNext;
+	PDBRecord *mNext = nullptr;
 	uint32_t mLineNr;
 	char mName[11];
 	std::size_t mVlen;
@@ -60,4 +62,4 @@ struct PDBRecord
 	std::string vF(std::size_t columnFirst, std::size_t columnLast);
 };
 
-} // namespace pdbx
+} // namespace cif::pdb

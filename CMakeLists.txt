@@ -348,15 +348,6 @@ target_sources(cifpp
 # The code now really requires C++20
 target_compile_features(cifpp PUBLIC cxx_std_20)
 
-find_program(CLANG_TIDY_EXE "clang-tidy")
-
-if(CLANG_TIDY_EXE)
-    message(STATUS "clang-tidy found: ${CLANG_TIDY_EXE}")
-    set(CMAKE_CXX_CLANG_TIDY ${CLANG_TIDY_EXE} --warnings-as-errors=-*)
-else()
-    message(WARNING "clang-tidy not found!")
-endif()
-
 generate_export_header(cifpp EXPORT_FILE_NAME
     ${CMAKE_CURRENT_SOURCE_DIR}/include/cif++/exports.hpp)
 

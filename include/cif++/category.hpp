@@ -27,12 +27,27 @@
 #pragma once
 
 #include "cif++/condition.hpp"
-#include "cif++/forward_decl.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <functional>
+#include <iosfwd>
+#include <iterator>
+#include <limits>
+#include <memory>
+#include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
 #include <utility>
+#include <vector>
 
 /** \file category.hpp
  * Documentation for the cif::category class
@@ -49,6 +64,7 @@
 namespace cif
 {
 
+class datablock;
 class validator;
 struct category_validator;
 struct item_validator;
@@ -1117,7 +1133,7 @@ class category
 	[[nodiscard]] std::vector<std::string> get_items() const;
 
 	/// @brief Return the number of items (colums) in this category
-	[[nodiscard]] size_t get_item_count() const noexcept
+	[[nodiscard]] constexpr uint16_t get_item_count() const noexcept
 	{
 		return m_items.size();
 	}

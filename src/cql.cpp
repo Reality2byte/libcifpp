@@ -37,16 +37,22 @@
 
 #include <algorithm>
 #include <cstdint>
+#include <cstring>
 #include <exception>
+#include <format>
 #include <iomanip>
+#include <iostream>
 #include <memory>
+#include <ranges>
 #include <regex>
 #include <sqlite3.h>
 #include <sstream>
 #include <stack>
 #include <stdexcept>
 #include <system_error>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 namespace cif::cql
 {
@@ -430,13 +436,13 @@ int connection_impl::Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int 
 					sqlite3_result_double(ctx, v);
 				}
 				else
-					sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
+					sqlite3_result_text(ctx, item.text().data(), static_cast<int>(item.text().size()), SQLITE_STATIC);
 			}
 			else
-				sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
+				sqlite3_result_text(ctx, item.text().data(), static_cast<int>(item.text().size()), SQLITE_STATIC);
 		}
 		else
-			sqlite3_result_text(ctx, item.text().data(), item.text().size(), SQLITE_STATIC);
+			sqlite3_result_text(ctx, item.text().data(), static_cast<int>(item.text().size()), SQLITE_STATIC);
 	}
 
 	return SQLITE_OK;
@@ -709,8 +715,8 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 		pVtab->zErrMsg = sqlite3_mprintf("%s", ex.what());
 	}
 
-	pIdxInfo->estimatedCost = p->m_cat.size();
-	pIdxInfo->estimatedRows = p->m_cat.size();
+	pIdxInfo->estimatedCost = static_cast<double>(p->m_cat.size());
+	pIdxInfo->estimatedRows = static_cast<int64_t>(p->m_cat.size());
 	return SQLITE_OK;
 }
 
@@ -750,12 +756,12 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 
 					sqlite3_stmt *sub_stmt;
 					auto sqls = sql.str();
-					rc = sqlite3_prepare_v2(p->m_connection_impl.m_sqlite_db, sqls.c_str(), sqls.length(), &sub_stmt, nullptr);
+					rc = sqlite3_prepare_v2(p->m_connection_impl.m_sqlite_db, sqls.c_str(), static_cast<int>(sqls.length()), &sub_stmt, nullptr);
 
-					for (size_t i = 0; rc == SQLITE_OK and i < link->m_parent_keys.size(); ++i)
+					for (int i = 0; rc == SQLITE_OK and static_cast<size_t>(i) < link->m_parent_keys.size(); ++i)
 					{
 						auto txt = rh[link->m_parent_keys[i]].text();
-						rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), txt.length(), nullptr);
+						rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), static_cast<int>(txt.length()), nullptr);
 					}
 
 					if (rc == SQLITE_OK)
@@ -868,17 +874,17 @@ int connection_impl::Update(sqlite3_vtab *pVTab, int argc, sqlite3_value **argv,
 
 					sqlite3_stmt *sub_stmt;
 					auto sqls = sql.str();
-					rc = sqlite3_prepare_v2(p->m_connection_impl.m_sqlite_db, sqls.c_str(), sqls.length(), &sub_stmt, nullptr);
+					rc = sqlite3_prepare_v2(p->m_connection_impl.m_sqlite_db, sqls.c_str(), static_cast<int>(sqls.length()), &sub_stmt, nullptr);
 
 					for (auto [i, txt] : ixs)
 					{
 						// set
 						if (rc == SQLITE_OK)
-							rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), txt.length(), nullptr);
+							rc = sqlite3_bind_text(sub_stmt, i + 1, txt.data(), static_cast<int>(txt.length()), nullptr);
 
 						// where
 						auto wtxt = rh[link->m_parent_keys[i]].text();
-						rc = sqlite3_bind_text(sub_stmt, i + ixs.size() + 1, wtxt.data(), wtxt.length(), nullptr);
+						rc = sqlite3_bind_text(sub_stmt, static_cast<int>(i + ixs.size() + 1), wtxt.data(), static_cast<int>(wtxt.length()), nullptr);
 					}
 
 					if (rc == SQLITE_OK)
@@ -1018,7 +1024,7 @@ result connection::exec(std::string query, std::string &tail)
 	try
 	{
 		const char *tail_ptr = nullptr;
-		int rc = sqlite3_prepare_v2(m_impl->m_sqlite_db, query.data(), query.length(),
+		int rc = sqlite3_prepare_v2(m_impl->m_sqlite_db, query.data(), static_cast<int>(query.length()),
 			&stmt, &tail_ptr);
 
 		if (rc != SQLITE_OK)
@@ -1052,12 +1058,13 @@ result connection::exec(std::string query, std::string &tail)
 							data.emplace_back(sqlite3_column_name(stmt, i), sqlite3_column_double(stmt, i));
 							break;
 						case SQLITE_TEXT:
-							data.emplace_back(sqlite3_column_name(stmt, i), (const char *)sqlite3_column_text(stmt, i));
+							data.emplace_back(sqlite3_column_name(stmt, i), reinterpret_cast<const char *>(sqlite3_column_text(stmt, i)));
 							break;
 						case SQLITE_BLOB:
 							throw std::runtime_error("Unexpected: blob in result");
 							break;
 						case SQLITE_NULL:
+						default:
 							// data.emplace_back(sqlite3_column_name(stmt, i), ".");
 							break;
 					}
@@ -1110,8 +1117,15 @@ transaction::transaction(connection &conn)
 
 transaction::~transaction()
 {
-	if (m_transaction_active)
-		rollback();
+	try
+	{
+		if (m_transaction_active)
+			rollback();
+	}
+	catch (const std::exception &ex)
+	{
+		std::cerr << "Error in destructor of transaction: " << ex.what() << '\n';
+	}
 }
 
 void transaction::commit()

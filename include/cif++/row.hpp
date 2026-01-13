@@ -29,7 +29,14 @@
 #include "cif++/item.hpp"
 
 #include <array>
+#include <cstddef>
 #include <cstdint>
+#include <initializer_list>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
+#include <utility>
+#include <vector>
 
 /**
  * @file row.hpp
@@ -79,10 +86,13 @@
 namespace cif
 {
 
+class category;
+class row_handle;
 namespace cql
 {
 	struct connection_impl;
 }
+
 
 namespace detail
 {
@@ -378,7 +388,7 @@ class row_handle
 		assign(i.name(), i.value(), updateLinked);
 	}
 
-	void swap(uint16_t item, row_handle &r);
+	void swap(uint16_t item, row_handle &r) noexcept(false);
 
 	category *m_category = nullptr;
 	row *m_row = nullptr;

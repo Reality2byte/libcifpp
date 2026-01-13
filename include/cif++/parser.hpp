@@ -28,6 +28,8 @@
 
 #include "cif++/row.hpp"
 
+#include "cif++/file.hpp"
+
 #include <map>
 
 /**

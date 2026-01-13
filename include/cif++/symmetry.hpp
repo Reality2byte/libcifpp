@@ -189,7 +189,7 @@ struct symop_datablock
 	{
 	}
 
-	[[nodiscard]] uint16_t spacegroup() const { return m_v >> 48; }                     ///< Return the spacegroup
+	[[nodiscard]] int spacegroup() const { return m_v >> 48; }                          ///< Return the spacegroup
 	[[nodiscard]] symop_data symop() const { return { m_v }; }                          ///< Return the symmetry operation
 	[[nodiscard]] uint8_t rotational_number() const { return (m_v >> 40) bitand 0xff; } ///< Return the rotational_number
 

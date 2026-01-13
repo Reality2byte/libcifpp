@@ -27,14 +27,26 @@
 #include "cif++/category.hpp"
 
 #include "cif++/datablock.hpp"
+#include "cif++/item.hpp"
 #include "cif++/parser.hpp"
 #include "cif++/utilities.hpp"
 #include "cif++/validate.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <cstdint>
+#include <exception>
+#include <initializer_list>
+#include <iomanip>
+#include <iostream>
+#include <map>
 #include <numeric>
+#include <ranges>
+#include <sstream>
 #include <stack>
+#include <system_error>
 #include <utility>
+#include <variant>
 #include <vector>
 
 // TODO: Find out what the rules are exactly for linked items, the current implementation
@@ -548,13 +560,13 @@ uint16_t category::get_item_ix(std::string_view item_name) const
 {
 	uint16_t result;
 
-	for (result = 0; result < m_items.size(); ++result)
+	for (result = 0; result < get_item_count(); ++result)
 	{
 		if (iequals(item_name, m_items[result].m_name))
 			break;
 	}
 
-	if (VERBOSE > 0 and result == m_items.size() and m_cat_validator != nullptr) // validate the name, if it is known at all (since it was not found)
+	if (VERBOSE > 0 and result == get_item_count() and m_cat_validator != nullptr) // validate the name, if it is known at all (since it was not found)
 	{
 		auto iv = m_cat_validator->get_validator_for_item(item_name);
 		if (iv == nullptr)
@@ -570,7 +582,7 @@ uint16_t category::add_item(std::string_view item_name)
 
 	uint16_t result = get_item_ix(item_name);
 
-	if (result == m_items.size())
+	if (result == get_item_count())
 	{
 		const item_validator *item_validator = nullptr;
 
@@ -589,7 +601,7 @@ uint16_t category::add_item(std::string_view item_name)
 
 void category::remove_item(std::string_view item_name)
 {
-	for (std::size_t ix = 0; ix < m_items.size(); ++ix)
+	for (uint16_t ix = 0; ix < get_item_count(); ++ix)
 	{
 		if (not iequals(item_name, m_items[ix].m_name))
 			continue;
@@ -608,11 +620,11 @@ void category::remove_item(std::string_view item_name)
 
 void category::drop_empty_items()
 {
-	std::vector<bool> is_empty(m_items.size(), true);
+	std::vector<bool> is_empty(get_item_count(), true);
 
 	for (auto &row : *this)
 	{
-		for (size_t ix = 0; ix < m_items.size(); ++ix)
+		for (size_t ix = 0; ix < get_item_count(); ++ix)
 		{
 			if (is_empty[ix] and not row[ix].empty())
 				is_empty[ix] = false;
@@ -620,7 +632,7 @@ void category::drop_empty_items()
 	}
 
 	std::vector<std::string> items;
-	for (size_t ix = 0; ix < m_items.size(); ++ix)
+	for (size_t ix = 0; ix < get_item_count(); ++ix)
 	{
 		if (is_empty[ix])
 			items.push_back(m_items[ix].m_name);
@@ -710,7 +722,7 @@ void category::set_validator(const validator *v, datablock &db)
 				for (auto k : m_cat_validator->m_keys)
 				{
 					kix.push_back(get_item_ix(k));
-					if (kix.back() >= m_items.size())
+					if (kix.back() >= get_item_count())
 						missing.insert(k);
 				}
 			}
@@ -810,7 +822,7 @@ bool category::is_valid() const
 
 		for (auto k : m_cat_validator->m_keys)
 		{
-			if (get_item_ix(k) >= m_items.size())
+			if (get_item_ix(k) >= get_item_count())
 				missing.insert(k);
 		}
 
@@ -840,7 +852,7 @@ bool category::is_valid() const
 
 	for (auto ri = m_head; ri != nullptr; ri = ri->m_next)
 	{
-		for (uint16_t cix = 0; cix < m_items.size(); ++cix)
+		for (uint16_t cix = 0; cix < get_item_count(); ++cix)
 		{
 			bool seen = false;
 			auto iv = m_items[cix].m_validator;
@@ -1382,7 +1394,7 @@ void category::update_value(const std::vector<row_handle> &rows, std::string_vie
 		return;
 
 	auto colIx = get_item_ix(item_name);
-	if (colIx >= m_items.size())
+	if (colIx >= get_item_count())
 		throw validation_exception(validation_error::unknown_item, m_name, item_name);
 
 	auto &col = m_items[colIx];
@@ -1436,8 +1448,7 @@ void category::update_value(const std::vector<row_handle> &rows, std::string_vie
 			if (children.empty())
 				continue;
 
-			std::vector<row_handle> child_rows;
-			std::copy(children.begin(), children.end(), std::back_inserter(child_rows));
+			std::vector<row_handle> child_rows{ children.begin(), children.end() };
 
 			// now be careful. If we search back from child to parent and still find a valid parent row
 			// we cannot simply rename the child but will have to create a new child. Unless that new
@@ -1639,7 +1650,7 @@ row *category::clone_row(const row &r)
 
 	try
 	{
-		for (uint16_t ix = 0; ix < r.size(); ++ix)
+		for (uint16_t ix = 0; ix < static_cast<uint16_t>(r.size()); ++ix)
 		{
 			auto &i = r[ix];
 			if (not i)
@@ -1674,7 +1685,7 @@ row_handle category::create_copy(row_handle r)
 	// copy the values
 	std::vector<item> items;
 
-	for (uint16_t ix = 0; ix < r.m_row->size(); ++ix)
+	for (uint16_t ix = 0; ix < static_cast<uint16_t>(r.m_row->size()); ++ix)
 	{
 		auto i = r.m_row->get(ix);
 		if (i != nullptr)
@@ -1724,7 +1735,7 @@ category::iterator category::insert_impl(const_iterator pos, row *n)
 		// First, make sure all mandatory items are supplied
 		if (m_cat_validator != nullptr)
 		{
-			for (uint16_t ix = 0; ix < static_cast<uint16_t>(m_items.size()); ++ix)
+			for (uint16_t ix = 0; ix < static_cast<uint16_t>(get_item_count()); ++ix)
 			{
 				const auto &[item, iv] = m_items[ix];
 
@@ -1942,7 +1953,7 @@ std::vector<std::string> category::get_item_order() const
 
 void category::write(std::ostream &os) const
 {
-	std::vector<uint16_t> order(m_items.size());
+	std::vector<uint16_t> order(get_item_count());
 	iota(order.begin(), order.end(), static_cast<uint16_t>(0));
 	write_cif(os, order, false);
 }
@@ -1954,14 +1965,14 @@ void category::write(std::ostream &os, output_format fmt, const std::vector<std:
 		add_item(c);
 
 	std::vector<uint16_t> order;
-	order.reserve(m_items.size());
+	order.reserve(get_item_count());
 
 	for (auto &c : items)
 		order.push_back(get_item_ix(c));
 
 	if (addMissingItems)
 	{
-		for (uint16_t i = 0; i < m_items.size(); ++i)
+		for (uint16_t i = 0; i < get_item_count(); ++i)
 		{
 			if (std::ranges::find(order, i) == order.end())
 				order.push_back(i);
@@ -2012,7 +2023,7 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 	// If the first Row has a next, we need a loop_
 	bool needLoop = (m_head->m_next != nullptr);
 
-	std::vector<bool> right_aligned(m_items.size(), false);
+	std::vector<bool> right_aligned(get_item_count(), false);
 
 	if (m_cat_validator != nullptr)
 	{
@@ -2029,7 +2040,7 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 	{
 		os << "loop_\n";
 
-		std::vector<std::size_t> itemWidths(m_items.size());
+		std::vector<std::size_t> itemWidths(get_item_count());
 
 		for (auto cix : order)
 		{
@@ -2043,7 +2054,7 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 
 		for (auto r = m_head; r != nullptr; r = r->m_next)
 		{
-			for (uint16_t ix = 0; ix < r->size(); ++ix)
+			for (uint16_t ix = 0; static_cast<uint16_t>(ix < r->size()); ++ix)
 			{
 				auto v = r->get(ix);
 				if (v == nullptr)
@@ -2183,7 +2194,7 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 	if (empty())
 		return;
 
-	std::vector<bool> right_aligned(m_items.size(), false);
+	std::vector<bool> right_aligned(get_item_count(), false);
 
 	if (aligned and m_cat_validator != nullptr)
 	{
@@ -2196,7 +2207,7 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 		}
 	}
 
-	std::vector<std::size_t> itemWidths(m_items.size());
+	std::vector<std::size_t> itemWidths(get_item_count());
 	auto get_line = [delimiter](std::string_view s) -> std::string
 	{
 		if (delimiter == ",")
@@ -2250,7 +2261,7 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 
 		for (auto r = m_head; r != nullptr; r = r->m_next)
 		{
-			for (uint16_t ix = 0; ix < r->size(); ++ix)
+			for (uint16_t ix = 0; static_cast<uint16_t>(ix < r->size()); ++ix)
 			{
 				auto v = r->get(ix);
 				if (v == nullptr)
@@ -2277,8 +2288,8 @@ void category::write_delimited(std::ostream &os, const std::vector<uint16_t> &or
 			{
 				if (delimiter == "  ")
 				{
-					int l = (w - s.length()) / 2;
-					int r = w - s.length() - l;
+					auto l = (w - s.length()) / 2;
+					auto r = w - s.length() - l;
 					os << std::string(l, ' ') << s << std::string(r, ' ');
 				}
 				else
@@ -2348,7 +2359,7 @@ void category::write_markdown(std::ostream &os, const std::vector<uint16_t> &ord
 	if (empty())
 		return;
 
-	std::vector<bool> right_aligned(m_items.size(), false);
+	std::vector<bool> right_aligned(get_item_count(), false);
 
 	if (m_cat_validator != nullptr)
 	{
@@ -2361,7 +2372,7 @@ void category::write_markdown(std::ostream &os, const std::vector<uint16_t> &ord
 		}
 	}
 
-	std::vector<std::size_t> itemWidths(m_items.size());
+	std::vector<std::size_t> itemWidths(get_item_count());
 
 	for (auto cix : order)
 	{
@@ -2371,7 +2382,7 @@ void category::write_markdown(std::ostream &os, const std::vector<uint16_t> &ord
 
 	for (auto r = m_head; r != nullptr; r = r->m_next)
 	{
-		for (uint16_t ix = 0; ix < r->size(); ++ix)
+		for (uint16_t ix = 0; ix < static_cast<uint16_t>(r->size()); ++ix)
 		{
 			auto v = r->get(ix);
 			if (v == nullptr)
@@ -2394,8 +2405,8 @@ void category::write_markdown(std::ostream &os, const std::vector<uint16_t> &ord
 
 		if (s.length() < w)
 		{
-			int l = (w - s.length()) / 2;
-			int r = w - s.length() - l;
+			auto l = (w - s.length()) / 2;
+			auto r = w - s.length() - l;
 			os << std::string(l, ' ') << s << std::string(r, ' ');
 		}
 		else
@@ -2474,7 +2485,7 @@ void category::write_table(std::ostream &os, const std::vector<uint16_t> &order,
 
 	auto box = ascii ? kAsciiBox : kUnicodeBox;
 
-	std::vector<bool> right_aligned(m_items.size(), false);
+	std::vector<bool> right_aligned(get_item_count(), false);
 
 	if (m_cat_validator != nullptr)
 	{
@@ -2487,7 +2498,7 @@ void category::write_table(std::ostream &os, const std::vector<uint16_t> &order,
 		}
 	}
 
-	std::vector<std::size_t> itemWidths(m_items.size());
+	std::vector<std::size_t> itemWidths(get_item_count());
 
 	for (auto cix : order)
 	{
@@ -2497,7 +2508,7 @@ void category::write_table(std::ostream &os, const std::vector<uint16_t> &order,
 
 	for (auto r = m_head; r != nullptr; r = r->m_next)
 	{
-		for (uint16_t ix = 0; ix < r->size(); ++ix)
+		for (uint16_t ix = 0; ix < static_cast<uint16_t>(r->size()); ++ix)
 		{
 			auto v = r->get(ix);
 			if (v == nullptr)
@@ -2530,8 +2541,8 @@ void category::write_table(std::ostream &os, const std::vector<uint16_t> &order,
 
 		if (s.length() < w)
 		{
-			int l = (w - s.length()) / 2;
-			int r = w - s.length() - l;
+			auto l = (w - s.length()) / 2;
+			auto r = w - s.length() - l;
 			os << std::string(l, ' ') << s << std::string(r, ' ');
 		}
 		else

@@ -287,7 +287,7 @@ class compound_factory
 	/// \result		The compound, or nullptr if it could not be created (missing info)
 	const compound *create(std::string_view id);
 
-	~compound_factory();
+	~compound_factory() = default;
 
 	CIFPP_EXPORT static const std::map<std::string, char> kAAMap, ///< Globally accessible static list of the default amino acids
 		kBaseMap;                                                 ///< Globally accessible static list of the default bases

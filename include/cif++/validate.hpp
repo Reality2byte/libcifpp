@@ -237,7 +237,7 @@ struct type_validator
 	type_validator(std::string_view name, DDL_PrimitiveType type, std::string_view rx);
 
 	/// @brief Copy constructor
-	type_validator(const type_validator &tv);
+	type_validator(const type_validator &tv) = default;
 
 	/// @brief Move constructor
 	type_validator(type_validator &&rhs)
@@ -253,7 +253,7 @@ struct type_validator
 	}
 
 	/// @brief Destructor
-	~type_validator();
+	~type_validator() = default;
 
 	friend void swap(type_validator &a, type_validator &b)
 	{
@@ -419,7 +419,7 @@ class validator
 	/// @brief destructor
 	~validator() = default;
 
-	validator(const validator &rhs);
+	validator(const validator &rhs) = default;
 
 	/// @brief move constructor
 	validator(validator &&rhs)

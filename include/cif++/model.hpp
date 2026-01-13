@@ -710,7 +710,7 @@ class polymer : public std::vector<monomer>
 {
   public:
 	/// \brief Constructor
-	polymer(structure &s, const std::string &entityID, const std::string &asymID, const std::string &auth_asym_id);
+	polymer(structure &s, std::string entityID, std::string asymID, std::string auth_asym_id);
 
 	polymer(const polymer &) = delete;
 	polymer &operator=(const polymer &) = delete;
@@ -807,7 +807,7 @@ class branch : public std::vector<sugar>
 {
   public:
 	/// \brief constructor
-	branch(structure &structure, const std::string &asym_id, const std::string &entity_id);
+	branch(structure &structure, std::string asym_id, std::string entity_id);
 
 	branch(const branch &) = delete;
 	branch &operator=(const branch &) = delete;

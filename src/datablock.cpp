@@ -44,6 +44,17 @@ datablock::datablock(const datablock &db)
 		cat.update_links(*this);
 }
 
+datablock::datablock(datablock &&db) noexcept
+{
+	std::swap(*this, db);
+}
+
+datablock &datablock::operator=(datablock db) noexcept
+{
+	std::swap(*this, db);
+	return *this;
+}
+
 void datablock::load_dictionary()
 {
 	if (auto *audit_conform = get("audit_conform"); audit_conform and not audit_conform->empty())

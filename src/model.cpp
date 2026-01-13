@@ -409,24 +409,6 @@ monomer::monomer(const polymer &polymer, std::size_t index, int seqID, const std
 {
 }
 
-monomer::monomer(monomer &&rhs)
-	: residue(std::forward<monomer>(rhs))
-	, m_polymer(rhs.m_polymer)
-	, m_index(rhs.m_index)
-{
-	rhs.m_polymer = nullptr;
-}
-
-monomer &monomer::operator=(monomer &&rhs)
-{
-	residue::operator=(std::move(rhs));
-	m_polymer = rhs.m_polymer;
-	rhs.m_polymer = nullptr;
-	m_index = rhs.m_index;
-
-	return *this;
-}
-
 bool monomer::is_first_in_chain() const
 {
 	return m_index == 0;
@@ -911,23 +893,6 @@ sugar::sugar(branch &branch, const std::string &compoundID,
 	: residue(branch.get_structure(), compoundID, asym_id, 0, asym_id, std::to_string(authSeqID), "")
 	, m_branch(&branch)
 {
-}
-
-sugar::sugar(sugar &&rhs)
-	: residue(std::forward<residue>(rhs))
-	, m_branch(rhs.m_branch)
-{
-}
-
-sugar &sugar::operator=(sugar &&rhs)
-{
-	if (this != &rhs)
-	{
-		residue::operator=(std::forward<residue>(rhs));
-		m_branch = rhs.m_branch;
-	}
-
-	return *this;
 }
 
 // bool sugar::hasLinkedSugarAtLeavingO(int leavingO) const

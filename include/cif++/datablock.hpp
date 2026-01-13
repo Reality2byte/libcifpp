@@ -63,24 +63,15 @@ class datablock : public std::list<category>
 
 	/** @cond */
 	datablock(const datablock &);
-
-	datablock(datablock &&db) noexcept
-	{
-		swap_(*this, db);
-	}
-
-	datablock &operator=(datablock db)
-	{
-		swap_(*this, db);
-		return *this;
-	}
+	datablock(datablock &&db) noexcept;
+	datablock &operator=(datablock db) noexcept;
 	/** @endcond */
 
-	friend void swap_(datablock &a, datablock &b) noexcept
+	void swap(datablock &db) noexcept
 	{
-		std::swap(a.m_name, b.m_name);
-		std::swap(a.m_validator, b.m_validator);
-		std::swap(static_cast<std::list<category> &>(a), static_cast<std::list<category> &>(b));
+		std::swap(m_name, db.m_name);
+		std::swap(db.m_validator, db.m_validator);
+		std::list<category>::swap(db);
 	}
 
 	// --------------------------------------------------------------------
@@ -247,3 +238,15 @@ class datablock : public std::list<category>
 };
 
 } // namespace cif
+
+
+namespace std
+{
+
+template <typename T, typename Alloc>
+inline void swap(cif::datablock &x, cif::datablock &y) noexcept // NOLINT(bugprone-std-namespace-modification,cert-dcl58-cpp)
+{
+	x.swap(y);
+}
+
+} // namespace std

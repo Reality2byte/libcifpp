@@ -35,7 +35,7 @@
 
 #if __cpp_lib_format
 # include <format>
-#include <utility>
+# include <utility>
 #endif
 
 /** @file model.hpp
@@ -125,12 +125,12 @@ class atom
 
 		row_handle row()
 		{
-			return m_cat[{ { .name="id", .value=m_id } }];
+			return m_cat[{ { .name = "id", .value = m_id } }];
 		}
 
 		[[nodiscard]] const row_handle row() const
 		{
-			return m_cat[{ { .name="id", .value=m_id } }];
+			return m_cat[{ { .name = "id", .value = m_id } }];
 		}
 
 		row_handle row_aniso()
@@ -138,7 +138,7 @@ class atom
 			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
 			if (cat)
-				result = cat->operator[]({ { .name="id", .value=m_id } });
+				result = cat->operator[]({ { .name = "id", .value = m_id } });
 			return result;
 		}
 
@@ -147,7 +147,7 @@ class atom
 			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
 			if (cat)
-				result = cat->operator[]({ { .name="id", .value=m_id } });
+				result = cat->operator[]({ { .name = "id", .value = m_id } });
 			return result;
 		}
 
@@ -247,7 +247,8 @@ class atom
 	/// \brief Set value for the item named @a name in the _atom_site category to @a value
 	template <typename T>
 	void set_property(const std::string_view name, const T &value)
-	requires (std::is_arithmetic_v<T>) {
+		requires(std::is_arithmetic_v<T>)
+	{
 		set_property(name, std::to_string(value));
 	}
 
@@ -494,11 +495,29 @@ class residue
 	residue(structure &structure, const std::vector<atom> &atoms);
 
 	/** @cond */
-	residue(const residue &rhs) = delete;
-	residue &operator=(const residue &rhs) = delete;
+	residue(const residue &rhs) = default;
+	residue(residue &&rhs)
+	{
+		swap(*this, rhs);
+	}
 
-	residue(residue &&rhs) = default;
-	residue &operator=(residue &&rhs) = default;
+	residue &operator=(residue rhs)
+	{
+		swap(*this, rhs);
+		return *this;
+	}
+
+	friend void swap(residue &a, residue &b) noexcept
+	{
+		if (&a != &b)
+		{
+			std::swap(a.m_structure, b.m_structure);
+			std::swap(a.m_asym_id, b.m_asym_id);
+			std::swap(a.m_seq_id, b.m_seq_id);
+			std::swap(a.m_pdb_ins_code, b.m_pdb_ins_code);
+			std::swap(a.m_atoms, b.m_atoms);
+		}
+	}
 
 	virtual ~residue() = default;
 	/** @endcond */
@@ -517,7 +536,7 @@ class residue
 	[[nodiscard]] std::string get_pdb_ins_code() const { return m_pdb_ins_code; }         ///< Return the pdb_ins_code
 
 	[[nodiscard]] const std::string &get_compound_id() const { return m_compound_id; } ///< Return the compound_id
-	void set_compound_id(const std::string &id) { m_compound_id = id; }  ///< Set the compound_id to @a id
+	void set_compound_id(const std::string &id) { m_compound_id = id; }                ///< Set the compound_id to @a id
 
 	/** Return the structure this residue belongs to */
 	[[nodiscard]] structure *get_structure() const { return m_structure; }
@@ -612,18 +631,30 @@ class residue
 class monomer : public residue
 {
   public:
-	monomer(const monomer &rhs) = delete;
-	monomer &operator=(const monomer &rhs) = delete;
-
-	/// \brief Move constructor
-	monomer(monomer &&rhs);
-
-	/// \brief Move assignment operator
-	monomer &operator=(monomer &&rhs);
-
 	/// \brief constructor with actual values
 	monomer(const polymer &polymer, std::size_t index, int seqID, const std::string &authSeqID,
 		const std::string &pdbInsCode, const std::string &compoundID);
+
+	/// \brief Copy constructor
+	monomer(const monomer &rhs) = default;
+
+	/// \brief Move constructor
+	monomer(monomer &&rhs)
+	{
+		swap(*this, rhs);
+	}
+	monomer &operator=(monomer rhs)
+	{
+		swap(*this, rhs);
+		return *this;
+	}
+
+	friend void swap(monomer &a, monomer &b) noexcept
+	{
+		assert(a.m_polymer == b.m_polymer);
+		std::swap(a.m_index, b.m_index);
+		swap(static_cast<residue &>(a), static_cast<residue &>(b));
+	}
 
 	[[nodiscard]] bool is_first_in_chain() const; ///< Return if this residue is the first residue in the chain
 	[[nodiscard]] bool is_last_in_chain() const;  ///< Return if this residue is the last residue in the chain
@@ -746,8 +777,26 @@ class sugar : public residue
 		const std::string &asymID, int authSeqID);
 
 	/** @cond */
-	sugar(sugar &&rhs);
-	sugar &operator=(sugar &&rhs);
+	sugar(const sugar &rhs) = default;
+
+	sugar(sugar &&rhs)
+	{
+		swap(*this, rhs);
+	}
+
+	sugar &operator=(sugar rhs)
+	{
+		swap(*this, rhs);
+		return *this;
+	}
+
+	friend void swap(sugar &a, sugar &b) noexcept
+	{
+		assert(a.m_branch == b.m_branch);
+		std::swap(a.m_link, b.m_link);
+		swap(static_cast<residue &>(a), static_cast<residue &>(b));
+	}
+
 	/** @endcond */
 
 	/**

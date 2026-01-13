@@ -54,6 +54,12 @@
 # pragma warning(disable : 4100) // unreferenced formal parameter
 # pragma warning(disable : 4101) // unreferenced local variable
 # pragma warning(disable : 4702) // unreachable code (too bad, this one. Happens in for loops)
+
+// Truncation warnings: yes, perhaps, but I think they are okay
+# pragma warning(disable : 4244)
+# pragma warning(disable : 4267)
+# pragma warning(disable : 4305)
+
 # define _SILENCE_CXX17_CODECVT_HEADER_DEPRECATION_WARNING 1
 #endif
 

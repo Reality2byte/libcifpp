@@ -655,7 +655,7 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 						{
 							pIdxInfo->aConstraintUsage[i].omit = 1;
 							if (i < 63 and sqlite3_libversion_number() >= 3010000)
-								pIdxInfo->colUsed |= 1 << i;
+								pIdxInfo->colUsed |= 1ULL << i;
 						}
 						else
 							ok = false;
@@ -676,13 +676,13 @@ int connection_impl::BestIndex(sqlite3_vtab *pVtab, sqlite3_index_info *pIdxInfo
 						os << item << " IS NOT NULL\n";
 						pIdxInfo->aConstraintUsage[i].omit = 1;
 						if (i < 63 and sqlite3_libversion_number() >= 3010000)
-							pIdxInfo->colUsed |= 1 << i;
+							pIdxInfo->colUsed |= 1ULL << i;
 						break;
 					case SQLITE_INDEX_CONSTRAINT_ISNULL:
 						os << item << " IS NULL\n";
 						pIdxInfo->aConstraintUsage[i].omit = 1;
 						if (i < 63 and sqlite3_libversion_number() >= 3010000)
-							pIdxInfo->colUsed |= 1 << i;
+							pIdxInfo->colUsed |= 1ULL << i;
 						break;
 						// case SQLITE_INDEX_CONSTRAINT_IS:
 						// 	break;

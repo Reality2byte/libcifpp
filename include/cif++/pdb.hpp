@@ -64,7 +64,7 @@ file read(std::istream &is);
  * @brief Read a file in legacy PDB format from std::istream @a is and
  * put the data into @a cifFile
  */
-file read_pdb_file(std::istream &pdbFile);
+void read_pdb_file(std::istream &pdbFile, cif::file &cifFile);
 
 // mmCIF to PDB
 

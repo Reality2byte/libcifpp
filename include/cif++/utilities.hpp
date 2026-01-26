@@ -28,8 +28,15 @@
 
 #include "cif++/exports.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <iostream>
+#include <memory>
+#include <optional>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <type_traits>
 
 #ifndef STDOUT_FILENO
 /// @brief For systems that lack this value

@@ -30,20 +30,28 @@
 
 #include <atomic>
 #include <cassert>
+#include <chrono>
 #include <cmath>
 #include <condition_variable>
-#include <cstring>
+#include <cstddef>
+#include <cstdlib>
 #include <deque>
 #include <exception>
 #include <format>
 #include <fstream>
+#include <functional>
 #include <iomanip>
 #include <iostream>
+#include <iterator>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <sstream>
+#include <stdexcept>
+#include <stop_token>
 #include <string>
+#include <sys/ioctl.h>
+#include <system_error>
 #include <thread>
 #include <utility>
 
@@ -82,12 +90,12 @@ std::string get_version_nr()
 namespace cif
 {
 
-uint32_t get_terminal_width()
+std::tuple<uint32_t, uint32_t> get_terminal_width_and_height()
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	return ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi)
-	           ? csbi.srWindow.Right - csbi.srWindow.Left + 1
-	           : 80;
+	           ? { csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottm - csbi.srWindow.Top + 1 }
+	           : { 80, 24 };
 }
 
 void write_to_console(const std::string &s)
@@ -120,15 +128,27 @@ void write_to_console(const std::string &s)
 
 uint32_t get_terminal_width()
 {
-	uint32_t result = 80;
+	uint32_t width = 80;
 
 	if (isatty(STDOUT_FILENO))
 	{
 		struct winsize w;
 		ioctl(0, TIOCGWINSZ, &w);
-		result = w.ws_col;
+		width = w.ws_col;
+		;
 	}
-	return result;
+	return width;
+}
+
+std::tuple<uint32_t, uint32_t> get_terminal_width_and_height()
+{
+	if (isatty(STDOUT_FILENO))
+	{
+		struct winsize w;
+		ioctl(0, TIOCGWINSZ, &w);
+		return { w.ws_col, w.ws_row };
+	}
+	return { 80, 24 };
 }
 
 inline void write_to_console(const std::string &s)
@@ -304,12 +324,13 @@ struct fancy_progress_bar_impl : public progress_bar_impl
 	void message(const std::string &msg) override;
 
 	void print_progress();
+	void print_done() override;
 
 	std::mutex m_mutex;
 	std::condition_variable m_cv;
 
 	float m_progress;
-	uint32_t m_width, m_bar_width;
+	uint32_t m_width, m_bar_width, m_height;
 	uint32_t m_steps, m_last_steps = 0;
 	uint64_t m_last_consumed = 0;
 #if __cpp_lib_jthread >= 201911L
@@ -381,7 +402,7 @@ void fancy_progress_bar_impl::run()
 			m_last_consumed = m_consumed;
 
 			// See if we need to do work
-			m_width = get_terminal_width();
+			std::tie(m_width, m_height) = get_terminal_width_and_height();
 			m_progress = static_cast<float>(m_consumed) / m_max_value;
 			m_bar_width = 7 * m_width / 10; // 70% of the width of the terminal
 			m_steps = static_cast<uint32_t>(std::ceil(m_progress * m_bar_width * kBlockCount));
@@ -391,8 +412,9 @@ void fancy_progress_bar_impl::run()
 
 			m_last_steps = m_steps;
 
+			// auto [w, h] = get_terminal_width_and_height();
 			if (not printedAny)
-				write_to_console("\x1b[?25l");
+				std::cout << std::format("\n\0337\033[{};{}r\0338\033[1A", 0, m_height - 1);
 
 			print_progress();
 
@@ -405,10 +427,7 @@ void fancy_progress_bar_impl::run()
 	}
 
 	if (printedAny)
-	{
-		write_to_console("\r\x1b[?25h");
 		print_done();
-	}
 }
 
 void fancy_progress_bar_impl::consumed(uint64_t n)
@@ -462,10 +481,10 @@ void fancy_progress_bar_impl::print_progress()
 		uint8_t r, g, b;
 	} fg{ 0, 3, 5 }, bg{ 0, 1, 2 };
 
-	auto esc_1 = std::format("\x1b[38;5;{}m\x1b[48;5;{}m",
+	auto esc_1 = std::format("\033[38;5;{}m\033[48;5;{}m",
 		16 + (fg.r * 36) + (fg.g * 6) + fg.b,
 		16 + (bg.r * 36) + (bg.g * 6) + bg.b);
-	std::string esc_2("\x1b[0m");
+	std::string esc_2("\033[0m");
 
 	bar = esc_1 + bar + esc_2;
 
@@ -473,8 +492,19 @@ void fancy_progress_bar_impl::print_progress()
 	                      ? m_message
 	                      : m_message.substr(0, msg_width - 3) + "...";
 
-	write_to_console(std::format("{:{}} {} {:3d}%\r", msg, msg_width, bar,
-		static_cast<int>(std::ceil(m_progress * 100))));
+	std::cout << std::format("\0337\033[?25l\033[{};{}f{:{}} {} {:3d}%\033[?25h\0338", m_height, 1,
+		msg, msg_width,
+		bar,
+		static_cast<int>(std::ceil(m_progress * 100)));
+}
+
+void fancy_progress_bar_impl::print_done()
+{
+	// wipe out progress bar first
+	std::tie(m_width, m_height) = get_terminal_width_and_height();
+	std::cout << std::format("\0337\033[{};{}H{}\033[{};{}r\0338", m_height, 0,
+		std::string(m_width, ' '), 0, m_height);
+	progress_bar_impl::print_done();
 }
 
 // --------------------------------------------------------------------

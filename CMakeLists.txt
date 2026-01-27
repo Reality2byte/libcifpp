@@ -130,13 +130,6 @@ if(MSVC)
 	# make msvc standards compliant...
 	add_compile_options(/permissive- /bigobj)
 	add_link_options(/NODEFAULTLIB:library)
-
-	# This is dubious...
-	if(BUILD_SHARED_LIBS)
-		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
-	else()
-		set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-	endif()
 endif()
 
 # Libraries

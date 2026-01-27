@@ -413,7 +413,8 @@ void fancy_progress_bar_impl::run()
 
 			// auto [w, h] = get_terminal_width_and_height();
 			if (not printedAny)
-				std::cout << std::format("\n\0337\033[{};{}r\0338\033[1A", 0, m_height - 1);
+				std::cout << std::format("\n\0337\033[{};{}r\0338\033[1A", 0, m_height - 1)
+						  << std::flush;
 
 			print_progress();
 
@@ -492,9 +493,10 @@ void fancy_progress_bar_impl::print_progress()
 	                      : m_message.substr(0, msg_width - 3) + "...";
 
 	std::cout << std::format("\0337\033[?25l\033[{};{}f{:{}} {} {:3d}%\033[?25h\0338", m_height, 1,
-		msg, msg_width,
-		bar,
-		static_cast<int>(std::ceil(m_progress * 100)));
+					 msg, msg_width,
+					 bar,
+					 static_cast<int>(std::ceil(m_progress * 100)))
+			  << std::flush;
 }
 
 void fancy_progress_bar_impl::print_done()
@@ -502,7 +504,9 @@ void fancy_progress_bar_impl::print_done()
 	// wipe out progress bar first
 	std::tie(m_width, m_height) = get_terminal_width_and_height();
 	std::cout << std::format("\0337\033[{};{}H{}\033[{};{}r\0338", m_height, 0,
-		std::string(m_width, ' '), 0, m_height);
+					 std::string(m_width, ' '), 0, m_height)
+			  << std::flush;
+	;
 	progress_bar_impl::print_done();
 }
 

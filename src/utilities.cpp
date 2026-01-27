@@ -50,7 +50,6 @@
 #include <stdexcept>
 #include <stop_token>
 #include <string>
-#include <sys/ioctl.h>
 #include <system_error>
 #include <thread>
 #include <utility>

@@ -1,3 +1,6 @@
+Version 9.0.6
+- Various small fixes
+
 Version 9.0.5
 - Added exists to compound_factory
 - Added sub_matrix, fix and extend determinant calculation

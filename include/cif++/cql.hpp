@@ -366,14 +366,14 @@ class result
 // --------------------------------------------------------------------
 
 template <typename... Ts>
-class cql_iterator_proxy : public cif::iterator_proxy<category, Ts...>
+class cql_iterator_proxy : public cif::iterator_proxy<Ts...>
 {
   public:
 	cql_iterator_proxy(result &&res)
-		: cif::iterator_proxy<category, Ts...>(res.get_category())
+		: cif::iterator_proxy<Ts...>(res.get_category())
 		, m_result(std::forward<result>(res))
 	{
-		m_result.expect_columns(cif::iterator_proxy<category, Ts...>::N);
+		m_result.expect_columns(cif::iterator_proxy<Ts...>::N);
 	}
 
   private:

@@ -622,7 +622,7 @@ void category::drop_empty_items()
 {
 	std::vector<bool> is_empty(get_item_count(), true);
 
-	for (auto &row : *this)
+	for (auto row : *this)
 	{
 		for (size_t ix = 0; ix < get_item_count(); ++ix)
 		{

@@ -194,8 +194,8 @@ class row : public std::vector<item_value>
 	friend class category;
 	friend class category_index;
 
-	template <typename, typename...>
-	friend class iterator_impl;
+	template <bool, typename...>
+	friend class iterator_impl_base;
 
 	void append(uint16_t ix, item_value &&iv)
 	{
@@ -225,8 +225,9 @@ class row_handle
 	friend class category;
 	friend class category_index;
 	friend class row_initializer;
-	template <typename, typename...>
-	friend class iterator_impl;
+
+	template <bool, typename...>
+	friend class iterator_impl_base;
 
 	row_handle() = default;
 

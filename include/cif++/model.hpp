@@ -728,7 +728,7 @@ class monomer : public residue
 
   private:
 	const polymer *m_polymer;
-	std::size_t m_index;
+	std::size_t m_index{};
 };
 
 // --------------------------------------------------------------------

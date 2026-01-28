@@ -502,7 +502,7 @@ void checkAtomRecords(datablock &db)
 		std::optional<int> last_label_seq_id, last_auth_seq_id;
 
 		std::set<std::string> entityIDs;
-		for (auto &[entity_id, label_comp_id, label_seq_id, auth_comp_id, auth_seq_id] :
+		for (const auto &[entity_id, label_comp_id, label_seq_id, auth_comp_id, auth_seq_id] :
 			atom_site.rows<std::string, std::string, std::optional<int>, std::string, std::optional<int>>(
 				"label_entity_id", "label_comp_id", "label_seq_id", "auth_comp_id", "auth_seq_id"))
 		{
@@ -1122,7 +1122,7 @@ void createPdbxPolySeqScheme(datablock &db)
 		}
 	}
 
-	for (auto &entity_id : entity_poly.rows<std::string>("entity_id"))
+	for (auto entity_id : entity_poly.rows<std::string>("entity_id"))
 	{
 		for (auto asym_id : struct_asym.find<std::string>("entity_id"_key == entity_id, "id"))
 		{

@@ -195,8 +195,8 @@ struct virtual_cursor
 {
 	sqlite3_vtab_cursor base;
 
-	std::unique_ptr<conditional_iterator_proxy<category>> m_result;
-	conditional_iterator_proxy<category>::iterator m_cur;
+	std::unique_ptr<conditional_iterator_proxy<>> m_result;
+	conditional_iterator_proxy<>::iterator m_cur;
 };
 
 sqlite3_module connection_impl::s_module{
@@ -550,7 +550,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 				}
 			}
 
-			pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(cat.find(std::move(cond)));
+			pCur->m_result = std::make_unique<conditional_iterator_proxy<>>(cat.find(std::move(cond)));
 			pCur->m_cur = pCur->m_result->begin();
 		}
 	}
@@ -563,7 +563,7 @@ int connection_impl::Filter(sqlite3_vtab_cursor *pVtabCursor, int idxNum, const 
 	if (not pCur->m_result)
 	{
 		condition cond = all();
-		pCur->m_result = std::make_unique<conditional_iterator_proxy<category>>(cat.find(std::move(cond)));
+		pCur->m_result = std::make_unique<conditional_iterator_proxy<>>(cat.find(std::move(cond)));
 		pCur->m_cur = pCur->m_result->begin();
 	}
 

@@ -254,7 +254,7 @@ class condition
 	/**
 	 * @brief Return true if the condition is not empty
 	 */
-	explicit operator bool() { return not empty(); }
+	explicit operator bool() const { return not empty(); }
 
 	/**
 	 * @brief Return true if the condition is empty, has no condition

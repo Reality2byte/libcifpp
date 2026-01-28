@@ -40,6 +40,7 @@
 #include <limits>
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <set>
 #include <stdexcept>
 #include <string>
@@ -149,14 +150,17 @@ class category
 
 	friend class row_handle;
 
-	template <typename, typename...>
-	friend class iterator_impl;
+	template <bool, typename...>
+	friend class iterator_impl_base;
 
 	using value_type = row_handle;
 	using reference = value_type;
 	using const_reference = const value_type;
-	using iterator = iterator_impl<category>;
-	using const_iterator = iterator_impl<const category>;
+	using iterator = iterator_impl<>;
+	using const_iterator = const_iterator_impl<>;
+
+	static_assert(std::input_iterator<iterator>);
+	static_assert(std::input_iterator<const_iterator>);
 
 	/// \endcond
 
@@ -406,10 +410,10 @@ class category
 	/// @param names The names for the items requested
 
 	template <typename... Ts, typename... Ns>
-	[[nodiscard]] iterator_proxy<const category, Ts...> rows(Ns... names) const
+	[[nodiscard]] const_iterator_proxy<Ts...> rows(Ns... names) const
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
-		return iterator_proxy<const category, Ts...>(*this, begin(), { names... });
+		return const_iterator_proxy<Ts...>(*this, begin(), { names... });
 	}
 
 	/// @brief Return a special iterator for all rows in this category.
@@ -429,10 +433,10 @@ class category
 	/// @param names The names for the items requested
 
 	template <typename... Ts, typename... Ns>
-	iterator_proxy<category, Ts...> rows(Ns... names)
+	iterator_proxy<Ts...> rows(Ns... names)
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
-		return iterator_proxy<category, Ts...>(*this, begin(), { names... });
+		return iterator_proxy<Ts...>(*this, begin(), { names... });
 	}
 
 	// --------------------------------------------------------------------
@@ -448,7 +452,7 @@ class category
 	/// @return A special iterator that loops over all elements that match. The iterator can be dereferenced
 	/// to a @ref row_handle
 
-	conditional_iterator_proxy<category> find(condition &&cond)
+	conditional_iterator_proxy<> find(condition &&cond)
 	{
 		return find(begin(), std::move(cond));
 	}
@@ -461,7 +465,7 @@ class category
 	/// @return A special iterator that loops over all elements that match. The iterator can be dereferenced
 	/// to a @ref row_handle
 
-	conditional_iterator_proxy<category> find(iterator pos, condition &&cond)
+	conditional_iterator_proxy<> find(iterator pos, condition &&cond)
 	{
 		return { *this, pos, std::move(cond) };
 	}
@@ -472,7 +476,7 @@ class category
 	/// @return A special iterator that loops over all elements that match. The iterator can be dereferenced
 	/// to a const @ref row_handle
 
-	conditional_iterator_proxy<const category> find(condition &&cond) const
+	const_conditional_iterator_proxy<> find(condition &&cond) const
 	{
 		return find(cbegin(), std::move(cond));
 	}
@@ -485,9 +489,9 @@ class category
 	/// @return A special iterator that loops over all elements that match. The iterator can be dereferenced
 	/// to a const @ref row_handle
 
-	conditional_iterator_proxy<const category> find(const_iterator pos, condition &&cond) const
+	const_conditional_iterator_proxy<> find(const_iterator pos, condition &&cond) const
 	{
-		return conditional_iterator_proxy<const category>{ *this, pos, std::move(cond) };
+		return const_conditional_iterator_proxy<>{ *this, pos, std::move(cond) };
 	}
 
 	/// @brief Return a special iterator to loop over all rows that conform to @a cond. The resulting
@@ -504,7 +508,7 @@ class category
 	/// @return A special iterator that loops over all elements that match.
 
 	template <typename... Ts, typename... Ns>
-	conditional_iterator_proxy<category, Ts...> find(condition &&cond, Ns... names)
+	conditional_iterator_proxy<Ts...> find(condition &&cond, Ns... names)
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
 		return find<Ts...>(cbegin(), std::move(cond), std::forward<Ns>(names)...);
@@ -519,7 +523,7 @@ class category
 	/// @return A special iterator that loops over all elements that match.
 
 	template <typename... Ts, typename... Ns>
-	conditional_iterator_proxy<const category, Ts...> find(condition &&cond, Ns... names) const
+	const_conditional_iterator_proxy<Ts...> find(condition &&cond, Ns... names) const
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
 		return find<Ts...>(cbegin(), std::move(cond), std::forward<Ns>(names)...);
@@ -535,7 +539,7 @@ class category
 	/// @return A special iterator that loops over all elements that match.
 
 	template <typename... Ts, typename... Ns>
-	conditional_iterator_proxy<category, Ts...> find(const_iterator pos, condition &&cond, Ns... names)
+	conditional_iterator_proxy<Ts...> find(const_iterator pos, condition &&cond, Ns... names)
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
 		return { *this, pos, std::move(cond), std::forward<Ns>(names)... };
@@ -551,7 +555,7 @@ class category
 	/// @return A special iterator that loops over all elements that match.
 
 	template <typename... Ts, typename... Ns>
-	conditional_iterator_proxy<const category, Ts...> find(const_iterator pos, condition &&cond, Ns... names) const
+	const_conditional_iterator_proxy<Ts...> find(const_iterator pos, condition &&cond, Ns... names) const
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
 		return { *this, pos, std::move(cond), std::forward<Ns>(names)... };
@@ -1311,5 +1315,7 @@ class category
 
 	bool m_dirty = false; // Keep track of modifications
 };
+
+static_assert(std::ranges::input_range<category>);
 
 } // namespace cif

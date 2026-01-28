@@ -92,9 +92,9 @@ namespace cif
 std::tuple<uint32_t, uint32_t> get_terminal_width_and_height()
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
-	return ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi)
-	           ? { csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottom - csbi.srWindow.Top + 1 }
-	           : { 80, 24 };
+	if (::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+		return { csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottom - csbi.srWindow.Top + 1 };
+	return { 80, 24 };
 }
 
 void write_to_console(const std::string &s)
@@ -134,7 +134,6 @@ uint32_t get_terminal_width()
 		struct winsize w;
 		ioctl(0, TIOCGWINSZ, &w);
 		width = w.ws_col;
-		;
 	}
 	return width;
 }

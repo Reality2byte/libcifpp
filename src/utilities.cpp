@@ -93,7 +93,7 @@ std::tuple<uint32_t, uint32_t> get_terminal_width_and_height()
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;
 	return ::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi)
-	           ? { csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottm - csbi.srWindow.Top + 1 }
+	           ? { csbi.srWindow.Right - csbi.srWindow.Left + 1, csbi.srWindow.Bottom - csbi.srWindow.Top + 1 }
 	           : { 80, 24 };
 }
 

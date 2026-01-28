@@ -89,6 +89,14 @@ std::string get_version_nr()
 namespace cif
 {
 
+uint32_t get_terminal_width()
+{
+	CONSOLE_SCREEN_BUFFER_INFO csbi;
+	if (::GetConsoleScreenBufferInfo(::GetStdHandle(STD_OUTPUT_HANDLE), &csbi))
+		return csbi.srWindow.Right - csbi.srWindow.Left + 1;
+	return 80;
+}
+
 std::tuple<uint32_t, uint32_t> get_terminal_width_and_height()
 {
 	CONSOLE_SCREEN_BUFFER_INFO csbi;

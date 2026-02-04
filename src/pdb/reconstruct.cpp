@@ -26,6 +26,8 @@
 
 #include "cif++.hpp"
 #include "cif++/compound.hpp"
+#include "cif++/cql.hpp"
+#include "cif++/point.hpp"
 #include "cif++/row.hpp"
 
 #include <algorithm>
@@ -461,13 +463,13 @@ void checkChemCompRecords(datablock &db)
 			std::vector<item> items;
 
 			if (not chem_comp_entry["type"])
-				items.emplace_back( "type", compound->type() );
+				items.emplace_back("type", compound->type());
 			if (not chem_comp_entry["name"])
-				items.emplace_back( "name", compound->name() );
+				items.emplace_back("name", compound->name());
 			if (not chem_comp_entry["formula"])
-				items.emplace_back( "formula", compound->formula() );
+				items.emplace_back("formula", compound->formula());
 			if (not chem_comp_entry["formula_weight"])
-				items.emplace_back( "formula_weight", compound->formula_weight() );
+				items.emplace_back("formula_weight", compound->formula_weight());
 
 			if (not items.empty())
 				chem_comp_entry.assign(items);
@@ -592,15 +594,15 @@ void checkAtomRecords(datablock &db)
 			std::vector<item> items;
 
 			if (not chem_comp_entry["type"])
-				items.emplace_back( "type", compound->type() );
+				items.emplace_back("type", compound->type());
 			if (not chem_comp_entry["mon_nstd_flag"] and non_std.has_value())
-				items.emplace_back( "mon_nstd_flag", non_std );
+				items.emplace_back("mon_nstd_flag", non_std);
 			if (not chem_comp_entry["name"])
-				items.emplace_back( "name", compound->name() );
+				items.emplace_back("name", compound->name());
 			if (not chem_comp_entry["formula"])
-				items.emplace_back( "formula", compound->formula() );
+				items.emplace_back("formula", compound->formula());
 			if (not chem_comp_entry["formula_weight"])
-				items.emplace_back( "formula_weight", compound->formula_weight() );
+				items.emplace_back("formula_weight", compound->formula_weight());
 
 			if (not items.empty())
 				chem_comp_entry.assign(items);
@@ -1122,33 +1124,79 @@ void createPdbxPolySeqScheme(datablock &db)
 		}
 	}
 
-	for (auto entity_id : entity_poly.rows<std::string>("entity_id"))
-	{
-		for (auto asym_id : struct_asym.find<std::string>("entity_id"_key == entity_id, "id"))
-		{
-			for (const auto &[comp_id, num, hetero] : entity_poly_seq.find<std::string, int, bool>("entity_id"_key == entity_id, "mon_id", "num", "hetero"))
-			{
-				const auto &[auth_seq_num, auth_mon_id, ins_code] =
-					atom_site.find_first<std::string, std::string, std::optional<std::string>>(
-						"label_asym_id"_key == asym_id and "label_seq_id"_key == num,
-						"auth_seq_id", "auth_comp_id", "pdbx_PDB_ins_code");
+	std::string last_entity_id, last_asym_id;
+	std::optional<int> last_seq_id;
 
-				pdbx_poly_seq_scheme.emplace({ //
-					{ "asym_id", asym_id },
-					{ "entity_id", entity_id },
-					{ "seq_id", num },
-					{ "mon_id", comp_id },
-					{ "ndb_seq_num", num },
-					{ "pdb_seq_num", auth_seq_num },
-					{ "auth_seq_num", auth_seq_num },
-					{ "pdb_mon_id", auth_mon_id },
-					{ "auth_mon_id", auth_mon_id },
-					{ "pdb_strand_id", asym_id_to_pdb_strand_map[asym_id] },
-					{ "pdb_ins_code", ins_code },
-					{ "hetero", hetero } });
-			}
-		}
+	for (auto col : { "label_asym_id", "label_entity_id", "label_seq_id", "label_comp_id", "auth_seq_id", "auth_comp_id", "pdbx_PDB_ins_code"})
+		atom_site.add_item(col);
+
+	cql::connection conn(db);
+	cql::transaction tx(conn);
+	for (auto &&[asym_id, entity_id,  seq_id, comp_id, auth_seq_id, auth_comp_id, pdb_ins_code] :
+			tx.stream<std::string, std::string, std::optional<int>, std::string, std::string, std::string, std::optional<std::string>>(
+		R"(select distinct label_asym_id, label_entity_id, label_seq_id, label_comp_id, auth_seq_id, auth_comp_id, pdbx_PDB_ins_code 
+				from atom_site
+				where label_entity_id in (select id from entity where type = 'polymer')
+				order by label_entity_id, label_asym_id, label_seq_id)"))
+	{
+		if (seq_id.has_value() and *seq_id == 0)
+			seq_id.reset();
+
+		bool hetero = entity_id == last_entity_id and asym_id == last_asym_id and seq_id == last_seq_id;
+
+		if (hetero)
+			pdbx_poly_seq_scheme.back().assign("hetero", "y", false);
+
+		pdbx_poly_seq_scheme.emplace({ //
+			{ "asym_id", asym_id },
+			{ "entity_id", entity_id },
+			{ "seq_id", seq_id },
+			{ "mon_id", comp_id },
+			{ "ndb_seq_num", seq_id },
+			{ "pdb_seq_num", auth_seq_id },
+			{ "auth_seq_num", auth_seq_id },
+			{ "pdb_mon_id", auth_comp_id },
+			{ "auth_mon_id", auth_comp_id },
+			{ "pdb_strand_id", asym_id_to_pdb_strand_map[asym_id] },
+			{ "pdb_ins_code", pdb_ins_code },
+			{ "hetero", hetero } });
+
+		last_entity_id = entity_id;
+		last_asym_id = asym_id;
+		last_seq_id = seq_id;
 	}
+
+	// // select distinct A.entity_id, A.id, B.mon_id, B.num, B.hetero, C.auth_seq_id, C.auth_comp_id, C.pdbx_PDB_ins_code from struct_asym A, entity_poly_seq B, atom_site C where A.entity_id = B.entity_id and C.label_asym_id = A.id and C.label_seq_id = B.num order by A.entity_id, B.num;
+
+	// // select distinct label_entity_id, label_asym_id, label_comp_id, label_seq_id, auth_asym_id, auth_seq_id, auth_comp_id from atom_site order by CAST(label_entity_id AS INT), label_asym_id, CAST(label_seq_id AS INT);
+
+	// for (auto entity_id : entity_poly.rows<std::string>("entity_id"))
+	// {
+	// 	for (auto asym_id : struct_asym.find<std::string>("entity_id"_key == entity_id, "id"))
+	// 	{
+	// 		for (const auto &[comp_id, num, hetero] : entity_poly_seq.find<std::string, int, bool>("entity_id"_key == entity_id, "mon_id", "num", "hetero"))
+	// 		{
+	// 			const auto &[auth_seq_num, auth_mon_id, ins_code] =
+	// 				atom_site.find_first<std::string, std::string, std::optional<std::string>>(
+	// 					"label_asym_id"_key == asym_id and "label_seq_id"_key == num,
+	// 					"auth_seq_id", "auth_comp_id", "pdbx_PDB_ins_code");
+
+	// 			pdbx_poly_seq_scheme.emplace({ //
+	// 				{ "asym_id", asym_id },
+	// 				{ "entity_id", entity_id },
+	// 				{ "seq_id", num },
+	// 				{ "mon_id", comp_id },
+	// 				{ "ndb_seq_num", num },
+	// 				{ "pdb_seq_num", auth_seq_num },
+	// 				{ "auth_seq_num", auth_seq_num },
+	// 				{ "pdb_mon_id", auth_mon_id },
+	// 				{ "auth_mon_id", auth_mon_id },
+	// 				{ "pdb_strand_id", asym_id_to_pdb_strand_map[asym_id] },
+	// 				{ "pdb_ins_code", ins_code },
+	// 				{ "hetero", hetero } });
+	// 		}
+	// 	}
+	// }
 }
 
 // Some programs write out a ndb_poly_seq_scheme, which has been replaced by pdbx_poly_seq_scheme

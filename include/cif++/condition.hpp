@@ -208,7 +208,7 @@ class condition
 	condition(condition &&rhs) noexcept
 		: m_impl(nullptr)
 	{
-		std::swap(m_impl, rhs.m_impl);
+		swap(*this, rhs);
 	}
 
 	condition &operator=(const condition &) = delete;
@@ -218,7 +218,7 @@ class condition
 	 */
 	condition &operator=(condition &&rhs) noexcept
 	{
-		std::swap(m_impl, rhs.m_impl);
+		swap(*this, rhs);
 		return *this;
 	}
 
@@ -285,10 +285,10 @@ class condition
 	/**
 	 * @brief Swap two conditions
 	 */
-	void swap(condition &rhs)
+	friend void swap(condition &lhs, condition &rhs) noexcept
 	{
-		std::swap(m_impl, rhs.m_impl);
-		std::swap(m_prepared, rhs.m_prepared);
+		std::swap(lhs.m_impl, rhs.m_impl);
+		std::swap(lhs.m_prepared, rhs.m_prepared);
 	}
 
 	/**

@@ -281,13 +281,13 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 		// Try to keep the order the same as in the parsed category
 
 		auto &items = vtab->m_items;
-		;
+
 		for (auto item : cat->get_items())
 			items.emplace_back(item);
 
 		for (auto iv : cv->m_item_validators)
 		{
-			if (std::ranges::find(items, iv.m_item_name) == items.end())
+			if (std::ranges::find_if(items, [&b = iv.m_item_name](const std::string &a) { return iequals(a, b); }) == items.end())
 				items.emplace_back(iv.m_item_name);
 		}
 
@@ -332,6 +332,8 @@ int connection_impl::Connect(sqlite3 *db, int argc, const char *const *argv, sql
 	int rc = sqlite3_declare_vtab(db, createStmt.c_str());
 	if (rc == SQLITE_OK)
 		*ppVtab = reinterpret_cast<sqlite3_vtab *>(vtab.release());
+	else
+		std::clog << "statement:\n" << createStmt << "\nresulted in error: " << sqlite3_errmsg(db) << '\n';
 
 	return rc;
 }
@@ -1065,7 +1067,7 @@ result connection::exec(std::string query, std::string &tail)
 							break;
 						case SQLITE_NULL:
 						default:
-							// data.emplace_back(sqlite3_column_name(stmt, i), ".");
+							data.emplace_back(sqlite3_column_name(stmt, i), ".");
 							break;
 					}
 				}

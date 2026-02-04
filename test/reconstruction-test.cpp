@@ -57,7 +57,16 @@ TEST_CASE("reconstruct")
 			CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f, ec));
 			CHECK(ec != std::errc{});
 
-			CHECK(cif::pdb::reconstruct_pdbx(f));
+			auto valid = cif::pdb::reconstruct_pdbx(f);
+
+			CHECK(valid);
+
+			if (not valid)
+			{
+				std::ofstream of(std::filesystem::temp_directory_path() / i->path().filename());
+				of << f;
+				of.close();
+			}
 		}
 	}
 }

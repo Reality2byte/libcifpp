@@ -2344,11 +2344,10 @@ void structure::create_water(row_initializer atom)
 
 	auto &struct_asym = m_db["struct_asym"];
 	std::string asym_id;
-	try
-	{
-		asym_id = struct_asym.find1<std::string>("entity_id"_key == entity_id, "id");
-	}
-	catch (const std::exception &)
+
+	if (auto known_asym_id = struct_asym.find1<std::optional<std::string>>("entity_id"_key == entity_id, "id"); known_asym_id.has_value())
+		asym_id = *known_asym_id;
+	else
 	{
 		asym_id = struct_asym.get_unique_id();
 

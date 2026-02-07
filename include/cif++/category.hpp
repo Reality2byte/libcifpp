@@ -620,8 +620,28 @@ class category
 	/// @return The value found
 	template <typename T>
 	T find1(condition &&cond, std::string_view item) const
+		requires(not is_optional_v<T>)
 	{
 		return find1<T>(cbegin(), std::move(cond), item);
+	}
+
+	/// @brief Return value for the item named @a item for the single row that
+	/// matches @a cond. Throws @a multiple_results_error if there are is not exactly one row
+	/// @tparam The type to use for the result
+	/// @param cond The condition to search for
+	/// @param item The name of the item to return the value for
+	/// @return The value found
+
+	template <typename T>
+	T find1(condition &&cond, std::string_view item) const
+		requires(is_optional_v<T>)
+	{
+		auto h = find<typename T::value_type>(cbegin(), std::move(cond), item);
+
+		if (h.size() == 1)
+			return *h.begin();
+
+		return T{};
 	}
 
 	/// @brief Return value for the item named @a item for the single row that

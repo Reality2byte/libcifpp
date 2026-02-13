@@ -31,9 +31,7 @@
 #include "cif++/text.hpp"
 
 #include <exception>
-#include <ranges>
 #include <stdexcept>
-#include <string>
 
 namespace cif
 {
@@ -146,30 +144,6 @@ void file::load(const std::filesystem::path &p)
 	{
 		throw_with_nested(std::runtime_error("Error reading file '" + p.string() + '\''));
 	}
-}
-
-void file::load(const std::filesystem::path &p, const validator &v)
-{
-	gzio::ifstream in(p);
-	if (not in.is_open())
-		throw std::runtime_error("Could not open file '" + p.string() + '\'');
-
-	try
-	{
-		load(in, v);
-	}
-	catch (const std::exception &)
-	{
-		throw_with_nested(std::runtime_error("Error reading file '" + p.string() + '\''));
-	}
-}
-
-void file::load(std::istream &is, const validator &v)
-{
-	parser p(is, *this);
-	p.parse_file();
-	for (auto &db : *this)
-		db.set_validator(&v);
 }
 
 void file::load(std::istream &is)

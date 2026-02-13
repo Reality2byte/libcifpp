@@ -125,16 +125,6 @@ class multiple_results_error : public std::runtime_error
 };
 
 // --------------------------------------------------------------------
-// These should be moved elsewhere, one day.
-
-/// \cond
-template <typename T>
-inline constexpr bool is_optional_v = false;
-template <typename T>
-inline constexpr bool is_optional_v<std::optional<T>> = true;
-/// \endcond
-
-// --------------------------------------------------------------------
 
 /// The class category is a sequence container for rows of data values.
 /// You could think of it as a std::vector<cif::row_handle> like class.
@@ -154,8 +144,8 @@ class category
 	friend class iterator_impl_base;
 
 	using value_type = row_handle;
-	using reference = value_type;
-	using const_reference = const value_type;
+	using reference = row_handle;
+	using const_reference = const_row_handle;
 	using iterator = iterator_impl<>;
 	using const_iterator = const_iterator_impl<>;
 
@@ -288,6 +278,7 @@ class category
 	/// the category is empty.
 	reference front()
 	{
+		assert(size() > 0);
 		return { *this, *m_head };
 	}
 
@@ -296,7 +287,8 @@ class category
 	/// the category is empty.
 	[[nodiscard]] const_reference front() const
 	{
-		return { const_cast<category &>(*this), const_cast<row &>(*m_head) };
+		assert(size() > 0);
+		return { *this, *m_head };
 	}
 
 	/// @brief Return a reference to the last row in this category.
@@ -304,6 +296,7 @@ class category
 	/// the category is empty.
 	reference back()
 	{
+		assert(size() > 0);
 		return { *this, *m_tail };
 	}
 
@@ -312,7 +305,8 @@ class category
 	/// the category is empty.
 	[[nodiscard]] const_reference back() const
 	{
-		return { const_cast<category &>(*this), const_cast<row &>(*m_tail) };
+		assert(size() > 0);
+		return { *this, *m_tail };
 	}
 
 	/// Return an iterator to the first row
@@ -376,7 +370,7 @@ class category
 	struct key_element_type
 	{
 		std::string name;         ///< Name of the item
-		std::string value;        ///< Value to be found
+		item_value value;         ///< Value to be found
 		bool may_be_null = false; ///< If true, value should be same or empty
 	};
 
@@ -388,13 +382,10 @@ class category
 	/// @return The row found in the index, or an undefined row_handle
 	row_handle operator[](const key_type &key);
 
-	/// @brief Return a const row_handle for the row specified by \a key
+	/// @brief Return a const_row_handle for the row specified by \a key
 	/// @param key The value for the key, items specified in the dictionary should have a value
 	/// @return The row found in the index, or an undefined row_handle
-	const row_handle operator[](const key_type &key) const
-	{
-		return const_cast<category *>(this)->operator[](key);
-	}
+	const_row_handle operator[](const key_type &key) const;
 
 	// --------------------------------------------------------------------
 
@@ -511,7 +502,7 @@ class category
 	conditional_iterator_proxy<Ts...> find(condition &&cond, Ns... names)
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
-		return find<Ts...>(cbegin(), std::move(cond), std::forward<Ns>(names)...);
+		return find<Ts...>(begin(), std::move(cond), std::forward<Ns>(names)...);
 	}
 
 	/// @brief Return a special const iterator to loop over all rows that conform to @a cond. The resulting
@@ -592,7 +583,7 @@ class category
 	/// there are is not exactly one row matching @a cond
 	/// @param cond The condition to search for
 	/// @return Row handle to the row found
-	const row_handle find1(condition &&cond) const
+	const_row_handle find1(condition &&cond) const
 	{
 		return find1(cbegin(), std::move(cond));
 	}
@@ -602,7 +593,7 @@ class category
 	/// @param pos The position to start the search
 	/// @param cond The condition to search for
 	/// @return Row handle to the row found
-	const row_handle find1(const_iterator pos, condition &&cond) const
+	const_row_handle find1(const_iterator pos, condition &&cond) const
 	{
 		auto h = find(pos, std::move(cond));
 
@@ -747,7 +738,7 @@ class category
 	/// @brief Return a const row handle to the first row that matches @a cond
 	/// @param cond The condition to search for
 	/// @return The const handle to the row that matches or an empty row_handle
-	const row_handle find_first(condition &&cond) const
+	const_row_handle find_first(condition &&cond) const
 	{
 		return find_first(cbegin(), std::move(cond));
 	}
@@ -756,11 +747,11 @@ class category
 	/// @param pos The location to start searching
 	/// @param cond The condition to search for
 	/// @return The const handle to the row that matches or an empty row_handle
-	const row_handle find_first(const_iterator pos, condition &&cond) const
+	const_row_handle find_first(const_iterator pos, condition &&cond) const
 	{
 		auto h = find(pos, std::move(cond));
 
-		return h.empty() ? row_handle{} : *h.begin();
+		return h.empty() ? const_row_handle{} : *h.begin();
 	}
 
 	/// @brief Return the value for item @a item for the first row that matches condition @a cond
@@ -897,10 +888,8 @@ class category
 	{
 		bool result = false;
 
-		if (cond)
+		if (cond and cond.prepare(*this))
 		{
-			cond.prepare(*this);
-
 			auto sh = cond.single();
 
 			if (sh.has_value() and *sh)
@@ -928,10 +917,8 @@ class category
 	{
 		std::size_t result = 0;
 
-		if (cond)
+		if (cond and cond.prepare(*this))
 		{
-			cond.prepare(*this);
-
 			auto sh = cond.single();
 
 			if (sh.has_value() and *sh)
@@ -953,23 +940,35 @@ class category
 
 	/// Using the relations defined in the validator, return whether the row
 	/// in @a r has any children in other categories
-	[[nodiscard]] bool has_children(row_handle r) const;
+	[[nodiscard]] bool has_children(const_row_handle r) const;
 
 	/// Using the relations defined in the validator, return whether the row
 	/// in @a r has any parents in other categories
-	[[nodiscard]] bool has_parents(row_handle r) const;
+	[[nodiscard]] bool has_parents(const_row_handle r) const;
 
 	/// Using the relations defined in the validator, return the row handles
 	/// for all rows in @a childCat that are linked to row @a r
-	[[nodiscard]] std::vector<row_handle> get_children(row_handle r, const category &childCat) const;
+	[[nodiscard]] std::vector<const_row_handle> get_children(const_row_handle r, const category &childCat) const;
 
 	/// Using the relations defined in the validator, return the row handles
 	/// for all rows in @a parentCat that are linked to row @a r
-	[[nodiscard]] std::vector<row_handle> get_parents(row_handle r, const category &parentCat) const;
+	[[nodiscard]] std::vector<const_row_handle> get_parents(const_row_handle r, const category &parentCat) const;
 
 	/// Using the relations defined in the validator, return the row handles
 	/// for all rows in @a cat that are in any way linked to row @a r
-	[[nodiscard]] std::vector<row_handle> get_linked(row_handle r, const category &cat) const;
+	[[nodiscard]] std::vector<const_row_handle> get_linked(const_row_handle r, const category &cat) const;
+
+	/// Using the relations defined in the validator, return the row handles
+	/// for all rows in @a childCat that are linked to row @a r
+	[[nodiscard]] std::vector<row_handle> get_children(row_handle r, category &childCat);
+
+	/// Using the relations defined in the validator, return the row handles
+	/// for all rows in @a parentCat that are linked to row @a r
+	[[nodiscard]] std::vector<row_handle> get_parents(row_handle r, category &parentCat);
+
+	/// Using the relations defined in the validator, return the row handles
+	/// for all rows in @a cat that are in any way linked to row @a r
+	[[nodiscard]] std::vector<row_handle> get_linked(row_handle r, category &cat);
 
 	// --------------------------------------------------------------------
 
@@ -1017,7 +1016,7 @@ class category
 			for (auto i = b; i != e; ++i)
 			{
 				// item_value *new_item = this->create_item(*i);
-				r->append(add_item(i->name()), { i->value() });
+				r->set(add_item(i->name()), i->value());
 			}
 		}
 		catch (...)
@@ -1061,7 +1060,7 @@ class category
 
 	// --------------------------------------------------------------------
 
-	using value_provider_type = std::function<std::string_view(std::string_view)>;
+	using value_provider_type = std::function<item_value(const item_value &)>;
 
 	/// \brief Update a single item named @a item_name in the rows that match
 	/// \a cond to values provided by a callback function \a value_provider
@@ -1093,7 +1092,7 @@ class category
 	/// That means, child categories are updated if the links are absolute
 	/// and unique. If they are not, the child category rows are split.
 
-	void update_value(condition &&cond, std::string_view item_name, std::string_view value)
+	void update_value(condition &&cond, std::string_view item_name, const item_value &value)
 	{
 		auto rs = find(std::move(cond));
 		std::vector<row_handle> rows;
@@ -1107,9 +1106,9 @@ class category
 	/// That means, child categories are updated if the links are absolute
 	/// and unique. If they are not, the child category rows are split.
 
-	void update_value(const std::vector<row_handle> &rows, std::string_view item_name, std::string_view value)
+	void update_value(const std::vector<row_handle> &rows, std::string_view item_name, const item_value &value)
 	{
-		update_value(rows, item_name, [value](std::string_view)
+		update_value(rows, item_name, [value](const item_value &)
 			{ return value; });
 	}
 
@@ -1121,7 +1120,7 @@ class category
 	/// @brief Return the name for item with index @a ix
 	/// @param ix The index number
 	/// @return The name of the item
-	[[nodiscard]] std::string_view get_item_name(uint16_t ix) const
+	[[nodiscard]] const std::string &get_item_name(uint16_t ix) const
 	{
 		if (ix >= m_items.size())
 			throw std::out_of_range("item index is out of range");
@@ -1175,14 +1174,6 @@ class category
 	void reorder_by_index();
 
 	// --------------------------------------------------------------------
-
-	/// This function returns effectively the list of fully qualified item
-	/// names, that is category_name + '.' + item_name for each item
-	[[deprecated("use get_item_order instead")]] [[nodiscard]] std::vector<std::string> get_tag_order() const
-	{
-		return get_item_order();
-	}
-
 	/// This function returns effectively the list of fully qualified item
 	/// names, that is category_name + '.' + item_name for each item
 	[[nodiscard]] std::vector<std::string> get_item_order() const;
@@ -1245,7 +1236,7 @@ class category
 	}
 
   private:
-	void update_value(row *row, uint16_t item, std::string_view value, bool updateLinked, bool validate = true);
+	void update_value(row *row, uint16_t item, item_value value, bool updateLinked, bool validate = true);
 
 	void erase_orphans(condition &&cond, category &parent);
 
@@ -1315,8 +1306,8 @@ class category
 
 	// --------------------------------------------------------------------
 
-	[[nodiscard]] condition get_parents_condition(row_handle rh, const category &parentCat) const;
-	[[nodiscard]] condition get_children_condition(row_handle rh, const category &childCat) const;
+	[[nodiscard]] condition get_parents_condition(const_row_handle rh, const category &parentCat) const;
+	[[nodiscard]] condition get_children_condition(const_row_handle rh, const category &childCat) const;
 
 	// --------------------------------------------------------------------
 

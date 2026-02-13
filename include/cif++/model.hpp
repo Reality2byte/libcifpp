@@ -87,14 +87,14 @@ class atom
 	/** @cond */
 	struct atom_impl : public std::enable_shared_from_this<atom_impl>
 	{
-		atom_impl(const datablock &db, std::string_view id)
+		atom_impl(datablock &db, std::string_view id)
 			: m_db(db)
 			, m_cat(db["atom_site"])
 			, m_id(id)
 		{
 			auto r = row();
 			if (r)
-				tie(m_location.m_x, m_location.m_y, m_location.m_z) = r.get("Cartn_x", "Cartn_y", "Cartn_z");
+				std::tie(m_location.m_x, m_location.m_y, m_location.m_z) = r.get<float, float, float>("Cartn_x", "Cartn_y", "Cartn_z");
 		}
 
 		// constructor for a symmetry copy of an atom
@@ -117,18 +117,15 @@ class atom
 
 		// const compound *compound() const;
 
-		[[nodiscard]] std::string get_property(std::string_view name) const;
-		[[nodiscard]] int get_property_int(std::string_view name) const;
-		[[nodiscard]] float get_property_float(std::string_view name) const;
-
-		void set_property(const std::string_view name, const std::string &value);
+		[[nodiscard]] const item_value &get_property(std::string_view name) const;
+		void set_property(const std::string_view name, item_value value);
 
 		row_handle row()
 		{
 			return m_cat[{ { .name = "id", .value = m_id } }];
 		}
 
-		[[nodiscard]] const row_handle row() const
+		[[nodiscard]] const_row_handle row() const
 		{
 			return m_cat[{ { .name = "id", .value = m_id } }];
 		}
@@ -142,7 +139,7 @@ class atom
 			return result;
 		}
 
-		[[nodiscard]] const row_handle row_aniso() const
+		[[nodiscard]] const_row_handle row_aniso() const
 		{
 			row_handle result{};
 			auto cat = m_db.get("atom_site_anisotrop");
@@ -151,8 +148,8 @@ class atom
 			return result;
 		}
 
-		const datablock &m_db;
-		const category &m_cat;
+		datablock &m_db;
+		category &m_cat;
 		std::string m_id;
 		point m_location;
 		std::string m_symop = "1_555";
@@ -184,12 +181,42 @@ class atom
 	}
 
 	/**
+	 * @brief Move construct a new atom object
+	 */
+	atom(atom &&rhs)
+	{
+		std::swap(m_impl, rhs.m_impl);
+	}
+
+	/// \brief Copy assignement operator
+	atom &operator=(atom rhs)
+	{
+		std::swap(m_impl, rhs.m_impl);
+		return *this;
+	}
+
+	/**
+	 * @brief Move construct a new atom object
+	 */
+	atom(atom &&rhs)
+	{
+		std::swap(m_impl, rhs.m_impl);
+	}
+
+	/// \brief Copy assignement operator
+	atom &operator=(atom rhs)
+	{
+		std::swap(m_impl, rhs.m_impl);
+		return *this;
+	}
+
+	/**
 	 * @brief Construct a new atom object based on a cif::row
 	 *
 	 * @param db The datablock where the _atom_site category resides
 	 * @param row The row containing the data for this atom
 	 */
-	atom(const datablock &db, const row_handle &row)
+	atom(datablock &db, const_row_handle row)
 		: atom(std::make_shared<atom_impl>(db, row["id"].as<std::string>()))
 	{
 	}
@@ -209,39 +236,38 @@ class atom
 	/// \brief To quickly test if the atom has data
 	explicit operator bool() const { return m_impl.operator bool(); }
 
-	/// \brief Copy assignement operator
-	atom &operator=(const atom &rhs) = default;
-
 	/// \brief Return the item named @a name in the _atom_site category for this atom
-	[[nodiscard]] std::string get_property(std::string_view name) const
+	[[nodiscard]] const item_value &get_property_value(std::string_view name) const
 	{
 		if (not m_impl)
 			throw std::logic_error("Error trying to fetch a property from an uninitialized atom");
 		return m_impl->get_property(name);
 	}
 
-	/// \brief Return the item named @a name in the _atom_site category for this atom cast to an int
-	[[nodiscard]] int get_property_int(std::string_view name) const
+	/// \brief Return the item named @a name in the _atom_site category for this atom as string
+	[[nodiscard]] auto get_property(std::string_view name) const
 	{
-		if (not m_impl)
-			throw std::logic_error("Error trying to fetch a property from an uninitialized atom");
-		return m_impl->get_property_int(name);
+		return get_property_value(name).get<std::string>();
 	}
 
-	/// \brief Return the item named @a name in the _atom_site category for this atom cast to a float
-	[[nodiscard]] float get_property_float(std::string_view name) const
+	/// \brief Return the item named @a name in the _atom_site category for this atom as float
+	[[nodiscard]] auto get_property_float(std::string_view name) const
 	{
-		if (not m_impl)
-			throw std::logic_error("Error trying to fetch a property from an uninitialized atom");
-		return m_impl->get_property_float(name);
+		return get_property_value(name).get<float>();
+	}
+
+	/// \brief Return the item named @a name in the _atom_site category for this atom as string
+	[[nodiscard]] auto get_property_int(std::string_view name) const
+	{
+		return get_property_value(name).get<int>();
 	}
 
 	/// \brief Set value for the item named @a name in the _atom_site category to @a value
-	void set_property(const std::string_view name, const std::string &value)
+	void set_property(const std::string_view name, item_value value)
 	{
 		if (not m_impl)
 			throw std::logic_error("Error trying to modify an uninitialized atom");
-		m_impl->set_property(name, value);
+		m_impl->set_property(name, std::move(value));
 	}
 
 	/// \brief Set value for the item named @a name in the _atom_site category to @a value
@@ -315,10 +341,10 @@ class atom
 	}
 
 	/// for direct access to underlying data, be careful!
-	[[nodiscard]] const row_handle get_row() const { return impl().row(); }
+	[[nodiscard]] const_row_handle get_row() const { return impl().row(); }
 
 	/// for direct access to underlying data, be careful!
-	[[nodiscard]] const row_handle get_row_aniso() const { return impl().row_aniso(); }
+	[[nodiscard]] const_row_handle get_row_aniso() const { return impl().row_aniso(); }
 
 	/// Return if the atom is actually a symmetry copy or the original one
 	[[nodiscard]] bool is_symmetry_copy() const { return impl().m_symop != "1_555"; }
@@ -358,7 +384,7 @@ class atom
 	/// Return true if this atom is an alternate
 	[[nodiscard]] bool is_alternate() const
 	{
-		if (auto alt_id = get_label_alt_id(); alt_id.empty() or alt_id == ".")
+		if (auto alt_id = get_label_alt_id(); alt_id.empty())
 			return false;
 		return true;
 	}
@@ -1191,14 +1217,13 @@ class structure
 	void validate_atoms() const;
 
 	/// \brief emplace a newly created atom using @a args
-	template <typename... Args>
-	atom &emplace_atom(Args &...args)
+	atom &emplace_atom(datablock &db, const_row_handle rh)
 	{
-		return emplace_atom(atom{ std::forward<Args>(args)... });
+		return emplace_atom(atom{ db, rh });
 	}
 
 	/// \brief emplace the moved atom @a atom
-	atom &emplace_atom(atom &&atom);
+	atom &emplace_atom(atom atom);
 
 	/// \brief Reorder atom_site atoms based on 'natural' ordering
 	void reorder_atoms();

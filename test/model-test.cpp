@@ -26,8 +26,7 @@
 
 #include "test-main.hpp"
 
-#include <stdexcept>
-
+#include <spanstream>
 #include <cif++.hpp>
 
 // --------------------------------------------------------------------
@@ -94,8 +93,7 @@ _atom_site.pdbx_formal_charge
 
 	structure.create_non_poly(entity_id, atom_data);
 
-	auto expected = R"(
-data_TEST
+	auto expected = R"(data_TEST
 # 
 _pdbx_nonpoly_scheme.asym_id         A 
 _pdbx_nonpoly_scheme.ndb_seq_num     1 
@@ -139,7 +137,7 @@ _chem_comp.id               HEM
 _chem_comp.type             NON-POLYMER
 _chem_comp.name             'PROTOPORPHYRIN IX CONTAINING FE'
 _chem_comp.formula          'C34 H32 Fe N4 O4'
-_chem_comp.formula_weight   616.487000
+_chem_comp.formula_weight   616.487
 #
 _pdbx_entity_nonpoly.entity_id   1
 _pdbx_entity_nonpoly.name        'PROTOPORPHYRIN IX CONTAINING FE'
@@ -148,7 +146,7 @@ _pdbx_entity_nonpoly.comp_id     HEM
 _entity.id                 1
 _entity.type               non-polymer
 _entity.pdbx_description   'PROTOPORPHYRIN IX CONTAINING FE'
-_entity.formula_weight     616.487000
+_entity.formula_weight     616.487
 #
 _struct_asym.id                            A
 _struct_asym.entity_id                     1
@@ -161,12 +159,18 @@ _atom_type.symbol   C
 
 	expected.front().load_dictionary("mmcif_pdbx.dic");
 
-	if (not(expected.front() == structure.get_datablock()))
+	if (not(expected_file.front() == structure.get_datablock()))
 	{
-		std::cerr << expected.front() << '\n'
+		CHECK(false);
+		std::cout << expected << '\n'
 				  << '\n'
 				  << structure.get_datablock() << '\n';
-		REQUIRE(false);
+
+		
+		std::ofstream of("/tmp/a");
+		of << expected;
+
+		file.save("/tmp/b");
 	}
 }
 
@@ -195,9 +199,9 @@ TEST_CASE("create_nonpoly_2")
 			{ "type_symbol", type_symbol },
 			{ "label_atom_id", label_atom_id },
 			{ "auth_atom_id", label_atom_id },
-			{ "Cartn_x", Cartn_x },
-			{ "Cartn_y", Cartn_y },
-			{ "Cartn_z", Cartn_z } });
+			{ "Cartn_x", { Cartn_x, 3 } },
+			{ "Cartn_y", { Cartn_y, 3 } },
+			{ "Cartn_z", { Cartn_z, 3 } } });
 
 		if (atoms.size() == 4)
 			break;
@@ -243,14 +247,14 @@ _atom_site.auth_atom_id
 _atom_site.pdbx_PDB_model_num
 1 A ? A CHA HEM 1 . C HETATM ? 2.748 -19.531 39.896 1.00 ? 1 HEM CHA 1
 2 A ? A CHB HEM 1 . C HETATM ? 3.258 -17.744 35.477 1.00 ? 1 HEM CHB 1
-3 A ? A CHC HEM 1 . C HETATM ? 1.703 -21.9   33.637 1.00 ? 1 HEM CHC 1
+3 A ? A CHC HEM 1 . C HETATM ? 1.703 -21.900 33.637 1.00 ? 1 HEM CHC 1
 4 A ? A CHD HEM 1 . C HETATM ? 1.149 -23.677 38.059 1.00 ? 1 HEM CHD 1
 #
 _chem_comp.id               HEM
 _chem_comp.type             NON-POLYMER
 _chem_comp.name             'PROTOPORPHYRIN IX CONTAINING FE'
 _chem_comp.formula          'C34 H32 Fe N4 O4'
-_chem_comp.formula_weight   616.487000
+_chem_comp.formula_weight   616.487
 #
 _pdbx_entity_nonpoly.entity_id   1
 _pdbx_entity_nonpoly.name        'PROTOPORPHYRIN IX CONTAINING FE'
@@ -259,7 +263,7 @@ _pdbx_entity_nonpoly.comp_id     HEM
 _entity.id                 1
 _entity.type               non-polymer
 _entity.pdbx_description   'PROTOPORPHYRIN IX CONTAINING FE'
-_entity.formula_weight     616.487000
+_entity.formula_weight     616.487
 #
 _struct_asym.id                            A
 _struct_asym.entity_id                     1
@@ -276,7 +280,7 @@ _atom_type.symbol   C
 
 	if (not(expected.front() == structure.get_datablock()))
 	{
-		// REQUIRE(false);
+		CHECK(false);
 		std::cout << expected.front() << '\n'
 				  << '\n'
 				  << structure.get_datablock() << '\n';
@@ -358,10 +362,10 @@ _struct_asym.details                       ?
 
 	cif::mm::structure s(data);
 
-	REQUIRE(s.get_atom_by_id("1").get_label_atom_id() == "CHA");
-	REQUIRE(s.get_atom_by_id("2").get_label_atom_id() == "CHC");
-	REQUIRE(s.get_atom_by_id("3").get_label_atom_id() == "CHB");
-	REQUIRE(s.get_atom_by_id("4").get_label_atom_id() == "CHD");
+	CHECK(s.get_atom_by_id("1").get_label_atom_id() == "CHA");
+	CHECK(s.get_atom_by_id("2").get_label_atom_id() == "CHC");
+	CHECK(s.get_atom_by_id("3").get_label_atom_id() == "CHB");
+	CHECK(s.get_atom_by_id("4").get_label_atom_id() == "CHD");
 }
 
 // --------------------------------------------------------------------
@@ -382,19 +386,19 @@ TEST_CASE("atom_numbers_1")
 	{
 		auto atom = structure.get_atom_by_id(id);
 
-		REQUIRE(atom.get_label_asym_id() == label_asym_id);
-		REQUIRE(atom.get_label_seq_id() == label_seq_id);
-		REQUIRE(atom.get_label_atom_id() == label_atom_id);
-		REQUIRE(atom.get_auth_seq_id() == auth_seq_id);
-		REQUIRE(atom.get_label_comp_id() == label_comp_id);
+		CHECK(atom.get_label_asym_id() == label_asym_id);
+		CHECK(atom.get_label_seq_id() == label_seq_id);
+		CHECK(atom.get_label_atom_id() == label_atom_id);
+		CHECK(atom.get_auth_seq_id() == auth_seq_id);
+		CHECK(atom.get_label_comp_id() == label_comp_id);
 
-		REQUIRE(ai != atoms.end());
+		CHECK(ai != atoms.end());
 
-		REQUIRE(ai->id() == id);
+		CHECK(ai->id() == id);
 		++ai;
 	}
 
-	REQUIRE(ai == atoms.end());
+	CHECK(ai == atoms.end());
 }
 // --------------------------------------------------------------------
 
@@ -414,9 +418,7 @@ TEST_CASE("test_load_2")
 	auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
 
 	for (auto &poly : s.polymers())
-	{
-		REQUIRE(poly.size() == pdbx_poly_seq_scheme.find("asym_id"_key == poly.get_asym_id()).size());
-	}
+		CHECK(poly.size() == pdbx_poly_seq_scheme.find("asym_id"_key == poly.get_asym_id()).size());
 }
 
 TEST_CASE("remove_residue_1")
@@ -429,7 +431,7 @@ TEST_CASE("remove_residue_1")
 	cif::mm::structure s(file);
 	s.remove_residue(s.get_residue("B"));
 
-	REQUIRE_NOTHROW(s.validate_atoms());
+	CHECK_NOTHROW(s.validate_atoms());
 }
 
 // --------------------------------------------------------------------

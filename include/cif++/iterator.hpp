@@ -78,6 +78,8 @@ class iterator_impl_base
 	/** @cond */
 	using tuple_type = std::tuple<Ts...>;
 
+	using row_handle_type = std::conditional_t<Const, const_row_handle, row_handle>;
+
 	using iterator_category = std::forward_iterator_tag;
 	using value_type = std::conditional_t<Const, const tuple_type, tuple_type>;
 	using difference_type = std::ptrdiff_t;
@@ -91,7 +93,7 @@ class iterator_impl_base
 
 	template <bool C, typename... T2s>
 	iterator_impl_base(const iterator_impl_base<C, T2s...> &rhs)
-		: m_current(const_cast<row_handle&>(rhs.m_current))
+		: m_current(rhs.m_current)
 		, m_value(rhs.m_value)
 		, m_item_ix(rhs.m_item_ix)
 	{
@@ -99,7 +101,7 @@ class iterator_impl_base
 
 	template <bool C>
 	iterator_impl_base(iterator_impl_base<C, Ts...> &rhs)
-		: m_current(const_cast<row_handle&>(rhs.m_current))
+		: m_current(rhs.m_current)
 		, m_value(rhs.m_value)
 		, m_item_ix(rhs.m_item_ix)
 	{
@@ -108,7 +110,7 @@ class iterator_impl_base
 
 	template <bool C>
 	iterator_impl_base(const iterator_impl_base<C> &rhs, const std::array<uint16_t, N> &cix)
-		: m_current(const_cast<row_handle&>(rhs.m_current))
+		: m_current(rhs.m_current)
 		, m_item_ix(cix)
 	{
 		m_value = get(std::make_index_sequence<N>());
@@ -144,12 +146,12 @@ class iterator_impl_base
 		return &m_value;
 	}
 
-	operator const row_handle() const
+	operator const_row_handle() const
 	{
 		return m_current;
 	}
 
-	operator row_handle()
+	operator row_handle_type()
 	{
 		return m_current;
 	}
@@ -195,7 +197,7 @@ class iterator_impl_base
 		return m_current ? tuple_type{ m_current[m_item_ix[Is]].template as<Ts>()... } : tuple_type{};
 	}
 
-	row_handle m_current;
+	row_handle_type m_current;
 	tuple_type m_value;
 	std::array<uint16_t, N> m_item_ix;
 };
@@ -218,10 +220,12 @@ class iterator_impl_base<Const>
 	friend class category;
 
 	using category_type = std::conditional_t<Const, const category, category>;
+	using row_type = std::conditional_t<Const, const row, row>;
+	using row_handle_type = std::conditional_t<Const, const_row_handle, row_handle>;
 
 	using iterator_category = std::forward_iterator_tag;
 
-	using value_type = std::conditional_t<Const, const row_handle, row_handle>;
+	using value_type = std::conditional_t<Const, const_row_handle, row_handle>;
 	using difference_type = std::ptrdiff_t;
 	using pointer = value_type *;
 	using reference = value_type &;
@@ -233,18 +237,18 @@ class iterator_impl_base<Const>
 
 	template <bool C>
 	iterator_impl_base(const iterator_impl_base<C> &rhs)
-		: m_current(const_cast<row_handle &>(rhs.m_current))
+		: m_current(rhs.m_current)
 	{
 	}
 
-	iterator_impl_base(category_type &cat, row *current)
+	iterator_impl_base(category_type &cat, row_type *current)
 		: m_current(cat, *current)
 	{
 	}
 
 	template <bool C>
 	iterator_impl_base(const iterator_impl_base<C> &rhs, const std::array<uint16_t, 0> &)
-		: m_current(const_cast<row_handle &>(rhs.m_current))
+		: m_current(rhs.m_current)
 	{
 	}
 
@@ -276,12 +280,12 @@ class iterator_impl_base<Const>
 		return &m_current;
 	}
 
-	operator const row_handle() const
+	operator const_row_handle() const
 	{
 		return m_current;
 	}
 
-	operator row_handle()
+	operator row_handle_type()
 	{
 		return m_current;
 	}
@@ -324,7 +328,7 @@ class iterator_impl_base<Const>
 	/** @endcond */
 
   private:
-	row_handle m_current;
+	row_handle_type m_current;
 };
 
 /**
@@ -346,6 +350,7 @@ class iterator_impl_base<Const, T>
 	friend class category;
 
 	using category_type = std::conditional_t<Const, const category, category>;
+	using row_handle_type = std::conditional_t<Const, const_row_handle, row_handle>;
 
 	using iterator_category = std::forward_iterator_tag;
 	using value_type = T;
@@ -368,7 +373,7 @@ class iterator_impl_base<Const, T>
 
 	template <bool C>
 	iterator_impl_base(iterator_impl_base<C, T> &rhs)
-		: m_current(const_cast<row_handle&>(rhs.m_current))
+		: m_current(rhs.m_current)
 		, m_value(rhs.m_value)
 		, m_item_ix(rhs.m_item_ix)
 	{
@@ -377,7 +382,7 @@ class iterator_impl_base<Const, T>
 
 	template <bool C>
 	iterator_impl_base(const iterator_impl_base<C> &rhs, const std::array<uint16_t, 1> &cix)
-		: m_current(const_cast<row_handle&>(rhs.m_current))
+		: m_current(rhs.m_current)
 		, m_item_ix(cix[0])
 	{
 		m_value = get();
@@ -413,12 +418,12 @@ class iterator_impl_base<Const, T>
 		return &m_value;
 	}
 
-	operator const row_handle() const
+	operator const_row_handle() const
 	{
 		return m_current;
 	}
 
-	operator row_handle()
+	operator row_handle_type()
 	{
 		return m_current;
 	}
@@ -460,10 +465,10 @@ class iterator_impl_base<Const, T>
   private:
 	[[nodiscard]] value_type get() const
 	{
-		return m_current ?  m_current[m_item_ix].template as<value_type>() : value_type{};
+		return m_current ?  m_current[m_item_ix].template get<value_type>() : value_type{};
 	}
 
-	row_handle m_current;
+	row_handle_type m_current;
 	value_type m_value;
 	uint16_t m_item_ix;
 };
@@ -683,7 +688,7 @@ class conditional_iterator_proxy_base
 	explicit operator bool() const { return not empty(); }        ///< Easy way to detect if the range is empty
 	[[nodiscard]] std::size_t size() const { return std::distance(begin(), end()); } ///< Return size of the range
 
-	row_handle front() { return *begin(); } ///< Return reference to the first row
+	auto front() { return *begin(); } ///< Return reference to the first row
 	// row_handle back() { return *begin(); }
 
 	[[nodiscard]] category_type &get_category() const { return *m_cat; } ///< Category the iterators belong to
@@ -768,10 +773,8 @@ conditional_iterator_proxy_base<Const, Ts...>::conditional_iterator_proxy_base(c
 {
 	static_assert(sizeof...(Ts) == sizeof...(Ns), "Number of item names should be equal to number of requested value types");
 
-	if (m_condition)
+	if (m_condition and m_condition.prepare(cat))
 	{
-		m_condition.prepare(cat);
-
 		while (mCBegin != mCEnd and not m_condition(*mCBegin))
 			++mCBegin;
 	}
@@ -809,6 +812,11 @@ void swap(conditional_iterator_proxy_base<Const, Ts...> &lhs, conditional_iterat
 	std::swap(lhs.mCEnd, rhs.mCEnd);
 	std::swap(lhs.mCix, rhs.mCix);
 }
+
+// --------------------------------------------------------------------
+
+// template <bool Const, typename... Ts>
+
 
 /** @endcond */
 

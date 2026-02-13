@@ -29,6 +29,7 @@
 #include "cif++/row.hpp"
 
 #include "cif++/file.hpp"
+#include "cif++/utilities.hpp"
 
 #include <map>
 
@@ -166,7 +167,13 @@ class sac_parser
 		SAVE_NAME,
 		STOP,
 		ITEM_NAME,
-		VALUE
+
+		VALUE_INAPPLICABLE,
+		VALUE_UNKNOWN,
+		VALUE_NUMERIC_INTEGER,
+		VALUE_NUMERIC_FLOAT,
+		VALUE_CHARSTRING,
+		VALUE_TEXTFIELD
 	};
 
 	static constexpr const char *get_token_name(CIFToken token)
@@ -182,7 +189,15 @@ class sac_parser
 			case CIFToken::SAVE_NAME: return "SAVE+name";
 			case CIFToken::STOP: return "STOP";
 			case CIFToken::ITEM_NAME: return "Tag";
-			case CIFToken::VALUE: return "Value";
+			// case CIFToken::VALUE: return "Value";
+
+			case CIFToken::VALUE_INAPPLICABLE: return "Inapplicable value";
+			case CIFToken::VALUE_UNKNOWN: return "'Unknown' value (=null)";
+			case CIFToken::VALUE_NUMERIC_INTEGER: return "Integer value";
+			case CIFToken::VALUE_NUMERIC_FLOAT: return "Float value";
+			case CIFToken::VALUE_CHARSTRING: return "Charstring value";
+			case CIFToken::VALUE_TEXTFIELD: return "Textfield value";
+
 			default: return "Invalid token parameter";
 		}
 	}
@@ -247,7 +262,7 @@ class sac_parser
 
 	void error(const std::string &msg)
 	{
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::cerr << "Error parsing mmCIF: " << msg << '\n';
 
 		throw parse_error(m_line_nr, msg);
@@ -255,7 +270,7 @@ class sac_parser
 
 	void warning(const std::string &msg)
 	{
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::cerr << "parser warning at line " << m_line_nr << ": " << msg << '\n';
 	}
 
@@ -264,7 +279,7 @@ class sac_parser
 	virtual void produce_datablock(std::string_view name) = 0;
 	virtual void produce_category(std::string_view name) = 0;
 	virtual void produce_row() = 0;
-	virtual void produce_item(std::string_view category, std::string_view item, std::string_view value) = 0;
+	virtual void produce_item(std::string_view category, std::string_view item, item_value value) = 0;
 
   protected:
 
@@ -288,7 +303,17 @@ class sac_parser
 		TextItemBSNL,
 
 		Reserved,
-		Value
+		Value,
+
+		TextItemBS,
+		TextItemBS2,
+		TextItemBSNL,
+
+		Numeric_Zero,
+		Numeric_Integer,
+		Numeric_Float,
+		Numeric_Exponent1,
+		Numeric_Exponent2
 	};
 
 	std::streambuf &m_source;
@@ -302,6 +327,9 @@ class sac_parser
 	// token buffer
 	std::vector<char> m_token_buffer;
 	std::string_view m_token_value;
+	int64_t m_token_value_int;
+	double m_token_value_float;
+	int m_float_precision;
 
 	/** @endcond */
 };
@@ -339,7 +367,7 @@ class parser : public sac_parser
 
 	void produce_row() override;
 
-	void produce_item(std::string_view category, std::string_view item, std::string_view value) override;
+	void produce_item(std::string_view category, std::string_view item, item_value value) override;
 
   protected:
 	file &m_file;

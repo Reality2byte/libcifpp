@@ -2,7 +2,8 @@
 
 #include "test-main.hpp"
 
-#include <cif++.hpp>
+#include <cif++/utilities.hpp>
+#include <cif++/compound.hpp>
 
 std::filesystem::path gTestDir;
 

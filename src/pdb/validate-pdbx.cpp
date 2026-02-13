@@ -30,7 +30,7 @@
 namespace cif::pdb
 {
 
-condition get_parents_condition(const validator &validator, row_handle rh, const category &parentCat)
+condition get_parents_condition(const validator &validator, const_row_handle rh, const category &parentCat)
 {
 	condition result;
 
@@ -50,12 +50,10 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 
 			for (std::size_t ix = 0; ix < link->m_child_keys.size(); ++ix)
 			{
-				auto childValue = rh[link->m_child_keys[ix]];
-
-				if (childValue.empty())
+				if (rh[link->m_child_keys[ix]].empty())
 					continue;
 
-				cond = std::move(cond) and key(link->m_parent_keys[ix]) == childValue.text();
+				cond = std::move(cond) and key(link->m_parent_keys[ix]) == rh[link->m_child_keys[ix]].value();
 			}
 
 			result = std::move(result) or std::move(cond);
@@ -145,7 +143,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			if (p.size() != 1)
 			{
 				if (VERBOSE > 0)
-					std::clog << "In atom_site record: " << r["id"].text() << '\n';
+					std::clog << "In atom_site record: " << r["id"].str() << '\n';
 				throw std::runtime_error("For each monomer in atom_site there should be exactly one pdbx_poly_seq_scheme record");
 			}
 		}
@@ -175,7 +173,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 
 			std::map<int, std::set<std::string>> mon_per_seq_id;
 
-			for (const auto &[num, mon_id, hetero] : entity_poly_seq.find<int, std::string, bool>("entity_id"_key == entity_id, "num", "mon_id", "hetero"))
+			for (const auto &[num, mon_id, hetero] : entity_poly_seq.find<int, std::string, std::string>("entity_id"_key == entity_id, "num", "mon_id", "hetero"))
 			{
 				mon_per_seq_id[num].emplace(mon_id);
 
@@ -193,7 +191,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 				}
 			}
 
-			for (const auto &[seq_id, mon_id, hetero] : pdbx_poly_seq_scheme.find<int, std::string, bool>("entity_id"_key == entity_id, "seq_id", "mon_id", "hetero"))
+			for (const auto &[seq_id, mon_id, hetero] : pdbx_poly_seq_scheme.find<int, std::string, std::string>("entity_id"_key == entity_id, "seq_id", "mon_id", "hetero"))
 			{
 				if (entity_poly_seq.count(
 						"entity_id"_key == entity_id and
@@ -204,7 +202,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 					throw std::runtime_error("For each pdbx_poly_seq/struct_asym record there should be exactly one entity_poly_seq record");
 				}
 
-				if ((mon_per_seq_id[seq_id].size() > 1) != hetero)
+				if ((mon_per_seq_id[seq_id].size() > 1) != iequals(hetero, "Y"))
 					throw std::runtime_error("Mismatch between the hetero flag in the poly seq schemes and the number residues per seq_id");
 			}
 

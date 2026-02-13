@@ -128,9 +128,9 @@ iset get_category_items(const category &cat);
  *
  * @param cat The category
  * @param col The name of the item
- * @return uint16_t The index
+ * @return uint16_t The index, if item is found
  */
-uint16_t get_item_ix(const category &cat, std::string_view col);
+std::optional<uint16_t> get_item_ix(const category &cat, std::string_view col);
 
 /**
  * @brief Return whether the item @a col in category @a cat has a primitive type of *uchar*
@@ -152,16 +152,16 @@ namespace detail
 		virtual ~condition_impl() = default;
 
 		virtual condition_impl *prepare(const category &) { return this; }
-		[[nodiscard]] virtual bool test(row_handle) const = 0;
+		[[nodiscard]] virtual bool test(const_row_handle) const = 0;
 		virtual void str(std::ostream &) const = 0;
-		[[nodiscard]] virtual std::optional<row_handle> single() const { return {}; };
+		[[nodiscard]] virtual std::optional<const_row_handle> single() const { return {}; };
 
 		virtual bool equals([[maybe_unused]] const condition_impl *rhs) const { return false; }
 	};
 
 	struct all_condition_impl : public condition_impl
 	{
-		[[nodiscard]] bool test(row_handle) const override { return true; }
+		[[nodiscard]] bool test(const_row_handle) const override { return true; }
 		void str(std::ostream &os) const override { os << "*"; }
 	};
 
@@ -233,8 +233,9 @@ class condition
 	 * take care of setting the correct indices for items e.g.
 	 *
 	 * @param c The category this query should act upon
+	 * @result Returns true if the condition might result in rows
 	 */
-	void prepare(const category &c);
+	bool prepare(const category &c);
 
 	/**
 	 * @brief This operator returns true if the row referenced by @a r is
@@ -244,10 +245,9 @@ class condition
 	 * @return true If there is a match
 	 * @return false If there is no match
 	 */
-	bool operator()(row_handle r) const
+	bool operator()(const_row_handle r) const
 	{
 		assert(this->m_impl != nullptr);
-		assert(this->m_prepared);
 		return m_impl ? m_impl->test(r) : false;
 	}
 
@@ -265,12 +265,12 @@ class condition
 	 * @brief If the prepare step found out there is only one hit
 	 * this single hit can be returned by this method.
 	 *
-	 * @return std::optional<row_handle> The result will contain
+	 * @return std::optional<const_row_handle> The result will contain
 	 * a row reference if there is a single hit, it will be empty otherwise
 	 */
-	[[nodiscard]] std::optional<row_handle> single() const
+	[[nodiscard]] std::optional<const_row_handle> single() const
 	{
-		return m_impl ? m_impl->single() : std::optional<row_handle>();
+		return m_impl ? m_impl->single() : std::optional<const_row_handle>();
 	}
 
 	friend condition operator||(condition &&a, condition &&b); /**< Return a condition which is the logical OR or condition @a and @b */
@@ -288,7 +288,6 @@ class condition
 	friend void swap(condition &lhs, condition &rhs) noexcept
 	{
 		std::swap(lhs.m_impl, rhs.m_impl);
-		std::swap(lhs.m_prepared, rhs.m_prepared);
 	}
 
 	/**
@@ -309,7 +308,6 @@ class condition
 	void optimise(condition_impl *&impl);
 
 	condition_impl *m_impl;
-	bool m_prepared = false;
 };
 
 namespace detail
@@ -323,13 +321,18 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override
 		{
-			m_item_ix = get_item_ix(c, m_item_name);
+			auto ix = get_item_ix(c, m_item_name);
+			if (ix.has_value())
+				m_item_ix = *ix;
+			else
+				m_missing_key = true;
+
 			return this;
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
-			return r[m_item_ix].empty();
+			return m_missing_key or r[m_item_ix].empty();
 		}
 
 		void str(std::ostream &os) const override
@@ -339,6 +342,7 @@ namespace detail
 
 		std::string m_item_name;
 		uint16_t m_item_ix = 0;
+		bool m_missing_key = false;
 	};
 
 	struct key_is_not_empty_condition_impl : public condition_impl
@@ -350,11 +354,16 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override
 		{
-			m_item_ix = get_item_ix(c, m_item_name);
-			return this;
+			auto ix = get_item_ix(c, m_item_name);
+			if (ix.has_value())
+			{
+				m_item_ix = *ix;
+				return this;
+			}
+			return nullptr;
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			return not r[m_item_ix].empty();
 		}
@@ -372,13 +381,13 @@ namespace detail
 	{
 		key_equals_condition_impl(item &&i)
 			: m_item_name(i.name())
-			, m_value(std::forward<item>(i).value())
+			, m_value(std::forward<item_value>(i.value()))
 		{
 		}
 
 		condition_impl *prepare(const category &c) override;
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			return m_single_hit.has_value() ? *m_single_hit == r : r[m_item_ix].compare(m_value, m_icase) == 0;
 		}
@@ -388,7 +397,7 @@ namespace detail
 			os << m_item_name << (m_icase ? "^ " : " ") << " == " << m_value;
 		}
 
-		[[nodiscard]] std::optional<row_handle> single() const override
+		[[nodiscard]] std::optional<const_row_handle> single() const override
 		{
 			return m_single_hit;
 		}
@@ -410,8 +419,8 @@ namespace detail
 		std::string m_item_name;
 		uint16_t m_item_ix = 0;
 		bool m_icase = false;
-		std::string m_value;
-		std::optional<row_handle> m_single_hit;
+		item_value m_value;
+		std::optional<const_row_handle> m_single_hit;
 	};
 
 	struct key_equals_or_empty_condition_impl : public condition_impl
@@ -426,18 +435,29 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override
 		{
-			m_item_ix = get_item_ix(c, m_item_name);
-			m_icase = is_item_type_uchar(c, m_item_name);
+			auto ix = get_item_ix(c, m_item_name);
+			if (ix.has_value())
+			{
+				m_item_ix = *ix;
+				m_icase = is_item_type_uchar(c, m_item_name);
+			}
+			else
+				m_key_is_missing = true;
+
 			return this;
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			bool result = false;
-			if (m_single_hit.has_value())
+
+			if (m_key_is_missing)
+				result = true;
+			else if (m_single_hit.has_value())
 				result = *m_single_hit == r;
 			else
 				result = r[m_item_ix].empty() or r[m_item_ix].compare(m_value, m_icase) == 0;
+
 			return result;
 		}
 
@@ -446,7 +466,7 @@ namespace detail
 			os << '(' << m_item_name << (m_icase ? "^ " : " ") << " == " << m_value << " OR " << m_item_name << " IS NULL)";
 		}
 
-		[[nodiscard]] std::optional<row_handle> single() const override
+		[[nodiscard]] std::optional<const_row_handle> single() const override
 		{
 			return m_single_hit;
 		}
@@ -467,109 +487,10 @@ namespace detail
 
 		std::string m_item_name;
 		uint16_t m_item_ix = 0;
-		std::string m_value;
+		item_value m_value;
 		bool m_icase = false;
-		std::optional<row_handle> m_single_hit;
-	};
-
-	struct key_equals_number_condition_impl : public condition_impl
-	{
-		key_equals_number_condition_impl(std::string name, double v)
-			: m_item_name(std::move(name))
-			, m_value(v)
-		{
-		}
-
-		condition_impl *prepare(const category &c) override;
-
-		[[nodiscard]] bool test(row_handle r) const override
-		{
-			return m_single_hit.has_value() ? *m_single_hit == r : r[m_item_ix].compare(m_value) == 0;
-		}
-
-		void str(std::ostream &os) const override
-		{
-			os << m_item_name << " == " << m_value;
-		}
-
-		[[nodiscard]] std::optional<row_handle> single() const override
-		{
-			return m_single_hit;
-		}
-
-		[[nodiscard]] bool equals(const condition_impl *rhs) const override
-		{
-			if (typeid(*rhs) == typeid(key_equals_number_condition_impl))
-			{
-				auto ri = static_cast<const key_equals_number_condition_impl *>(rhs);
-				if (m_single_hit.has_value() or ri->m_single_hit.has_value())
-					return m_single_hit == ri->m_single_hit;
-				else
-					// watch out, both m_item_ix might be the same while item_names might be diffent (in case they both do not exist in the category)
-					return m_item_ix == ri->m_item_ix and m_value == ri->m_value and m_item_name == ri->m_item_name;
-			}
-			return this == rhs;
-		}
-
-		std::string m_item_name;
-		uint16_t m_item_ix = 0;
-		double m_value;
-		std::optional<row_handle> m_single_hit;
-	};
-
-	struct key_equals_number_or_empty_condition_impl : public condition_impl
-	{
-		key_equals_number_or_empty_condition_impl(key_equals_number_condition_impl *equals)
-			: m_item_name(equals->m_item_name)
-			, m_value(equals->m_value)
-			, m_single_hit(equals->m_single_hit)
-		{
-		}
-
-		condition_impl *prepare(const category &c) override
-		{
-			m_item_ix = get_item_ix(c, m_item_name);
-			return this;
-		}
-
-		[[nodiscard]] bool test(row_handle r) const override
-		{
-			bool result = false;
-			if (m_single_hit.has_value())
-				result = *m_single_hit == r;
-			else
-				result = r[m_item_ix].empty() or r[m_item_ix].compare(m_value) == 0;
-			return result;
-		}
-
-		void str(std::ostream &os) const override
-		{
-			os << '(' << m_item_name << " == " << m_value << " OR " << m_item_name << " IS NULL)";
-		}
-
-		[[nodiscard]] std::optional<row_handle> single() const override
-		{
-			return m_single_hit;
-		}
-
-		[[nodiscard]] bool equals(const condition_impl *rhs) const override
-		{
-			if (typeid(*rhs) == typeid(key_equals_number_or_empty_condition_impl))
-			{
-				auto ri = static_cast<const key_equals_number_or_empty_condition_impl *>(rhs);
-				if (m_single_hit.has_value() or ri->m_single_hit.has_value())
-					return m_single_hit == ri->m_single_hit;
-				else
-					// watch out, both m_item_ix might be the same while item_names might be diffent (in case they both do not exist in the category)
-					return m_item_ix == ri->m_item_ix and m_value == ri->m_value and m_item_name == ri->m_item_name;
-			}
-			return this == rhs;
-		}
-
-		std::string m_item_name;
-		uint16_t m_item_ix = 0;
-		double m_value;
-		std::optional<row_handle> m_single_hit;
+		bool m_key_is_missing = false;
+		std::optional<const_row_handle> m_single_hit;
 	};
 
 	struct key_compare_condition_impl : public condition_impl
@@ -584,12 +505,17 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override
 		{
-			m_item_ix = get_item_ix(c, m_item_name);
-			m_icase = is_item_type_uchar(c, m_item_name);
-			return this;
+			auto ix = get_item_ix(c, m_item_name);
+			if (ix.has_value())
+			{
+				m_item_ix = *ix;
+				m_icase = is_item_type_uchar(c, m_item_name);
+				return this;
+			}
+			return nullptr;
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			return m_compare(r, m_icase);
 		}
@@ -602,7 +528,7 @@ namespace detail
 		std::string m_item_name;
 		uint16_t m_item_ix = 0;
 		bool m_icase = false;
-		std::function<bool(row_handle, bool)> m_compare;
+		std::function<bool(const_row_handle, bool)> m_compare;
 		std::string m_str;
 	};
 
@@ -616,13 +542,18 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override
 		{
-			m_item_ix = get_item_ix(c, m_item_name);
-			return this;
+			auto ix = get_item_ix(c, m_item_name);
+			if (ix.has_value())
+			{
+				m_item_ix = *ix;
+				return this;
+			}
+			return nullptr;
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
-			std::string_view txt = r[m_item_ix].text();
+			auto txt = r[m_item_ix].get<std::string>();
 			return std::regex_match(txt.begin(), txt.end(), mRx);
 		}
 
@@ -646,7 +577,7 @@ namespace detail
 		{
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			auto &c = r.get_category();
 
@@ -678,7 +609,7 @@ namespace detail
 		{
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			auto &c = r.get_category();
 
@@ -687,7 +618,7 @@ namespace detail
 			{
 				try
 				{
-					std::string_view txt = r[f].text();
+					auto txt = r[f].get<std::string>();
 					if (std::regex_match(txt.begin(), txt.end(), mRx))
 					{
 						result = true;
@@ -748,7 +679,7 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override;
 
-		[[nodiscard]] bool test(row_handle r) const override;
+		[[nodiscard]] bool test(const_row_handle r) const override;
 
 		void str(std::ostream &os) const override
 		{
@@ -768,9 +699,9 @@ namespace detail
 			os << ')';
 		}
 
-		[[nodiscard]] std::optional<row_handle> single() const override
+		[[nodiscard]] std::optional<const_row_handle> single() const override
 		{
-			std::optional<row_handle> result;
+			std::optional<const_row_handle> result;
 
 			for (auto sub : m_sub)
 			{
@@ -795,7 +726,7 @@ namespace detail
 		static condition_impl *combine_equal(std::vector<and_condition_impl *> &subs, or_condition_impl *oc);
 
 		std::vector<condition_impl *> m_sub;
-		std::optional<row_handle> m_single; // Potential result of index lookup
+		std::optional<const_row_handle> m_single; // Potential result of index lookup
 	};
 
 	struct or_condition_impl : public condition_impl
@@ -831,7 +762,7 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override;
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			bool result = false;
 
@@ -862,9 +793,9 @@ namespace detail
 			os << ')';
 		}
 
-		[[nodiscard]] std::optional<row_handle> single() const override
+		[[nodiscard]] std::optional<const_row_handle> single() const override
 		{
-			std::optional<row_handle> result;
+			std::optional<const_row_handle> result;
 
 			for (auto sub : m_sub)
 			{
@@ -903,11 +834,10 @@ namespace detail
 
 		condition_impl *prepare(const category &c) override
 		{
-			mA = mA->prepare(c);
-			return this;
+			return mA->prepare(c) ? this : nullptr;
 		}
 
-		[[nodiscard]] bool test(row_handle r) const override
+		[[nodiscard]] bool test(const_row_handle r) const override
 		{
 			return not mA->test(r);
 		}
@@ -961,26 +891,6 @@ inline condition operator or(condition &&a, condition &&b)
 
 			if (ci->m_item_name == ce->m_item_name)
 				return condition(new detail::key_equals_or_empty_condition_impl(ci));
-		}
-
-		if (typeid(*a.m_impl) == typeid(detail::key_equals_number_condition_impl) and
-			typeid(*b.m_impl) == typeid(detail::key_is_empty_condition_impl))
-		{
-			auto ci = static_cast<detail::key_equals_number_condition_impl *>(a.m_impl);
-			auto ce = static_cast<detail::key_is_empty_condition_impl *>(b.m_impl);
-
-			if (ci->m_item_name == ce->m_item_name)
-				return condition(new detail::key_equals_number_or_empty_condition_impl(ci));
-		}
-
-		if (typeid(*b.m_impl) == typeid(detail::key_equals_number_condition_impl) and
-			typeid(*a.m_impl) == typeid(detail::key_is_empty_condition_impl))
-		{
-			auto ci = static_cast<detail::key_equals_number_condition_impl *>(b.m_impl);
-			auto ce = static_cast<detail::key_is_empty_condition_impl *>(a.m_impl);
-
-			if (ci->m_item_name == ce->m_item_name)
-				return condition(new detail::key_equals_number_or_empty_condition_impl(ci));
 		}
 
 		return condition(new detail::or_condition_impl(std::move(a), std::move(b)));
@@ -1056,29 +966,6 @@ struct key
 	std::string m_item_name; ///< The item name
 };
 
-template <typename T>
-concept Numeric = ((std::is_floating_point_v<T> or std::is_integral_v<T>) and not std::is_same_v<T, bool>);
-
-/**
- * @brief Operator to create an equals condition based on a key @a key and a numeric value @a v
- */
-template <Numeric T>
-condition operator==(const key &key, const T &v)
-{
-	// TODO: change key_equals_etc... to use std::variant<double,int64_t> or something
-	return condition(new detail::key_equals_number_condition_impl(key.m_item_name, static_cast<double>(v)));
-}
-
-/**
- * @brief Operator to create an not-equals condition based on a key @a key and a numeric value @a v
- */
-template <Numeric T>
-condition operator!=(const key &key, const T &v)
-{
-	// TODO: change key_equals_etc... to use std::variant<double,int64_t> or something
-	return condition(new detail::not_condition_impl(key == v));
-}
-
 /**
  * @brief Operator to create an equals condition based on a key @a key and a value @a value
  */
@@ -1091,28 +978,9 @@ inline condition operator==(const key &key, std::string_view value)
 }
 
 /**
- * @brief Operator to create an equals condition based on a key @a key and a value @a value
- */
-template <typename T>
-	requires std::is_same_v<T, bool>
-inline condition operator==(const key &key, T value)
-{
-	return condition(new detail::key_equals_condition_impl({ key.m_item_name, value ? "y" : "n" }));
-}
-
-/**
- * @brief Operator to create a not equals condition based on a key @a key and a value @a v
- */
-template <typename T>
-condition operator!=(const key &key, const T &v)
-{
-	return condition(new detail::not_condition_impl(operator==(key, v)));
-}
-
-/**
  * @brief Operator to create a not equals condition based on a key @a key and a value @a value
  */
-inline condition operator!=(const key &key, std::string_view value)
+inline condition operator!=(const key &key, const item_value &value)
 {
 	return condition(new detail::not_condition_impl(operator==(key, value)));
 }
@@ -1124,7 +992,7 @@ template <Numeric T>
 condition operator>(const key &key, const T &v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v) > 0; },
 		std::format(" > {}", v)));
 }
@@ -1136,7 +1004,7 @@ template <Numeric T>
 condition operator>=(const key &key, const T &v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v) >= 0; },
 		std::format(" >= {}", v)));
 }
@@ -1148,7 +1016,7 @@ template <Numeric T>
 condition operator<(const key &key, const T &v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v) < 0; },
 		std::format(" < {}", v)));
 }
@@ -1160,7 +1028,7 @@ template <Numeric T>
 condition operator<=(const key &key, const T &v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v) <= 0; },
 		std::format(" <= {}", v)));
 }
@@ -1171,7 +1039,7 @@ condition operator<=(const key &key, const T &v)
 inline condition operator>(const key &key, std::string_view v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) > 0; },
 		std::format(" > {}", v)));
 }
@@ -1182,7 +1050,7 @@ inline condition operator>(const key &key, std::string_view v)
 inline condition operator>=(const key &key, std::string_view v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) >= 0; },
 		std::format(" >= {}", v)));
 }
@@ -1193,7 +1061,7 @@ inline condition operator>=(const key &key, std::string_view v)
 inline condition operator<(const key &key, std::string_view v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) < 0; },
 		std::format(" < {}", v)));
 }
@@ -1204,7 +1072,7 @@ inline condition operator<(const key &key, std::string_view v)
 inline condition operator<=(const key &key, std::string_view v)
 {
 	return condition(new detail::key_compare_condition_impl(
-		key.m_item_name, [item_name = key.m_item_name, v](row_handle r, bool icase)
+		key.m_item_name, [item_name = key.m_item_name, v](const_row_handle r, bool icase)
 		{ return r[item_name].compare(v, icase) <= 0; },
 		std::format(" <= {}", v)));
 }

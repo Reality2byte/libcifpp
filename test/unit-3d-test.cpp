@@ -25,6 +25,7 @@
  */
 
 #include "cif++/point.hpp"
+#include "cif++/validate.hpp"
 #include "test-main.hpp"
 
 #include <catch2/catch_test_macros.hpp>
@@ -400,6 +401,7 @@ TEST_CASE("symm_4wvp_1")
 	using namespace cif::literals;
 
 	cif::file f(gTestDir / "4wvp.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 	cif::mm::structure s(db);
@@ -426,6 +428,7 @@ TEST_CASE("symm_4wvp_1")
 TEST_CASE("symm_2bi3_1")
 {
 	cif::file f(gTestDir / "2bi3.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 	cif::mm::structure s(db);
@@ -472,6 +475,7 @@ TEST_CASE("symm_2bi3_1a")
 	using namespace cif::literals;
 
 	cif::file f(gTestDir / "2bi3.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 
@@ -515,6 +519,7 @@ TEST_CASE("symm_2bi3_1a")
 TEST_CASE("symm_3bwh_1")
 {
 	cif::file f(gTestDir / "3bwh.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 
@@ -538,6 +543,7 @@ TEST_CASE("symm_3bwh_1")
 TEST_CASE("volume_3bwh_1")
 {
 	cif::file f(gTestDir / "1juh.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 

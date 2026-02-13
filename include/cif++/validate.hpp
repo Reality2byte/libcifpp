@@ -64,6 +64,8 @@ enum class validation_error
 {
 	value_does_not_match_rx = 1,      /**< The value of an item does not conform to the regular expression specified for it */
 	value_is_not_in_enumeration_list, /**< The value of an item is not in the list of values allowed */
+	value_is_not_a_number,            /**< The value is not a number */
+	value_is_not_a_char_string,       /**< The value is not a character string */
 	not_a_known_primitive_type,       /**< The type is not a known primitive type */
 	undefined_category,               /**< Category has no definition in the dictionary */
 	unknown_item,                     /**< The item is not defined to be part of the category */
@@ -109,6 +111,10 @@ class validation_category_impl : public std::error_category
 				return "Value in item does not match regular expression";
 			case validation_error::value_is_not_in_enumeration_list:
 				return "Value is not in the enumerated list of valid values";
+			case validation_error::value_is_not_a_number:
+				return "Value is not a number";
+			case validation_error::value_is_not_a_char_string:
+				return "Value is not a character string";
 			case validation_error::not_a_known_primitive_type:
 				return "The type is not a known primitive type";
 			case validation_error::undefined_category:
@@ -272,7 +278,7 @@ struct type_validator
 	/// primitive type of this type. A value of zero indicates the
 	/// values are equal. Less than zero means @a a sorts before @a b
 	/// and a value larger than zero likewise means the opposite
-	[[nodiscard]] int compare(std::string_view a, std::string_view b) const;
+	[[nodiscard]] int compare(const item_value &a, const item_value &b) const;
 };
 
 /** @brief Item alias, items can be renamed over time
@@ -326,11 +332,13 @@ struct item_validator
 		return iequals(m_item_name, rhs.m_item_name);
 	}
 
-	/// @brief Validate the value in @a value for this item
-	/// Will throw a std::system_error exception if it fails
-	void operator()(std::string_view value) const;
+	/// @brief Validate value @a value, throws if invalid
+	void validate_value(const item_value &value) const;
 
-	/// @brief A more gentle version of value validation
+	/// @brief Validate value @a value and return potential error in @a ec
+	bool validate_value(const item_value &value, std::error_code &ec) const noexcept;
+
+	/// @brief Validate value @a value and return potential error in @a ec
 	bool validate_value(std::string_view value, std::error_code &ec) const noexcept;
 };
 
@@ -542,20 +550,20 @@ class validator_factory
 		return m_validators.emplace_back(std::move(v));
 	}
 
-#if __cplusplus >= 202302L
-	/// @brief Return validator with info recorded in @a audit_conform
-	static validator &operator[](const category &audit_conform)
-	{
-		return instance()[audit_conform];
-	}
+// #if __cplusplus >= 202302L
+// 	/// @brief Return validator with info recorded in @a audit_conform
+// 	static validator &operator[](const category &audit_conform)
+// 	{
+// 		return instance()[audit_conform];
+// 	}
 
-	/// @brief Return the single-file validator with name @a dictionary_name
-	/// and the dictionary name may be a set of dictionaries separated by comma
-	static validator &operator[](std::string_view dict)
-	{
-		return instance()[dict];
-	}
-#endif
+// 	/// @brief Return the single-file validator with name @a dictionary_name
+// 	/// and the dictionary name may be a set of dictionaries separated by comma
+// 	static validator &operator[](std::string_view dict)
+// 	{
+// 		return instance()[dict];
+// 	}
+// #endif
 
   private:
 	validator_factory() = default;

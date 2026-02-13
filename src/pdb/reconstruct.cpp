@@ -26,9 +26,12 @@
 
 #include "cif++.hpp"
 #include "cif++/compound.hpp"
+// #include "cif++/cql.hpp"
+#include "cif++/item.hpp"
 #include "cif++/cql.hpp"
 #include "cif++/point.hpp"
 #include "cif++/row.hpp"
+#include "cif++/validate.hpp"
 
 #include <algorithm>
 #include <stdexcept>
@@ -146,7 +149,7 @@ void checkEntities(datablock &db)
 				auto compound = cf.create(comp_id);
 				if (compound)
 					formula_weight += compound->formula_weight();
-				// else if (cif::VERBOSE > 0)
+				// else if (VERBOSE > 0)
 				// 	std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
@@ -164,7 +167,7 @@ void checkEntities(datablock &db)
 				auto compound = cf.create(comp_id);
 				if (compound)
 					formula_weight += compound->formula_weight();
-				// else if (cif::VERBOSE > 0)
+				// else if (VERBOSE > 0)
 				// 	std::clog << "missing information for compound " + comp_id << '\n';
 				++n;
 			}
@@ -187,7 +190,7 @@ void checkEntities(datablock &db)
 		}
 
 		if (formula_weight > 0)
-			entity.assign({ { "formula_weight", formula_weight, 3 } });
+			entity.assign({ { "formula_weight", { formula_weight, 3 } } });
 	}
 }
 
@@ -354,7 +357,7 @@ void fillLabelAsymID(category &atom_site)
 				mapAuthAsymIDAndEntityToLabelAsymID.emplace(key, label_asym_id);
 			else if (i->second != label_asym_id)
 			{
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "Inconsistent assignment of label_asym_id for the tuple entity_id: " << *label_entity_id << " and auth_asym_id: " << auth_asym_id << '\n';
 
 				mapAuthAsymIDAndEntityToLabelAsymID.clear();
@@ -427,7 +430,7 @@ void fixNegativeSeqID(category &atom_site)
 											   key("auth_seq_id") == auth_seq_id and
 											   key("label_seq_id") == label_seq_id))
 				{
-					row.assign("label_seq_id", std::to_string(seq_id), false, false);
+					row.assign("label_seq_id", seq_id, false, false);
 				}
 
 				++seq_id;
@@ -441,7 +444,7 @@ void fixNegativeSeqID(category &atom_site)
 										   key("auth_seq_id") == auth_seq_id and
 										   key("label_seq_id") == label_seq_id))
 			{
-				row.assign("label_seq_id", ".", false, false);
+				row.assign("label_seq_id", cif::item_value_type::INAPPLICABLE, false, false);
 			}
 		}
 	}
@@ -454,10 +457,10 @@ void checkChemCompRecords(datablock &db)
 
 	for (auto chem_comp_entry : chem_comp)
 	{
-		auto compound = cf.create(chem_comp_entry["id"].text());
+		auto compound = cf.create(chem_comp_entry["id"].str());
 
 		if (not compound)
-			std::cerr << "Unknown compound: " << chem_comp_entry["id"].text() << '\n';
+			std::cerr << "Unknown compound: " << chem_comp_entry["id"].str() << '\n';
 		else
 		{
 			std::vector<item> items;
@@ -469,7 +472,7 @@ void checkChemCompRecords(datablock &db)
 			if (not chem_comp_entry["formula"])
 				items.emplace_back("formula", compound->formula());
 			if (not chem_comp_entry["formula_weight"])
-				items.emplace_back("formula_weight", compound->formula_weight());
+				items.emplace_back("formula_weight", item_value{ compound->formula_weight(), 3 });
 
 			if (not items.empty())
 				chem_comp_entry.assign(items);
@@ -544,7 +547,7 @@ void checkAtomRecords(datablock &db)
 		if (row["type_symbol"].empty())
 			throw std::runtime_error("Missing type symbol in atom_site record");
 
-		std::string symbol{ row["type_symbol"].text() };
+		std::string symbol{ row["type_symbol"].str() };
 		if (atom_type.count("symbol"_key == symbol) == 0)
 			atom_type.emplace({ { "symbol", symbol } });
 
@@ -568,16 +571,16 @@ void checkAtomRecords(datablock &db)
 		if (not compound)
 		{
 			missingCompounds.insert(comp_id);
-			// if (cif::VERBOSE > 0)
+			// if (VERBOSE > 0)
 			// 	std::cerr << "Missing compound information for " << comp_id << "\n";
 			continue;
 		}
 
 		auto chem_comp_entry = chem_comp.find_first("id"_key == comp_id);
 
-		std::optional<bool> non_std;
+		std::optional<std::string> non_std;
 		if (cf.is_monomer(comp_id))
-			non_std = cf.is_std_monomer(comp_id);
+			non_std = cf.is_std_monomer(comp_id) ? "n" : "y";
 
 		if (not chem_comp_entry)
 		{
@@ -587,7 +590,7 @@ void checkAtomRecords(datablock &db)
 				{ "mon_nstd_flag", non_std },
 				{ "name", compound->name() },
 				{ "formula", compound->formula() },
-				{ "formula_weight", compound->formula_weight() } });
+				{ "formula_weight", { compound->formula_weight(), 3 } } });
 		}
 		else
 		{
@@ -602,7 +605,7 @@ void checkAtomRecords(datablock &db)
 			if (not chem_comp_entry["formula"])
 				items.emplace_back("formula", compound->formula());
 			if (not chem_comp_entry["formula_weight"])
-				items.emplace_back("formula_weight", compound->formula_weight());
+				items.emplace_back("formula_weight", item_value{ compound->formula_weight(), 3 });
 
 			if (not items.empty())
 				chem_comp_entry.assign(items);
@@ -614,22 +617,22 @@ void checkAtomRecords(datablock &db)
 		int seq_id = get_seq_id(k);
 
 		if (is_polymer and row["label_seq_id"].empty() and cf.is_monomer(comp_id))
-			row["label_seq_id"] = std::to_string(seq_id);
+			row["label_seq_id"] = seq_id;
 
 		if (row["label_asym_id"].empty())
-			row["label_asym_id"] = row["auth_asym_id"].text();
+			row["label_asym_id"] = row["auth_asym_id"].value();
 		else if (row["auth_asym_id"].empty())
-			row["auth_asym_id"] = row["label_asym_id"].text();
+			row["auth_asym_id"] = row["label_asym_id"].value();
 
 		if (row["label_comp_id"].empty())
-			row["label_comp_id"] = row["auth_comp_id"].text();
+			row["label_comp_id"] = row["auth_comp_id"].value();
 		else if (row["auth_comp_id"].empty())
-			row["auth_comp_id"] = row["label_comp_id"].text();
+			row["auth_comp_id"] = row["label_comp_id"].value();
 
 		if (row["label_atom_id"].empty())
-			row["label_atom_id"] = row["auth_atom_id"].text();
+			row["label_atom_id"] = row["auth_atom_id"].value();
 		else if (row["auth_atom_id"].empty())
-			row["auth_atom_id"] = row["label_atom_id"].text();
+			row["auth_atom_id"] = row["label_atom_id"].value();
 
 		// Rewrite the coordinates and other items that look better in a fixed format
 		// Be careful not to nuke invalidly formatted data here
@@ -648,13 +651,14 @@ void checkAtomRecords(datablock &db)
 			if (auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.length(), v); ec != std::errc{})
 				continue;
 
-			if (s.length() < prec + 1UL or s[s.length() - prec - 1] != '.')
-			{
-				char b[12];
+		/* 			if (s.length() < prec + 1UL or s[s.length() - prec - 1] != '.')
+		            {
+		                char b[12];
 
-				if (auto [ptr, ec] = std::to_chars(b, b + sizeof(b), v, std::chars_format::fixed, prec); ec == std::errc{})
-					row.assign(item_name, { b, static_cast<std::string::size_type>(ptr - b) }, false, false);
-			}
+		                if (auto [ptr, ec] = std::to_chars(b, b + sizeof(b), v, std::chars_format::fixed, prec); ec == std::errc{})
+		                    row.assign(item_name, { b, static_cast<std::string::size_type>(ptr - b) }, false, false);
+		            }
+		 */
 		}
 	}
 
@@ -670,12 +674,12 @@ void checkAtomRecords(datablock &db)
 	// 		auto r = atom_site.find_first(key(item_name) != null);
 	// 		if (not r)
 	// 		{
-	// 			if (cif::VERBOSE > 0)
+	// 			if (VERBOSE > 0)
 	// 				std::clog << "Dropping unknown item " << item_name << '\n';
 
 	// 			atom_site.remove_item(item_name);
 	// 		}
-	// 		else if (cif::VERBOSE > 0)
+	// 		else if (VERBOSE > 0)
 	// 			std::clog << "Keeping unknown item " << std::quoted(item_name) << " in atom_site since it is not empty\n";
 	// 	}
 	// }
@@ -714,29 +718,29 @@ void checkAtomAnisotropRecords(datablock &db)
 		// this happens sometimes (Phenix):
 
 		if (row["type_symbol"].empty())
-			row["type_symbol"] = parent["type_symbol"].text();
-		else if (row["type_symbol"].text() != parent["type_symbol"].text())
+			row["type_symbol"] = parent["type_symbol"].value();
+		else if (row["type_symbol"].value() != parent["type_symbol"].value())
 		{
-			if (cif::VERBOSE and std::exchange(warnReplaceTypeSymbol, false))
+			if (VERBOSE and std::exchange(warnReplaceTypeSymbol, false))
 				std::clog << "Replacing type_symbol in atom_site_anisotrop record(s)\n";
-			row["type_symbol"] = parent["type_symbol"].text();
+			row["type_symbol"] = parent["type_symbol"].value();
 		}
 
 		if (row["pdbx_auth_alt_id"].empty() and not parent["pdbx_auth_alt_id"].empty())
-			row["pdbx_auth_alt_id"] = parent["pdbx_auth_alt_id"].text();
+			row["pdbx_auth_alt_id"] = parent["pdbx_auth_alt_id"].value();
 		if (row["pdbx_label_seq_id"].empty() and not parent["label_seq_id"].empty())
-			row["pdbx_label_seq_id"] = parent["label_seq_id"].text();
+			row["pdbx_label_seq_id"] = parent["label_seq_id"].value();
 		if (row["pdbx_label_asym_id"].empty() and not parent["label_asym_id"].empty())
-			row["pdbx_label_asym_id"] = parent["label_asym_id"].text();
+			row["pdbx_label_asym_id"] = parent["label_asym_id"].value();
 		if (row["pdbx_label_atom_id"].empty() and not parent["label_atom_id"].empty())
-			row["pdbx_label_atom_id"] = parent["label_atom_id"].text();
+			row["pdbx_label_atom_id"] = parent["label_atom_id"].value();
 		if (row["pdbx_label_comp_id"].empty() and not parent["label_comp_id"].empty())
-			row["pdbx_label_comp_id"] = parent["label_comp_id"].text();
+			row["pdbx_label_comp_id"] = parent["label_comp_id"].value();
 	}
 
 	if (not to_be_deleted.empty())
 	{
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::clog << "Dropped " << to_be_deleted.size() << " anisotrop records since they did not have exactly one parent\n";
 
 		for (auto row : to_be_deleted)
@@ -895,7 +899,7 @@ void createEntity(datablock &db)
 			{ "id", entity_id },
 			{ "type", type },
 			{ "pdbx_description", desc },
-			{ "formula_weight", weight },
+			{ "formula_weight", { weight, 3 } },
 			{ "pdbx_number_of_molecules", count } });
 	}
 }
@@ -915,8 +919,8 @@ void createEntityPoly(datablock &db)
 		std::string type;
 		int last_seq_id = -1;
 		std::map<std::string, std::string> seq, seq_can;
-		bool non_std_monomer = false;
-		bool non_std_linkage = false;
+		std::string non_std_monomer = "n";
+		std::string non_std_linkage = "n";
 		std::vector<std::string> pdb_strand_ids;
 
 		for (const auto &[comp_id, seq_id, auth_asym_id] : atom_site.find<std::string, int, std::string>(
@@ -960,8 +964,8 @@ void createEntityPoly(datablock &db)
 					letter_can = c->one_letter_code();
 					letter = '(' + comp_id + ')';
 
-					non_std_linkage = true;
-					non_std_monomer = true;
+					non_std_linkage = "y";
+					non_std_monomer = "y";
 				}
 				else if (iequals(c->type(), "L-PEPTIDE LINKING") or iequals(c->type(), "PEPTIDE LINKING"))
 				{
@@ -970,7 +974,7 @@ void createEntityPoly(datablock &db)
 					letter_can = c->one_letter_code();
 					letter = '(' + comp_id + ')';
 
-					non_std_monomer = true;
+					non_std_monomer = "y";
 				}
 				else
 				{
@@ -979,7 +983,7 @@ void createEntityPoly(datablock &db)
 					letter_can = c->one_letter_code();
 					letter = '(' + comp_id + ')';
 
-					non_std_monomer = true;
+					non_std_monomer = "y";
 				}
 
 				if (type.empty())
@@ -1065,19 +1069,19 @@ void createEntityPolySeq(datablock &db)
 
 		for (const auto &[comp_id, seq_id] : atom_site.find<std::string, int>("label_entity_id"_key == entity_id and "label_asym_id"_key == asym_id, "label_comp_id", "label_seq_id"))
 		{
-			bool hetero = false;
+			std::string hetero = "n";
 
 			if (seq_id == last_seq_id)
 			{
 				if (last_comp_id != comp_id)
-					hetero = true;
+					hetero = "y";
 				else
 					continue;
 			}
 
-			if (hetero)
+			if (hetero == "y")
 			{
-				entity_poly_seq.back().assign({ { "hetero", true } });
+				entity_poly_seq.back().assign({ { "hetero", hetero } });
 			}
 
 			entity_poly_seq.emplace({ //
@@ -1231,7 +1235,7 @@ void comparePolySeqSchemes(datablock &db)
 	// If we have different Asym ID's assume the ndb is invalid.
 	if (asym_ids_ndb != asym_ids_pdbx)
 	{
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::clog << "The asym ID's of ndb_poly_seq_scheme and pdbx_poly_seq_scheme are not equal, dropping ndb_poly_seq_scheme\n";
 		ndb_poly_seq_scheme.clear();
 	}
@@ -1249,7 +1253,7 @@ void comparePolySeqSchemes(datablock &db)
 			{
 				if (ndb_i == ndb_range.end() or pdbx_i == pdbx_range.end())
 				{
-					if (cif::VERBOSE > 0)
+					if (VERBOSE > 0)
 						std::clog << "The sequences in ndb_poly_seq_scheme and pdbx_poly_seq_scheme are unequal in size for asym ID " << asym_id << '\n';
 					valid = false;
 					break;
@@ -1260,7 +1264,7 @@ void comparePolySeqSchemes(datablock &db)
 
 				if (ndb_mon_id != pdbx_mon_id)
 				{
-					if (cif::VERBOSE > 0)
+					if (VERBOSE > 0)
 						std::clog << "The sequences in ndb_poly_seq_scheme and pdbx_poly_seq_scheme contain different mon ID's for asym ID " << asym_id << '\n';
 					valid = false;
 					break;
@@ -1269,7 +1273,7 @@ void comparePolySeqSchemes(datablock &db)
 
 			if (not valid)
 			{
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "Dropping asym ID " << asym_id << " from ndb_poly_seq_scheme\n";
 				ndb_poly_seq_scheme.erase(key("id") == asym_id);
 			}
@@ -1307,7 +1311,9 @@ void createPdbxEntityNonpoly(datablock &db)
 			{
 				auto c = cif::compound_factory::instance().create(comp_id);
 
-				std::string name = c ? c->name() : ".";
+				std::optional<std::string> name;
+				if (c)
+					name = c->name();
 
 				pdbx_entity_nonpoly.emplace({ //
 					{ "entity_id", entity_id },
@@ -1345,9 +1351,9 @@ void createPdbxNonpolyScheme(datablock &db)
 				{ "asym_id", row.get<std::string>("label_asym_id") },
 				{ "entity_id", entity_id },
 				{ "mon_id", comp_id },
-				{ "ndb_seq_num", ndb_nr++ },
-				{ "pdb_seq_num", num },
-				{ "auth_seq_num", num },
+				{ "ndb_seq_num", std::to_string(ndb_nr++) },
+				{ "pdb_seq_num", std::to_string(num) },
+				{ "auth_seq_num", std::to_string(num) },
 				{ "pdb_mon_id", row.get<std::string>("auth_comp_id") },
 				{ "auth_mon_id",  row.get<std::string>("auth_comp_id") },
 				{ "pdb_strand_id", row.get<std::string>("auth_asym_id") },
@@ -1431,7 +1437,7 @@ void reconstruct_index_for_category(const validator &validator, category &cat, d
 		{
 			if (state == State::MissingKeys)
 			{
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "Repairing failed for category " << cat.name() << ", missing keys remain: " << ex.what() << '\n';
 
 				throw;
@@ -1441,7 +1447,7 @@ void reconstruct_index_for_category(const validator &validator, category &cat, d
 
 			auto key = ex.get_key();
 
-			if (cif::VERBOSE > 1)
+			if (VERBOSE > 1)
 				std::clog << "Need to add key " << key << " to category " << cat.name() << '\n';
 
 			for (auto row : cat)
@@ -1458,7 +1464,7 @@ void reconstruct_index_for_category(const validator &validator, category &cat, d
 		{
 			if (state == State::DuplicateKeys)
 			{
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "Repairing failed for category " << cat.name() << ", duplicate keys remain: " << ex.what() << '\n';
 
 				throw;
@@ -1466,7 +1472,7 @@ void reconstruct_index_for_category(const validator &validator, category &cat, d
 
 			state = State::DuplicateKeys;
 
-			if (cif::VERBOSE > 0)
+			if (VERBOSE > 0)
 				std::clog << "Attempt to fix " << cat.name() << " failed: " << ex.what() << '\n';
 
 			// replace items that do not define a relation to a parent
@@ -1555,7 +1561,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 	checkChemCompRecords(db);
 
 	// If the data is really horrible, it might not contain entities
-	if (db["atom_site"].find_first(key("label_entity_id") == null))
+	if (db["atom_site"].contains(key("label_entity_id") == null))
 		createEntityIDs(db);
 
 	// Now see if atom records make sense at all
@@ -1584,7 +1590,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 				if (not iv)
 					continue;
 
-				if (cif::VERBOSE > 0)
+				if (VERBOSE > 0)
 					std::clog << "Renaming " << item_name << " to " << iv->m_item_name << " in category " << cat.name() << '\n';
 				cat.rename_item(item_name, iv->m_item_name);
 			}
@@ -1633,12 +1639,12 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 			{
 				if (not cat.has_item(item))
 				{
-					if (cif::VERBOSE > 0)
+					if (VERBOSE > 0)
 						std::clog << "Adding mandatory item " << item << " to category " << cat.name() << '\n';
 
 					cat.add_item(item);
 
-					cat.update_value(all(), item, "?");
+					cat.update_value(all(), item, cif::item_value_type::MISSING);
 				}
 			}
 
@@ -1658,14 +1664,23 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 				for (auto row : cat)
 				{
 					std::error_code ec;
-					std::string_view value = row[ix].text();
 
-					if (not iv->validate_value(value, ec))
+					if (ix >= row.size() or row[ix].empty())
+						continue;
+
+					if (not iv->validate_value(row[ix].value(), ec))
 					{
-						if (cif::VERBOSE > 0)
-							std::clog << "Replacing value (" << std::quoted(value) << ") for item " << item_name << " in category " << cat.name() << " since it does not validate\n";
+						if (ec == cif::make_error_code(cif::validation_error::value_is_not_a_char_string))
+						{
+							row[ix] = item_value{ std::to_string(row[ix].value().get<int>()) };
+							if (iv->validate_value(row[ix].value(), ec))
+								continue;
+						}
 
-						row[ix] = "?";
+						if (VERBOSE > 0)
+							std::clog << "Replacing value (" << std::quoted(row[ix].str()) << ") for item " << item_name << " in category " << cat.name() << " since it does not validate: " << ec.message() << "\n";
+
+						row[ix] = item_value{ cif::item_value_type::INAPPLICABLE };
 					}
 				}
 			}
@@ -1674,7 +1689,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 		}
 		catch (const std::exception &ex)
 		{
-			if (cif::VERBOSE > 0)
+			if (VERBOSE > 0)
 				std::clog << ex.what() << '\n';
 
 			std::clog << "Will drop category " << cat.name() << " since it cannot be repaired\n";
@@ -1759,7 +1774,7 @@ void fixup_pdbx(file &file, const validator &validator)
 	// Be silent about missing compound info in fixup
 	auto &cf = compound_factory::instance();
 	bool save_report = cf.get_report_missing();
-	cf.set_report_missing(cif::VERBOSE > 1);
+	cf.set_report_missing(VERBOSE > 1);
 
 	std::string entry_id;
 

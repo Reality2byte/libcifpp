@@ -174,9 +174,16 @@ compound::compound(cif::datablock &db)
 	{
 		compound_atom atom;
 		std::string type_symbol, stereo_config;
-		cif::tie(atom.id, type_symbol, atom.charge, atom.aromatic, atom.leaving_atom, stereo_config, atom.x, atom.y, atom.z) =
+
+		std::string aromaticFlag, leavingAtomFlag;
+
+		cif::tie(atom.id, type_symbol, atom.charge, aromaticFlag, leavingAtomFlag, stereo_config, atom.x, atom.y, atom.z) =
 			row.get("atom_id", "type_symbol", "charge", "pdbx_aromatic_flag", "pdbx_leaving_atom_flag", "pdbx_stereo_config",
 				"model_Cartn_x", "model_Cartn_y", "model_Cartn_z");
+
+		atom.aromatic = iequals(aromaticFlag, "Y");
+		atom.leaving_atom = iequals(leavingAtomFlag, "Y");
+
 		atom.type_symbol = atom_type_traits(type_symbol).type();
 		if (stereo_config.empty())
 			atom.stereo_config = stereo_config_type::N;
@@ -189,8 +196,13 @@ compound::compound(cif::datablock &db)
 	for (auto row : chemCompBond)
 	{
 		compound_bond bond;
-		std::string valueOrder;
-		cif::tie(bond.atom_id[0], bond.atom_id[1], valueOrder, bond.aromatic, bond.stereo_config) = row.get("atom_id_1", "atom_id_2", "value_order", "pdbx_aromatic_flag", "pdbx_stereo_config");
+		std::string valueOrder, aromaticFlag, stereoConfigFlag;
+
+		cif::tie(bond.atom_id[0], bond.atom_id[1], valueOrder, aromaticFlag, stereoConfigFlag) = row.get("atom_id_1", "atom_id_2", "value_order", "pdbx_aromatic_flag", "pdbx_stereo_config");
+
+		bond.aromatic = iequals(aromaticFlag, "Y");
+		bond.stereo_config = iequals(stereoConfigFlag, "Y");
+
 		if (valueOrder.empty())
 			bond.type = bond_type::sing;
 		else
@@ -425,7 +437,7 @@ compound *compound_factory_impl::create(const std::string &id)
 
 	if (m_index.empty())
 	{
-		if (cif::VERBOSE > 1)
+		if (VERBOSE > 1)
 		{
 			std::cout << "Creating component index "
 					  << "...";
@@ -435,7 +447,7 @@ compound *compound_factory_impl::create(const std::string &id)
 		cif::parser parser(*ccd, file);
 		m_index = parser.index_datablocks();
 
-		if (cif::VERBOSE > 1)
+		if (VERBOSE > 1)
 			std::cout << " done\n";
 
 		// reload the resource, perhaps this should be improved...
@@ -449,7 +461,7 @@ compound *compound_factory_impl::create(const std::string &id)
 			ccd = std::make_unique<std::ifstream>(m_file);
 	}
 
-	if (cif::VERBOSE > 1)
+	if (VERBOSE > 1)
 	{
 		std::cout << "Loading component " << id << "...";
 		std::cout.flush();
@@ -458,7 +470,7 @@ compound *compound_factory_impl::create(const std::string &id)
 	cif::parser parser(*ccd, file);
 	parser.parse_single_datablock(id, m_index);
 
-	if (cif::VERBOSE > 1)
+	if (VERBOSE > 1)
 		std::cout << " done\n";
 
 	if (not file.empty())
@@ -567,16 +579,16 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 			{ "atom_id", atom_id },
 			{ "type_symbol", type_symbol },
 			{ "charge", charge },
-			{ "model_Cartn_x", x.has_value() ? x : xi, 3 },
-			{ "model_Cartn_y", y.has_value() ? y : yi, 3 },
-			{ "model_Cartn_z", z.has_value() ? z : zi, 3 },
+			{ "model_Cartn_x", x.has_value() ? x : xi/* , 3 */ },
+			{ "model_Cartn_y", y.has_value() ? y : yi/* , 3 */ },
+			{ "model_Cartn_z", z.has_value() ? z : zi/* , 3 */ },
 			{ "pdbx_ordinal", ord++ } });
 
 		formal_charge += charge;
 	}
 
 	for (std::size_t ord = 1; const auto &[atom_id_1, atom_id_2, type, aromatic] :
-		rdb["chem_comp_bond"].rows<std::string, std::string, std::string, bool>("atom_id_1", "atom_id_2", "type", "aromatic"))
+		rdb["chem_comp_bond"].rows<std::string, std::string, std::string, std::string>("atom_id_1", "atom_id_2", "type", "aromatic"))
 	{
 		std::string value_order("SING");
 
@@ -623,7 +635,7 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 		{ "type", type },
 		{ "formula", formula },
 		{ "pdbx_formal_charge", formal_charge },
-		{ "formula_weight", formula_weight },
+		{ "formula_weight", { formula_weight, 3 } },
 		{ "three_letter_code", three_letter_code } });
 
 	std::shared_lock lock(mMutex);
@@ -650,7 +662,7 @@ compound_factory::compound_factory()
 	auto ccd = cif::load_resource("components.cif");
 	if (ccd)
 		m_impl = std::make_shared<compound_factory_impl>();
-	else if (cif::VERBOSE > 0)
+	else if (VERBOSE > 0)
 		std::cerr << "CCD components.cif resource was not found\n";
 }
 

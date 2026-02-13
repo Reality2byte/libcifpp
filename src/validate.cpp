@@ -28,10 +28,12 @@
 
 #include "cif++/category.hpp"
 #include "cif++/dictionary_parser.hpp"
+#include "cif++/text.hpp"
 #include "cif++/utilities.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <compare>
 #include <format>
 #include <iomanip>
 #include <iostream>
@@ -158,121 +160,84 @@ type_validator::type_validator(std::string_view name, DDL_PrimitiveType type, st
 {
 }
 
-int type_validator::compare(std::string_view a, std::string_view b) const
+int type_validator::compare(const item_value &a, const item_value &b) const
 {
 	int result = 0;
 
-	if (a.empty())
-		result = b.empty() ? 0 : -1;
-	else if (b.empty())
-		result = a.empty() ? 0 : +1;
-	else
+	switch (m_primitive_type)
 	{
-		switch (m_primitive_type)
+		case DDL_PrimitiveType::Numb:
 		{
-			case DDL_PrimitiveType::Numb:
-			{
-				double da, db;
+			if (a.is_number() and b.is_number())
+				return a.compare(b);
 
-				using namespace cif;
-				using namespace std;
+			auto da = a.get<double>();
+			auto db = b.get<double>();
 
-				std::from_chars_result ra, rb;
-
-				ra = from_chars(a.data(), a.data() + a.length(), da);
-				rb = from_chars(b.data(), b.data() + b.length(), db);
-
-				if (ra.ec == std::errc{} and rb.ec == std::errc{})
-				{
-					auto d = da - db;
-					if (std::abs(d) > std::numeric_limits<double>::epsilon())
-					{
-						if (d > 0)
-							result = 1;
-						else if (d < 0)
-							result = -1;
-					}
-				}
-				else if (ra.ec != std::errc{})
-					result = 1;
-				else
-					result = -1;
-				break;
-			}
-
-			case DDL_PrimitiveType::UChar:
-			case DDL_PrimitiveType::Char:
-			{
-				// CIF is guaranteed to have ascii only, therefore this primitive code will do
-				// also, we're collapsing spaces
-
-				auto ai = a.begin(), bi = b.begin();
-				for (;;)
-				{
-					if (ai == a.end())
-					{
-						if (bi != b.end())
-							result = -1;
-						break;
-					}
-					else if (bi == b.end())
-					{
-						result = 1;
-						break;
-					}
-
-					char ca = *ai;
-					char cb = *bi;
-
-					if (m_primitive_type == DDL_PrimitiveType::UChar)
-					{
-						ca = tolower(ca);
-						cb = tolower(cb);
-					}
-
-					result = ca - cb;
-
-					if (result != 0)
-						break;
-
-					if (ca == ' ')
-					{
-						while (ai[1] == ' ')
-							++ai;
-						while (bi[1] == ' ')
-							++bi;
-					}
-
-					++ai;
-					++bi;
-				}
-
-				break;
-			}
+			return da < db
+			           ? -1
+			       : da > db
+			           ? 1
+			           : 0;
 		}
-	}
 
-	return result;
+		case DDL_PrimitiveType::UChar:
+			if (a.is_string() and b.is_string())
+				return a.compare(b, true);
+
+			return icompare(a.str(), b.str());
+
+		case DDL_PrimitiveType::Char:
+			if (a.is_string() and b.is_string())
+				return a.compare(b, false);
+
+			return a.str().compare(b.str());
+	}
 }
 
 // --------------------------------------------------------------------
 
-void item_validator::operator()(std::string_view value) const
+void item_validator::validate_value(const item_value &value) const
 {
 	std::error_code ec;
 	if (not validate_value(value, ec))
-		throw std::system_error(ec, std::format("'{}' is not a valid value for {}", value, m_item_name));
+		throw std::system_error(ec, std::format("'{}' is not a valid value for {}", value.str(), m_item_name));
 }
 
-bool item_validator::validate_value(std::string_view value, std::error_code &ec) const noexcept
+bool item_validator::validate_value(const item_value &value, std::error_code &ec) const noexcept
 {
 	ec.clear();
 
-	if (not value.empty() and value != "?" and value != ".")
+	if (not value.empty())
 	{
-		if (m_type != nullptr and not m_type->m_rx->match(value))
-			ec = make_error_code(validation_error::value_does_not_match_rx);
-		else if (not m_enums.empty() and m_enums.count(std::string{ value }) == 0)
+		if (m_type != nullptr)
+		{
+			if (m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+			{
+				if (not value.is_number())
+					ec = make_error_code(validation_error::value_is_not_a_number);
+			}
+			else
+			{
+				if (value.is_number())
+					ec = make_error_code(validation_error::value_is_not_a_char_string);
+				else
+				{
+					try
+					{
+						auto s = value.str();
+						if (not m_type->m_rx->match(s))
+							ec = make_error_code(validation_error::value_does_not_match_rx);
+					}
+					catch (...)
+					{
+						ec = make_error_code(validation_error::value_does_not_match_rx);
+					}
+				}
+			}
+		}
+
+		if (ec == std::errc{} and not m_enums.empty() and m_enums.count(value.str()) == 0)
 			ec = make_error_code(validation_error::value_is_not_in_enumeration_list);
 	}
 
@@ -468,11 +433,14 @@ void validator::report_error(std::error_code ec, std::string_view category,
 		if (item.empty())
 			throw validation_exception(ec, category);
 		else
-		 	throw validation_exception(ec, category, item);
+			throw validation_exception(ec, category, item);
 	}
 
 	if (VERBOSE > 0)
-		std::cerr << ec.message() << " category: " << std::quoted(category) << " item: " << std::quoted(item) << '\n';
+		std::cerr << ec.message()
+				  << "; category: " << std::quoted(category)
+				  << " item: " << std::quoted(item)
+				  << '\n';
 }
 
 void validator::fill_audit_conform(category &audit_conform) const

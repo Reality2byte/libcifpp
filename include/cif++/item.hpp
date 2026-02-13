@@ -26,20 +26,18 @@
 
 #pragma once
 
-#include "cif++/exports.hpp"
 #include "cif++/text.hpp"
-#include "cif++/utilities.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <catch2/catch_tostring.hpp>
 #include <cctype>
 #include <charconv>
 #include <cstdint>
 #include <cstdlib>
-#include <iomanip>
+#include <cstring>
 #include <iostream>
-#include <limits>
 #include <optional>
-#include <sstream>
 #include <stdexcept>
 #include <string>
 #include <string_view>
@@ -56,7 +54,8 @@
 namespace cif
 {
 
-class row_handle;
+class category;
+class row;
 
 // --------------------------------------------------------------------
 /** @brief item is a transient class that is used to pass data into rows
@@ -90,6 +89,403 @@ class row_handle;
  * _my-cat.item-5 .
  * @endcode
  */
+
+enum class item_value_type
+{
+	INT,
+	FLOAT,
+	TEXT,
+
+	INAPPLICABLE,
+	MISSING
+};
+
+template <typename T>
+concept IntegralType = (std::is_integral_v<std::remove_cvref_t<T>>);
+
+template <typename T>
+concept FloatType = std::is_floating_point_v<std::remove_cvref_t<T>>;
+
+template <typename T>
+concept StringType = (std::is_assignable_v<std::string, T> and not std::is_integral_v<T> and not std::is_floating_point_v<T>);
+
+// --------------------------------------------------------------------
+
+/// \cond
+template <typename T>
+inline constexpr bool is_optional_v = false;
+template <typename T>
+inline constexpr bool is_optional_v<std::optional<T>> = true;
+/// \endcond
+
+class item_value
+{
+  public:
+	item_value() noexcept
+	{
+		m_data.m_type = item_value_type::MISSING;
+	}
+
+	item_value(item_value_type type) noexcept
+		: m_data(type)
+	{
+	}
+
+	item_value(const item_value &rhs)
+	{
+		m_data.m_type = rhs.m_data.m_type;
+		switch (m_data.m_type)
+		{
+			case item_value_type::INT:
+				m_data.m_value = rhs.m_data.m_value.m_integer;
+				break;
+			case item_value_type::FLOAT:
+				m_data.m_len = rhs.m_data.m_len;
+				m_data.m_value = rhs.m_data.m_value.m_float;
+				break;
+			case item_value_type::TEXT:
+				m_data.m_len = rhs.m_data.m_len;
+				m_data.m_value = rhs.m_data.sv();
+				break;
+			default: break;
+		}
+	}
+
+	item_value(std::nullptr_t)
+	{
+		m_data.m_type = item_value_type::MISSING;
+	}
+
+	item_value(std::string_view s)
+	{
+		if (s == ".")
+			m_data.m_type = item_value_type::INAPPLICABLE;
+		else if (s == "?")
+			m_data.m_type = item_value_type::MISSING;
+		else
+		{
+			m_data.m_type = item_value_type::TEXT;
+			m_data.m_len = s.length();
+			m_data.m_value = s;
+		}
+	}
+
+	template <size_t N>
+	item_value(const char(s)[N])
+		: item_value(std::string_view{ s, N })
+	{
+	}
+
+	item_value(const char *s)
+		: item_value(std::string_view{ s })
+	{
+	}
+
+	item_value(const std::string &s)
+		: item_value(std::string_view{ s })
+	{
+	}
+
+	template <IntegralType T>
+	item_value(T v)
+	{
+		m_data.m_type = item_value_type::INT;
+		m_data.m_value = static_cast<int64_t>(v);
+	}
+
+	template <FloatType T>
+	item_value(T v, int precision = 0)
+	{
+		m_data.m_type = item_value_type::FLOAT;
+		m_data.m_value = static_cast<double>(v);
+		m_data.m_len = precision;
+	}
+
+	template <typename T>
+	item_value(std::optional<T> v)
+	{
+		if (v.has_value())
+		{
+			item_value iv{ *v };
+			swap(*this, iv);
+		}
+		else
+			m_data.m_type = item_value_type::MISSING;
+	}
+
+	item_value(item_value &&rhs) noexcept
+	{
+		swap(*this, rhs);
+	}
+
+	item_value &operator=(item_value rhs) noexcept
+	{
+		swap(*this, rhs);
+		return *this;
+	}
+
+	// --------------------------------------------------------------------
+
+	[[nodiscard]] constexpr bool is_inapplicable() const noexcept { return m_data.m_type == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] constexpr bool is_missing() const noexcept { return m_data.m_type == item_value_type::MISSING; }
+	[[nodiscard]] constexpr bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
+
+	[[nodiscard]] constexpr bool is_string() const noexcept { return m_data.m_type == item_value_type::TEXT; }
+
+	[[nodiscard]] constexpr bool is_number_int() const noexcept { return m_data.m_type == item_value_type::INT; }
+	[[nodiscard]] constexpr bool is_number_float() const noexcept { return m_data.m_type == item_value_type::FLOAT; }
+	[[nodiscard]] constexpr bool is_number() const noexcept { return is_number_int() or is_number_float(); }
+
+	[[nodiscard]] constexpr item_value_type type() const { return m_data.m_type; }
+
+	explicit operator bool() const noexcept
+	{
+		bool result;
+		switch (m_data.m_type)
+		{
+			case item_value_type::INT: result = m_data.m_value.m_integer != 0; break;
+			case item_value_type::FLOAT: result = m_data.m_value.m_float != 0; break;
+			case item_value_type::TEXT: result = m_data.m_len != 0; break;
+			case item_value_type::INAPPLICABLE:
+			case item_value_type::MISSING: result = false; break;
+		}
+		return result;
+	}
+
+	[[nodiscard]] bool empty() const noexcept
+	{
+		switch (m_data.m_type)
+		{
+			case item_value_type::INAPPLICABLE:
+			case item_value_type::MISSING:
+				return true;
+
+			case item_value_type::TEXT:
+				return m_data.sv().empty();
+
+			default:
+				return false;
+		}
+	}
+
+	// --------------------------------------------------------------------
+
+	template <StringType T>
+	[[nodiscard]] inline std::string get() const
+	{
+		return str();
+	}
+
+	template <IntegralType T>
+	[[nodiscard]] std::remove_cvref_t<T> get() const
+	{
+		static_assert(not std::is_same_v<std::remove_cvref_t<T>, bool>, "bool is no longer supported");
+
+		switch (m_data.m_type)
+		{
+			case item_value_type::INT:
+				return m_data.m_value.m_integer;
+			case item_value_type::FLOAT:
+				return m_data.m_value.m_float;
+			case item_value_type::TEXT:
+			{
+				auto sv = m_data.sv();
+				int64_t v;
+				auto &&[ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.length(), v);
+				if (ec != std::errc{})
+					throw std::system_error(std::make_error_code(ec));
+				if (ptr != sv.data() + sv.length())
+					throw std::invalid_argument("String value does not contain only an integer");
+
+				return v;
+			}
+			default:
+				return not empty();
+		}
+	}
+
+	template <FloatType T>
+	[[nodiscard]] std::remove_cvref_t<T> get() const
+	{
+		switch (m_data.m_type)
+		{
+			case item_value_type::INT:
+				return m_data.m_value.m_integer;
+			case item_value_type::FLOAT:
+				return m_data.m_value.m_float;
+			case item_value_type::TEXT:
+			{
+				auto sv = m_data.sv();
+				double v;
+				auto &&[ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.length(), v);
+				if (ec != std::errc{})
+					throw std::system_error(std::make_error_code(ec));
+				if (ptr != sv.data() + sv.length())
+					throw std::invalid_argument("String value does not contain only a floating point number");
+				return v;
+			}
+			default:
+				return not empty();
+		}
+	}
+
+	template <typename T>
+		requires is_optional_v<T>
+	[[nodiscard]] auto get() const
+	{
+		switch (m_data.m_type)
+		{
+			case item_value_type::INAPPLICABLE:
+			case item_value_type::MISSING:
+				return T{};
+
+			default:
+			{
+				auto v = get<typename T::value_type>();
+				return T{ v };
+			}
+		}
+	}
+
+	[[nodiscard]] std::string str() const;
+
+	// --------------------------------------------------------------------
+
+	friend void swap(item_value &a, item_value &b) noexcept
+	{
+		std::swap(a.m_data.m_type, b.m_data.m_type);
+		std::swap(a.m_data.m_len, b.m_data.m_len);
+		std::swap(a.m_data.m_value, b.m_data.m_value);
+	}
+
+	// --------------------------------------------------------------------
+	// std::partial_ordering operator<=>(const item_value &rhs) const
+	// {
+	// 	if (m_data.m_type == rhs.m_data.m_type)
+	// 	{
+	// 		switch (m_data.m_type)
+	// 		{
+	// 			case item_value_type::INT: return m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
+	// 			case item_value_type::FLOAT: return m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
+	// 			case item_value_type::TEXT: return m_data.sv() <=> rhs.m_data.sv();
+	// 			case item_value_type::MISSING:
+	// 			case item_value_type::EMPTY: return std::strong_ordering::equivalent;
+	// 		}
+	// 	}
+	// 	else
+	// 		return m_data.m_type <=> rhs.m_data.m_type;
+	// }
+
+	bool operator==(const item_value &rhs) const
+	{
+		if (m_data.m_type == rhs.m_data.m_type)
+		{
+			switch (m_data.m_type)
+			{
+				case item_value_type::INT: return m_data.m_value.m_integer == rhs.m_data.m_value.m_integer;
+				case item_value_type::FLOAT: return m_data.m_value.m_float == rhs.m_data.m_value.m_float;
+				case item_value_type::TEXT: return m_data.sv() == rhs.m_data.sv();
+				case item_value_type::INAPPLICABLE:
+				case item_value_type::MISSING: return true;
+			}
+		}
+
+		return false;
+	}
+
+	[[nodiscard]] int compare(const item_value &b, bool ignore_case = false) const noexcept;
+
+	friend std::ostream &operator<<(std::ostream &os, const item_value &v);
+
+  private:
+	union value
+	{
+		int64_t m_integer{};
+		double m_float;
+		char m_local_str[8];
+		char *m_str;
+
+		value() = default;
+
+		value(int64_t v)
+			: m_integer(v)
+		{
+		}
+
+		value(double v)
+			: m_float(v)
+		{
+		}
+
+		value(std::string_view s)
+		{
+			if (s.length() >= sizeof(m_local_str))
+			{
+				m_str = new char[s.length() + 1];
+				std::copy(s.data(), s.data() + s.length(), m_str);
+				m_str[s.length()] = 0;
+			}
+			else
+				std::memcpy(m_local_str, s.data(), s.length() + 1);
+		}
+
+		value(item_value_type t)
+		{
+			m_integer = 0;
+		}
+
+		void destroy(item_value_type t, size_t len)
+		{
+			if (t == item_value_type::TEXT and len >= sizeof(m_local_str))
+				delete[] m_str;
+		}
+	};
+
+	struct data
+	{
+		item_value_type m_type = item_value_type::MISSING;
+		uint32_t m_len{};
+		value m_value{};
+
+		data(item_value_type t)
+			: m_type(t)
+			, m_value(t)
+		{
+		}
+
+		data() noexcept = default;
+		data(data &&rhs) noexcept
+		{
+			std::swap(m_type, rhs.m_type);
+			std::swap(m_len, rhs.m_len);
+			std::swap(m_value, rhs.m_value);
+		}
+
+		data(const data &) noexcept = delete;
+		data &operator=(data &&) noexcept = delete;
+		data &operator=(const data &) noexcept = delete;
+
+		~data()
+		{
+			m_value.destroy(m_type, m_len);
+		}
+
+		[[nodiscard]] std::string_view sv() const noexcept
+		{
+			assert(m_type == item_value_type::TEXT);
+			return m_type == item_value_type::TEXT ? std::string_view(m_len >= sizeof(m_value.m_local_str) ? m_value.m_str : m_value.m_local_str, m_len) : std::string_view{};
+		}
+
+		[[nodiscard]] const char *c_str() const noexcept
+		{
+			assert(m_type == item_value_type::TEXT);
+			return m_type == item_value_type::TEXT ? (m_len >= sizeof(m_value.m_local_str) ? m_value.m_str : m_value.m_local_str) : nullptr;
+		}
+	} m_data{};
+};
+
+static_assert(sizeof(item_value) == 16, "item_value should be 16 bytes");
+
 class item
 {
   public:
@@ -98,161 +494,57 @@ class item
 
 	/// \brief constructor for an item with name \a name and as
 	/// content the character '.', i.e. an inapplicable value.
-	item(std::string_view name)
-		: m_name(name)
-		, m_value({ '.' })
+	item(std::string name)
+		: m_name(std::move(name))
+		, m_value(item_value_type::MISSING)
 	{
 	}
 
-	/// \brief constructor for an item with name \a name and as
-	/// content a single character string with content \a value
-	item(std::string_view name, char value)
-		: m_name(name)
-		, m_value({ value })
+	item(std::string name, item_value value)
+		: m_name(std::move(name))
+		, m_value(std::move(value))
 	{
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content the formatted floating point value \a value with
-	/// precision \a precision
-	template <typename T>
-	item(std::string_view name, const T &value, int precision)
-		requires(std::is_floating_point_v<T>)
-		: m_name(name)
-	{
-		using namespace std;
-		using namespace cif;
-
-		char buffer[32];
-
-		auto r = to_chars(buffer, buffer + sizeof(buffer) - 1, value, chars_format::fixed, precision);
-		if (r.ec != std::errc{})
-			throw std::runtime_error("Could not format number");
-
-		m_value.assign(buffer, r.ptr - buffer);
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content a formatted floating point value \a value with
-	/// so-called general formatting
-	template <typename T>
-	item(const std::string_view name, const T &value)
-		requires(std::is_floating_point_v<T>)
-		: m_name(name)
-	{
-		using namespace std;
-		using namespace cif;
-
-		char buffer[32];
-
-		auto r = to_chars(buffer, buffer + sizeof(buffer) - 1, value, chars_format::general);
-		if (r.ec != std::errc{})
-			throw std::runtime_error("Could not format number");
-
-		m_value.assign(buffer, r.ptr - buffer);
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content the formatted integral value \a value
-	template <typename T>
-	item(const std::string_view name, const T &value)
-		requires(std::is_integral_v<T> and not std::is_same_v<T, bool>)
-		: m_name(name)
-	{
-		char buffer[32];
-
-		auto r = std::to_chars(buffer, buffer + sizeof(buffer) - 1, value);
-		if (r.ec != std::errc{})
-			throw std::runtime_error("Could not format number");
-
-		m_value.assign(buffer, r.ptr - buffer);
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content the formatted boolean value \a value
-	template <typename T>
-	item(const std::string_view name, const T &value)
-		requires(std::is_same_v<T, bool>)
-		: m_name(name)
-	{
-		m_value.assign(value ? "y" : "n");
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content value \a value
-	item(const std::string_view name, std::string_view value)
-		: m_name(name)
-		, m_value(value)
-	{
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content value \a value
-	template <typename T>
-	item(const std::string_view name, T &&value)
-		requires(std::is_same_v<T, std::string>)
-		: m_name(name)
-		, m_value(std::forward<T>(value))
-	{
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content the optional value \a value
-	template <typename T>
-	item(const std::string_view name, const std::optional<T> &value)
-		: m_name(name)
-	{
-		if (value.has_value())
-		{
-			item tmp(name, *value);
-			std::swap(tmp.m_value, m_value);
-		}
-		else
-			m_value.assign("?");
-	}
-
-	/// \brief constructor for an item with name \a name and as
-	/// content the formatted floating point value \a value with
-	/// precision \a precision
-	template <typename T>
-	item(std::string_view name, const std::optional<T> &value, int precision)
-		requires(std::is_floating_point_v<T>)
-		: m_name(name)
-	{
-		if (value.has_value())
-		{
-			item tmp(name, *value, precision);
-			std::swap(tmp.m_value, m_value);
-		}
-		else
-			m_value.assign("?");
 	}
 
 	/** @cond */
 	item(const item &rhs) = default;
-	item(item &&rhs) noexcept = default;
-	item &operator=(const item &rhs) = default;
-	item &operator=(item &&rhs) noexcept = default;
+
+	item(item &&rhs)
+	{
+		swap(*this, rhs);
+	}
+
+	item &operator=(item rhs) noexcept
+	{
+		swap(*this, rhs);
+		return *this;
+	}
 	/** @endcond */
 
-	[[nodiscard]] std::string_view name() const { return m_name; }            ///< Return the name of the item
-	[[nodiscard]] std::string_view value() const & { return m_value; }        ///< Return the value of the item
-	[[nodiscard]] std::string value() const && { return std::move(m_value); } ///< Return the value of the item
+	friend void swap(item &a, item &b) noexcept
+	{
+		std::swap(a.m_name, b.m_name);
+		std::swap(a.m_value, b.m_value);
+	}
+
+	[[nodiscard]] const std::string &name() const { return m_name; }    ///< Return the name of the item
+	[[nodiscard]] const item_value &value() const & { return m_value; } ///< Return the value of the item
+	item_value &value() & { return m_value; }                           ///< Return the value of the item
 
 	/// \brief replace the content of the stored value with \a v
-	void value(std::string_view v) { m_value = v; }
+	void value(item_value v) { m_value = std::move(v); }
 
 	/// \brief empty means either null or unknown
-	[[nodiscard]] bool empty() const { return is_null() or is_unknown() or m_value.empty(); }
+	[[nodiscard]] bool empty() const { return m_value.empty(); }
 
-	/// \brief returns true if the item contains '.'
-	[[nodiscard]] bool is_null() const { return m_value == "."; }
+	/// \brief returns true if the item contains '.' or '?'
+	[[nodiscard]] bool is_null() const { return m_value.is_null(); }
 
 	/// \brief returns true if the item contains '?'
-	[[nodiscard]] bool is_unknown() const { return m_value == "?"; }
+	[[nodiscard]] bool is_unknown() const { return m_value.is_missing(); }
 
-	/// \brief the length of the value string
-	[[nodiscard]] std::size_t length() const { return m_value.length(); }
+	// /// \brief the length of the value string
+	// std::size_t length() const { return m_value.length(); }
 
 	/// \brief support for structured binding
 	template <std::size_t N>
@@ -264,112 +556,21 @@ class item
 			return value();
 	}
 
-	auto operator<=>(const item &rhs) const = default;
+	// auto operator<=>(const item &rhs) const = default;
 
   private:
-	std::string_view m_name;
-	std::string m_value;
+	std::string m_name;
+	item_value m_value;
 };
 
 // --------------------------------------------------------------------
-/// \brief the internal storage for items in a category
-///
-/// Internal storage, with minimal space requirements. Strings of
-/// size 7 or shorter are stored internally.
-/// Typically, more than 99% of the strings in an mmCIF file are less
-/// than 8 bytes in length.
-
-struct item_value
-{
-	/** @cond */
-	item_value() = default;
-	/** @endcond */
-
-	/// \brief constructor
-	item_value(std::string_view text)
-		: m_length(text.length())
-		, m_storage(0)
-	{
-		if (m_length >= kBufferSize)
-		{
-			m_data = new char[m_length + 1];
-			std::ranges::copy(text, m_data);
-			m_data[m_length] = 0;
-		}
-		else
-		{
-			std::ranges::copy(text, m_local_data);
-			m_local_data[m_length] = 0;
-		}
-	}
-
-	/** @cond */
-	item_value(item_value &&rhs) noexcept
-		: m_length(std::exchange(rhs.m_length, 0))
-		, m_storage(std::exchange(rhs.m_storage, 0))
-	{
-	}
-
-	item_value &operator=(item_value &&rhs) noexcept
-	{
-		std::swap(m_length, rhs.m_length);
-		std::swap(m_storage, rhs.m_storage);
-		return *this;
-	}
-
-	~item_value()
-	{
-		if (m_length >= kBufferSize)
-			delete[] m_data;
-		m_storage = 0;
-		m_length = 0;
-	}
-
-	item_value(const item_value &) = delete;
-	item_value &operator=(const item_value &) = delete;
-	/** @endcond */
-
-	/** operator bool, allows easy checking for empty items */
-	explicit operator bool() const
-	{
-		return m_length != 0;
-	}
-
-	std::size_t m_length = 0; ///< Length of the data
-	union
-	{
-		char m_local_data[8]; ///< Storage area for small strings (strings smaller than kBufferSize)
-		char *m_data;         ///< Pointer to a string stored in the heap
-		uint64_t m_storage;   ///< Alternative storage of the data, used in move operations
-	};
-
-	/** The maximum length of locally stored strings */
-	static constexpr std::size_t kBufferSize = sizeof(m_local_data);
-
-	// By using std::string_view instead of c_str we obain a
-	// nice performance gain since we avoid many calls to strlen.
-
-	/** Return the content of the item as a std::string_view */
-	[[nodiscard]] constexpr inline std::string_view text() const
-	{
-		const char *ptr = m_length >= kBufferSize ? m_data : m_local_data;
-		return (m_length == 1 and *ptr == '?') ? std::string_view{} : std::string_view{ ptr, m_length };
-	}
-};
-
-// --------------------------------------------------------------------
-// Transient object to access stored data
-
-/// \brief This is item_handle, it is used to access the data stored in item_value.
+/// \brief This is item_handle, it is used to access the data stored in
+/// item_value's in rows
 
 struct item_handle
 {
   public:
-	/** @cond */
-	// conversion helper class
-	template <typename T, typename = void>
-	struct item_value_as;
-	/** @endcond */
+	item_handle() = delete;
 
 	/**
 	 * @brief Assign value @a value to the item referenced
@@ -378,73 +579,52 @@ struct item_handle
 	 * @param value The value
 	 * @return reference to this item_handle
 	 */
+	item_handle &operator=(item_value value)
+	{
+		set(std::move(value), true);
+		return *this;
+	}
+
+	[[nodiscard]] item_value &value();
+	[[nodiscard]] const item_value &value() const;
+
+	[[nodiscard]] constexpr bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] constexpr bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
+	[[nodiscard]] constexpr bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
+
+	[[nodiscard]] constexpr bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
+
+	[[nodiscard]] constexpr bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
+	[[nodiscard]] constexpr bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
+	[[nodiscard]] constexpr bool is_number() const noexcept { return is_number_int() or is_number_float(); }
+
+	[[nodiscard]] auto type() const { return value().type(); }
+
 	template <typename T>
-	item_handle &operator=(const T &value)
+	[[nodiscard]] auto get() const
 	{
-		assign_value(item{ "", value }.value());
-		return *this;
+		if (empty())
+			return T{};
+		else
+			return value().template get<T>();
 	}
 
-	/**
-	 * @brief Assign value @a value to the item referenced
-	 *
-	 * @tparam T Type of the value
-	 * @param value The value
-	 * @return reference to this item_handle
-	 */
 	template <typename T>
-	item_handle &operator=(T &&value)
+	[[nodiscard]] auto as() const
 	{
-		assign_value(item{ "", std::forward<T>(value) }.value());
-		return *this;
+		if (empty())
+			return T{};
+		else
+			return value().template get<T>();
 	}
 
-	/**
-	 * @brief Assign value @a value to the item referenced
-	 *
-	 * @tparam T Type of the value
-	 * @param value The value
-	 * @return reference to this item_handle
-	 */
-	template <std::size_t N>
-	item_handle &operator=(const char (&value)[N])
+	[[nodiscard]] auto str() const
 	{
-		assign_value(item{ "", std::move(value) }.value());
-		return *this;
+		return value().str();
 	}
 
-	/**
-	 * @brief A method with a variable number of arguments that will be concatenated and
-	 * assigned as a string. Use it like this:
-	 *
-	 * @code{.cpp}
-	 * cif::item_handle ih;
-	 * is.os("The result of ", 1, " * ", 42, " is of course ", 42);
-	 * @endcode
-	 *
-	 * And the content will then be `The result of 1 * 42 is of course 42`.
-	 *
-	 * @tparam Ts Types of the parameters
-	 * @param v The parameters to concatenate
-	 */
-	template <typename... Ts>
-	void os(const Ts &...v)
-	{
-		std::ostringstream ss;
-		((ss << v), ...);
-		this->operator=(ss.str());
-	}
-
-	/** Swap contents of this and @a b */
-	void swap(item_handle &b);
-
-	/** Return the contents of this item as type @tparam T */
-	template <typename T = std::string>
-	[[nodiscard]] auto as() const -> T
-	{
-		using value_type = std::remove_cv_t<std::remove_reference_t<T>>;
-		return item_value_as<value_type>::convert(*this);
-	}
+	/** Swap contents of @a a and @a b */
+	friend void swap(item_handle &a, item_handle &b) noexcept;
 
 	/** Return the contents of this item as type @tparam T or, if not
 	 * set, use @a dv as the default value.
@@ -452,7 +632,7 @@ struct item_handle
 	template <typename T>
 	[[nodiscard]] auto value_or(const T &dv) const
 	{
-		return empty() ? dv : this->as<T>();
+		return empty() ? dv : this->get<T>();
 	}
 
 	/**
@@ -466,21 +646,25 @@ struct item_handle
 	 * @param icase Flag indicating if we should compare character case sensitive
 	 * @return -1, 0 or 1
 	 */
-	template <typename T>
-	[[nodiscard]] int compare(const T &value, bool icase = true) const noexcept
+
+	[[nodiscard]] int compare(const item_value &value, bool icase = true) const noexcept
 	{
-		return item_value_as<T>::compare(*this, value, icase);
+		return this->value().compare(value, icase);
+	}
+
+	[[nodiscard]] int compare(const item_handle &value, bool icase = true) const noexcept
+	{
+		return compare(value.value(), icase);
 	}
 
 	/**
 	 * @brief Compare the value contained with the value @a value and
 	 * return true if both are equal.
 	 */
-	template <typename T>
-	[[nodiscard]] bool operator==(const T &value) const noexcept
+	[[nodiscard]] bool operator==(const item_value &value) const noexcept
 	{
 		// TODO: icase or not icase?
-		return item_value_as<T>::compare(*this, value, true) == 0;
+		return this->value().compare(value) != 0;
 	}
 
 	// We may not have C++20 yet...
@@ -500,31 +684,13 @@ struct item_handle
 	 * only contains '.' meaning null or '?' meaning unknown
 	 * in a mmCIF context
 	 */
-	[[nodiscard]] bool empty() const
-	{
-		auto txt = text();
-		return txt.empty() or (txt.length() == 1 and (txt.front() == '.' or txt.front() == '?'));
-	}
+	[[nodiscard]] bool empty() const;
 
 	/** Easy way to test for an empty item */
 	explicit operator bool() const { return not empty(); }
 
-	/// is_null return true if the item contains '.'
-	[[nodiscard]] bool is_null() const
-	{
-		auto txt = text();
-		return txt.length() == 1 and txt.front() == '.';
-	}
-
-	/// is_unknown returns true if the item contains '?'
-	[[nodiscard]] bool is_unknown() const
-	{
-		auto txt = text();
-		return txt.length() == 1 and txt.front() == '?';
-	}
-
 	/** Return a std::string_view for the contents */
-	[[nodiscard]] std::string_view text() const;
+	[[nodiscard]] std::string_view text_() const;
 
 	/**
 	 * @brief Construct a new item handle object
@@ -532,224 +698,153 @@ struct item_handle
 	 * @param item Item index
 	 * @param row Reference to the row
 	 */
-	item_handle(uint16_t item, row_handle &row)
-		: m_item_ix(item)
-		, m_row_handle(row)
+	item_handle(category &cat, row &row, uint16_t item_ix)
+		: m_category(cat)
+		, m_row(row)
+		, m_item_ix(item_ix)
 	{
-	}
-
-	/** A variable holding an empty item */
-	CIFPP_EXPORT static const item_handle s_null_item;
-
-	/** friend to swap two item handles */
-	friend void swap(item_handle a, item_handle b)
-	{
-		a.swap(b);
 	}
 
   private:
-	item_handle() noexcept;
-
+	category &m_category;
+	row &m_row;
 	uint16_t m_item_ix;
-	row_handle &m_row_handle;
 
-	void assign_value(std::string_view value);
+	friend class parser;
+
+	void set(item_value value, bool updateLinked);
 };
 
-// So sad that older gcc implementations of from_chars did not support floats yet...
-
-/** @cond */
-template <typename T>
-struct item_handle::item_value_as<T, std::enable_if_t<std::is_arithmetic_v<T> and not std::is_same_v<T, bool>>>
+struct const_item_handle
 {
-	using value_type = std::remove_reference_t<std::remove_cv_t<T>>;
+  public:
+	const_item_handle() = delete;
 
-	static value_type convert(const item_handle &ref)
+	[[nodiscard]] const item_value &value() const;
+
+	[[nodiscard]] constexpr bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] constexpr bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
+	[[nodiscard]] constexpr bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
+
+	[[nodiscard]] constexpr bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
+
+	[[nodiscard]] constexpr bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
+	[[nodiscard]] constexpr bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
+	[[nodiscard]] constexpr bool is_number() const noexcept { return is_number_int() or is_number_float(); }
+
+	[[nodiscard]] auto type() const { return value().type(); }
+
+	template <typename T>
+	[[nodiscard]] auto get() const
 	{
-		value_type result = {};
-
-		if (not ref.empty())
-		{
-			auto txt = ref.text();
-
-			auto b = txt.data();
-			auto e = txt.data() + txt.size();
-
-			std::from_chars_result r = (b + 1 < e and *b == '+' and std::isdigit(b[1])) //
-			                               ? from_chars(b + 1, e, result)
-			                               : from_chars(b, e, result);
-
-			if (r.ec != std::errc{} or r.ptr != e)
-			{
-				result = {};
-				if (cif::VERBOSE)
-				{
-					if (r.ec == std::errc::invalid_argument)
-						std::cerr << "Attempt to convert " << std::quoted(txt) << " into a number\n";
-					else if (r.ec == std::errc::result_out_of_range)
-						std::cerr << "Conversion of " << std::quoted(txt) << " into a type that is too small\n";
-					else
-						std::cerr << "Not a valid number " << std::quoted(txt) << '\n';
-				}
-			}
-		}
-
-		return result;
-	}
-
-	static int compare(const item_handle &ref, const T &value, bool icase) noexcept
-	{
-		int result = 0;
-
-		auto txt = ref.text();
-
-		if (ref.empty())
-			result = 1;
+		if (empty())
+			return T{};
 		else
-		{
-			value_type v = {};
-
-			auto b = txt.data();
-			auto e = txt.data() + txt.size();
-
-			std::from_chars_result r = (b + 1 < e and *b == '+' and std::isdigit(b[1]))
-			                               ? from_chars(b + 1, e, v)
-			                               : from_chars(b, e, v);
-
-			if (r.ec != std::errc{} or r.ptr != e)
-			{
-				if (cif::VERBOSE)
-				{
-					if (r.ec == std::errc::invalid_argument)
-						std::cerr << "Attempt to convert " << std::quoted(txt) << " into a number\n";
-					else if (r.ec == std::errc::result_out_of_range)
-						std::cerr << "Conversion of " << std::quoted(txt) << " into a type that is too small\n";
-					else
-						std::cerr << "Not a valid number " << std::quoted(txt) << '\n';
-				}
-				result = 1;
-			}
-			else if (std::abs(v - value) <= std::numeric_limits<value_type>::epsilon())
-				result = 0;
-			else if (v < value)
-				result = -1;
-			else if (v > value)
-				result = 1;
-		}
-
-		return result;
-	}
-};
-
-template <typename T>
-struct item_handle::item_value_as<std::optional<T>>
-{
-	static std::optional<T> convert(const item_handle &ref)
-	{
-		std::optional<T> result;
-		if (ref)
-			result = ref.as<T>();
-		return result;
+			return value().template get<T>();
 	}
 
-	static int compare(const item_handle &ref, std::optional<T> value, bool icase) noexcept
+	template <typename T>
+	[[nodiscard]] auto as() const
 	{
-		if (ref.empty() and not value)
+		if (empty())
+			return T{};
+		else
+			return value().template get<T>();
+	}
+
+	[[nodiscard]] auto str() const
+	{
+		return value().str();
+	}
+
+	/** Return the contents of this item as type @tparam T or, if not
+	 * set, use @a dv as the default value.
+	 */
+	template <typename T>
+	[[nodiscard]] auto value_or(const T &dv) const
+	{
+		return empty() ? dv : this->get<T>();
+	}
+
+	/**
+	 * @brief Compare the contents of this item with value @a value
+	 * optionally ignoring character case, if @a icase is true.
+	 * Returns 0 if both are equal, -1 if this sorts before @a value
+	 * and 1 if this sorts after @a value
+	 *
+	 * @tparam T Type of the value @a value
+	 * @param value The value to compare with
+	 * @param icase Flag indicating if we should compare character case sensitive
+	 * @return -1, 0 or 1
+	 */
+
+	[[nodiscard]] int compare(const item_value &value, bool icase = true) const noexcept
+	{
+		return this->value().compare(value, icase);
+	}
+
+	[[nodiscard]] int compare(const const_item_handle &value, bool icase = true) const noexcept
+	{
+		if (empty() and value.empty())
 			return 0;
-
-		if (ref.empty())
+		else if (empty())
 			return -1;
-		else if (not value)
+		else if (value.empty())
 			return 1;
 		else
-			return ref.compare(*value, icase);
+			return compare(value.value(), icase);
 	}
+
+	/**
+	 * @brief Compare the value contained with the value @a value and
+	 * return true if both are equal.
+	 */
+	[[nodiscard]] bool operator==(const item_value &value) const noexcept
+	{
+		// TODO: icase or not icase?
+		return this->value().compare(value) != 0;
+	}
+
+	// We may not have C++20 yet...
+
+	/**
+	 * @brief Compare the value contained with the value @a value and
+	 * return true if both are not equal.
+	 */
+	template <typename T>
+	[[nodiscard]] bool operator!=(const T &value) const noexcept
+	{
+		return not operator==(value);
+	}
+
+	/**
+	 * @brief Returns true if the content string is empty or
+	 * only contains '.' meaning null or '?' meaning unknown
+	 * in a mmCIF context
+	 */
+	[[nodiscard]] bool empty() const;
+
+	/** Easy way to test for an empty item */
+	explicit operator bool() const { return not empty(); }
+
+	/**
+	 * @brief Construct a new item handle object
+	 *
+	 * @param item Item index
+	 * @param row Reference to the row
+	 */
+	const_item_handle(const category &cat, const row &row, uint16_t item_ix)
+		: m_category(cat)
+		, m_row(row)
+		, m_item_ix(item_ix)
+	{
+	}
+
+  private:
+	const category &m_category;
+	const row &m_row;
+	uint16_t m_item_ix;
 };
-
-template <typename T>
-struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, bool>>>
-{
-	static bool convert(const item_handle &ref)
-	{
-		bool result = false;
-		if (not ref.empty())
-			result = iequals(ref.text(), "y");
-		return result;
-	}
-
-	static int compare(const item_handle &ref, bool value, bool icase) noexcept
-	{
-		bool rv = convert(ref);
-		return value && rv ? 0
-		                   : (rv < value ? -1 : 1);
-	}
-};
-
-template <std::size_t N>
-struct item_handle::item_value_as<char[N]>
-{
-	static std::string convert(const item_handle &ref)
-	{
-		if (ref.empty())
-			return {};
-		return { ref.text().data(), ref.text().size() };
-	}
-
-	static int compare(const item_handle &ref, const char (&value)[N], bool icase) noexcept
-	{
-		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
-	}
-};
-
-template <typename T>
-struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, const char *>>>
-{
-	static std::string convert(const item_handle &ref)
-	{
-		if (ref.empty())
-			return {};
-		return { ref.text().data(), ref.text().size() };
-	}
-
-	static int compare(const item_handle &ref, const char *value, bool icase) noexcept
-	{
-		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
-	}
-};
-
-template <typename T>
-struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, std::string_view>>>
-{
-	static std::string convert(const item_handle &ref)
-	{
-		if (ref.empty())
-			return {};
-		return { ref.text().data(), ref.text().size() };
-	}
-
-	static int compare(const item_handle &ref, const std::string_view &value, bool icase) noexcept
-	{
-		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
-	}
-};
-
-template <typename T>
-struct item_handle::item_value_as<T, std::enable_if_t<std::is_same_v<T, std::string>>>
-{
-	static std::string convert(const item_handle &ref)
-	{
-		if (ref.empty())
-			return {};
-		return { ref.text().data(), ref.text().size() };
-	}
-
-	static int compare(const item_handle &ref, const std::string &value, bool icase) noexcept
-	{
-		return icase ? cif::icompare(ref.text(), value) : ref.text().compare(value);
-	}
-};
-
-/** @endcond */
 
 } // namespace cif
 
@@ -775,7 +870,5 @@ struct tuple_element<1, ::cif::item>
 {
 	using type = decltype(std::declval<::cif::item>().value());
 };
-
-/** @endcond */
 
 } // namespace std

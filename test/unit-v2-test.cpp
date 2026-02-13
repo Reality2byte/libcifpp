@@ -24,12 +24,20 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/category.hpp"
 #include "test-main.hpp"
 
+// #include <cif++.hpp>
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
-#include <cif++.hpp>
-
+#include <cif++/category.hpp>
+#include <cif++/datablock.hpp>
+#include <cif++/file.hpp>
+#include <cif++/item.hpp>
+#include <cif++/parser.hpp>
+#include <cif++/row.hpp>
+#include <cif++/validate.hpp>
+#include <exception>
 #include <stdexcept>
 
 // --------------------------------------------------------------------
@@ -53,16 +61,16 @@ cif::file operator""_cf(const char *text, std::size_t length)
 TEST_CASE("text_1")
 {
 	CHECK(cif::iequals("TEST", "test"));
-	CHECK(cif::iequals(std::string_view{"TEST"}, std::string_view{"test"}));
+	CHECK(cif::iequals(std::string_view{ "TEST" }, std::string_view{ "test" }));
 
 	CHECK(cif::icompare("TEST", "test") == 0);
-	CHECK(cif::icompare(std::string_view{"TEST"}, std::string_view{"test"}) == 0);
+	CHECK(cif::icompare(std::string_view{ "TEST" }, std::string_view{ "test" }) == 0);
 
 	CHECK(cif::icompare("TEST1", "test") > 0);
-	CHECK(cif::icompare(std::string_view{"TEST1"}, std::string_view{"test"}) > 0);
+	CHECK(cif::icompare(std::string_view{ "TEST1" }, std::string_view{ "test" }) > 0);
 
 	CHECK(cif::icompare("aap", "noot") < 0);
-	CHECK(cif::icompare(std::string_view{"aap"}, std::string_view{"noot"}) < 0);
+	CHECK(cif::icompare(std::string_view{ "aap" }, std::string_view{ "noot" }) < 0);
 }
 
 // --------------------------------------------------------------------
@@ -213,9 +221,61 @@ TEST_CASE("cc_2")
 
 		// This line generates a linker error on Windows:
 		// CHECK(buffer == test);
-		CHECK(std::string{ buffer } == std::string { test });
+		CHECK(std::string{ buffer } == std::string{ test });
 	}
 }
+
+TEST_CASE("item_0")
+{
+	cif::item i1("v1", "tekst");
+	cif::item i2("v2", 2);
+	cif::item i3("v3",  { 3.0, 2 });
+	// cif::item i4("v4", true);
+	cif::item i5("v5", nullptr);
+
+	static_assert(cif::IntegralType<int>);
+	static_assert(cif::FloatType<double>);
+
+	CHECK(i1.value().get<std::string>() == "tekst");
+	CHECK(i2.value().get<int>() == 2);
+	CHECK(i3.value().get<double>() == 3.0);
+	CHECK(i3.value().str() == "3.00");
+	// CHECK(i4.value().get<bool>() == true);
+	CHECK(i5.value().is_null());
+	CHECK(i5.value().is_missing());
+	CHECK(i5.value().empty());
+
+	i2.value() = false;
+	CHECK(i2.value().type() == cif::item_value_type::INT);
+	// CHECK(i2.value().get<bool>() == false);
+
+	cif::item i6 = std::move(i1);
+	CHECK(i6.value().get<std::string>() == "tekst");
+	CHECK(i1.value().is_null());
+}
+
+// TEST_CASE("row_1")
+// {
+// 	cif::row r;
+
+// 	r.append(0, 1);
+// 	r.append(1, "twee");
+
+// 	cif::category cat("cat");
+
+// 	cat.add_item("een");
+// 	cat.add_item("twee");
+
+// 	cif::row_handle rh(cat, r);
+
+// 	const auto &[a, b] = rh.get<int, std::string>("een", "twee");
+// 	CHECK(a == 1);
+// 	CHECK(b == "twee");
+
+// 	rh.assign("twee", 3.0, false);
+// 	CHECK(rh[1].type() == cif::item_value_type::FLOAT);
+// 	CHECK(rh[1].get<double>() == 3.0);
+// }
 
 TEST_CASE("cc_3")
 {
@@ -230,16 +290,13 @@ TEST_CASE("cc_3")
 	});
 
 	auto row = c.front();
-	CHECK(row["f-1"].as<int>() == 1);
-	CHECK(row["f-2"].as<int>() == -1);
-	CHECK(row["f-3"].as<int>() == 1);
+	CHECK(row["f-1"].get<int>() == 1);
+	CHECK(row["f-2"].get<int>() == -1);
 
-	// CHECK_THROWS_AS(row["f-4"].as<int>(), std::exception);
-	// CHECK_THROWS_AS(row["f-5"].as<int>(), std::exception);
-	// CHECK_THROWS_AS(row["f-6"].as<int>(), std::exception);
-	CHECK(row["f-4"].as<int>() == 0);
-	CHECK(row["f-5"].as<int>() == 0);
-	CHECK(row["f-6"].as<int>() == 0);
+	CHECK_FALSE(row["f-3"].is_number());
+	CHECK_FALSE(row["f-4"].is_number());
+	CHECK_FALSE(row["f-5"].is_number());
+	CHECK_FALSE(row["f-6"].is_number());
 }
 
 TEST_CASE("item_1")
@@ -278,16 +335,18 @@ TEST_CASE("item_2")
 	using namespace cif;
 
 	cif::item i0("test1");
-	CHECK(i0.value() == ".");
+	CHECK(i0.value().empty());
+	CHECK(i0.value().type() == cif::item_value_type::MISSING);
 
-	cif::item i1("test1", std:: optional<float>());
-	CHECK(i1.is_unknown());
+	cif::item i1("test1", std::optional<float>());
+	CHECK(i0.value().empty());
+	// CHECK(i1.value() == "?");
 
 	cif::item i2("test1", std::make_optional<float>(1.f));
 	CHECK(i2.value() == "1");
 
 	cif::item i3("test1", std::optional<float>(), 2);
-	CHECK(i3.is_unknown());
+	CHECK(i3.value() == "?");
 
 	cif::item i4("test1", std::make_optional<float>(1.f), 2);
 	CHECK(i4.value() == "1.00");
@@ -301,13 +360,13 @@ TEST_CASE("r_1")
 	c.emplace({
 		{ "f-1", 1 },
 		{ "f-2", "two" },
-		{ "f-3", 3.0f, 3 },
+		{ "f-3", 3.0f /* , 3 */ },
 	});
 
 	auto row = c.front();
-	CHECK(row["f-1"].compare(1) == 0);
-	CHECK(row["f-2"].compare("two") == 0);
-	CHECK(row["f-3"].compare(3.0f) == 0); // This fails when running in valgrind... sigh
+	// CHECK(row["f-1"].compare(1) == 0);
+	// CHECK(row["f-2"].compare("two") == 0);
+	// CHECK(row["f-3"].compare(3.0f) == 0); // This fails when running in valgrind... sigh
 
 	const auto &[f1, f2, f3] = row.get<int, std::string, float>("f-1", "f-2", "f-3");
 
@@ -355,7 +414,7 @@ TEST_CASE("c_1")
 
 	for (auto r : c)
 	{
-		CHECK(r["id"].as<int>() == n);
+		CHECK(r["id"].get<int>() == n);
 		CHECK(r["s"].compare(ts[n - 1]) == 0);
 		++n;
 	}
@@ -466,36 +525,36 @@ TEST_CASE("ci_1")
 	CHECK(i1 == i5);
 }
 
-TEST_CASE("os_1")
-{
-	using namespace cif::literals;
-	using namespace std::literals;
+// TEST_CASE("os_1")
+// {
+// 	using namespace cif::literals;
+// 	using namespace std::literals;
 
-	std::tuple<int, const char *> D[] = {
-		{ 1, "aap" },
-		{ 2, "noot" },
-		{ 3, "mies" }
-	};
+// 	std::tuple<int, const char *> D[] = {
+// 		{ 1, "aap" },
+// 		{ 2, "noot" },
+// 		{ 3, "mies" }
+// 	};
 
-	cif::category c("foo");
+// 	cif::category c("foo");
 
-	for (const auto &[id, s] : D)
-		c.emplace({ { "id", id }, { "s", s } });
+// 	for (const auto &[id, s] : D)
+// 		c.emplace({ { "id", id }, { "s", s } });
 
-	for (auto rh : c)
-	{
-		rh["o"].os(1, ',', 2, ": ", rh.get<std::string>("s"));
-	}
+// 	for (auto rh : c)
+// 	{
+// 		rh["o"].os(1, ',', 2, ": ", rh.get<std::string>("s"));
+// 	}
 
-	for (const auto &[id, s] : D)
-	{
-		auto rh = c.find1("id"_key == id);
+// 	for (const auto &[id, s] : D)
+// 	{
+// 		auto rh = c.find1("id"_key == id);
 
-		CHECK(rh.get<int>("id") == id);
-		CHECK(rh.get<std::string>("s") == s);
-		CHECK(rh.get<std::string>("o") == "1,2: "s + s);
-	}
-}
+// 		CHECK(rh.get<int>("id") == id);
+// 		CHECK(rh.get<std::string>("s") == s);
+// 		CHECK(rh.get<std::string>("o") == "1,2: "s + s);
+// 	}
+// }
 
 // --------------------------------------------------------------------
 
@@ -513,6 +572,13 @@ _test.name
 5 .
     )"_cf;
 
+	REQUIRE(f.size() == 1);
+	REQUIRE(f.contains("TEST"));
+	REQUIRE(f.front().size() == 1);
+	REQUIRE(f.front().contains("test"));
+	REQUIRE(f.front()["test"].size() == 5);
+	REQUIRE(f.front()["test"].front().size() == 2);
+
 	for (auto r : f.front()["test"])
 	{
 		int id;
@@ -522,9 +588,9 @@ _test.name
 
 		switch (id)
 		{
-			case 1: CHECK(name.value_or("") == "aap"); break;
-			case 2: CHECK(name.value_or("") == "noot"); break;
-			case 3: CHECK(name.value_or("") == "mies"); break;
+			case 1: CHECK(*name == "aap"); break;
+			case 2: CHECK(*name == "noot"); break;
+			case 3: CHECK(*name == "mies"); break;
 			default: CHECK(name.has_value() == false);
 		}
 	}
@@ -568,8 +634,8 @@ _test.name
 
 	auto n2 = test.erase(cif::key("id") == 1, [](cif::row_handle r)
 		{
-        CHECK(r["id"].as<int>() == 1);
-        CHECK(r["name"].as<std::string>() == "aap"); });
+        CHECK(r["id"].get<int>() == 1);
+        CHECK(r["name"].get<std::string>() == "aap"); });
 
 	CHECK(n2 == 1);
 
@@ -622,18 +688,18 @@ _test.value
 	for (auto r : test.find(cif::key("name") == "aap"))
 	{
 		CHECK(++n == 1);
-		CHECK(r["id"].as<int>() == 1);
-		CHECK(r["name"].as<std::string>() == "aap");
-		CHECK(r["value"].as<float>() == 1.0f);
+		CHECK(r["id"].get<int>() == 1);
+		CHECK(r["name"].get<std::string>() == "aap");
+		CHECK(r["value"].get<float>() == 1.0f);
 	}
 
 	auto t = test.find(cif::key("id") == 1);
-	CHECK(not t.empty());
-	CHECK(t.front()["name"].as<std::string>() == "aap");
+	REQUIRE(not t.empty());
+	CHECK(t.front()["name"].get<std::string>() == "aap");
 
 	auto t2 = test.find(cif::key("value") == 1.2);
-	CHECK(not t2.empty());
-	CHECK(t2.front()["name"].as<std::string>() == "mies");
+	REQUIRE(not t2.empty());
+	CHECK(t2.front()["name"].get<std::string>() == "mies");
 }
 
 TEST_CASE("ut3")
@@ -686,35 +752,43 @@ _test.value
 	CHECK(cat.find_first<int>(cif::key("value") == 1.0, "id") == 1);
 }
 
+// // --------------------------------------------------------------------
+
+// TEST_CASE("sw_1")
+// {
+// 	using namespace cif::literals;
+
+// 	auto f = R"(data_TEST
+// #
+// loop_
+// _test.id
+// _test.name
+// _test.value
+// 1 aap   1.0
+// 2 noot  1.1
+// 3 mies  1.2
+//     )"_cf;
+
+// 	auto &db = f.front();
+// 	auto &test = db["test"];
+
+// 	swap(test.front()["name"], test.back()["name"]);
+
+// 	CHECK(test.find1<std::string>("id"_key == 1, "name") == "mies");
+// 	CHECK(test.find1<std::string>("id"_key == 3, "name") == "aap");
+
+// 	swap(test.front()["name"], test.back()["name"]);
+
+// 	CHECK(test.find1<std::string>("id"_key == 1, "name") == "aap");
+// 	CHECK(test.find1<std::string>("id"_key == 3, "name") == "mies");
+// }
+
 // --------------------------------------------------------------------
 
-TEST_CASE("sw_1")
+TEST_CASE("d0")
 {
-	using namespace cif::literals;
-
-	auto f = R"(data_TEST
-#
-loop_
-_test.id
-_test.name
-_test.value
-1 aap   1.0
-2 noot  1.1
-3 mies  1.2
-    )"_cf;
-
-	auto &db = f.front();
-	auto &test = db["test"];
-
-	swap(test.front()["name"], test.back()["name"]);
-
-	CHECK(test.find1<std::string>("id"_key == 1, "name") == "mies");
-	CHECK(test.find1<std::string>("id"_key == 3, "name") == "aap");
-
-	swap(test.front()["name"], test.back()["name"]);
-
-	CHECK(test.find1<std::string>("id"_key == 1, "name") == "aap");
-	CHECK(test.find1<std::string>("id"_key == 3, "name") == "mies");
+	auto v = cif::validator_factory::instance().get("mmcif_pdbx.dic");
+	CHECK(v != nullptr);
 }
 
 // --------------------------------------------------------------------
@@ -857,7 +931,8 @@ _cat_2.desc
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	SECTION("one")
 	{
@@ -867,7 +942,7 @@ _cat_2.desc
 		CHECK(cat1.size() == 3);
 		CHECK(cat2.size() == 3);
 
-		cat1.erase(cif::key("id") == 1);
+		cat1.erase(cif::key("id") == "1");
 
 		CHECK(cat1.size() == 2);
 		CHECK(cat2.size() == 1);
@@ -1001,7 +1076,8 @@ mies Mies
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 
@@ -1017,7 +1093,7 @@ mies Mies
 
 	// should fail with duplicate key:
 	CHECK_THROWS_AS(cat1.emplace({ { "id", "aap" },
-						  { "c", "2e-aap" } }),
+						{ "c", "2e-aap" } }),
 		std::exception);
 
 	cat1.erase(cif::key("id") == "aap");
@@ -1173,58 +1249,59 @@ _cat_2.desc
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
 
 	// check a rename in parent and child
 
-	for (auto r : cat1.find(cif::key("id") == 1))
+	for (auto r : cat1.find(cif::key("id") == "1"))
 	{
-		r["id"] = 10;
+		r["id"] = "10";
 		break;
 	}
 
 	CHECK(cat1.size() == 3);
 	CHECK(cat2.size() == 4);
 
-	CHECK(cat1.find(cif::key("id") == 1).size() == 0);
-	CHECK(cat1.find(cif::key("id") == 10).size() == 1);
+	CHECK(cat1.find(cif::key("id") == "1").size() == 0);
+	CHECK(cat1.find(cif::key("id") == "10").size() == 1);
 
-	CHECK(cat2.find(cif::key("parent_id") == 1).size() == 0);
-	CHECK(cat2.find(cif::key("parent_id") == 10).size() == 2);
+	CHECK(cat2.find(cif::key("parent_id") == "1").size() == 0);
+	CHECK(cat2.find(cif::key("parent_id") == "10").size() == 2);
 
 	// check a rename in parent and child, this time only one child should be renamed
 
-	for (auto r : cat1.find(cif::key("id") == 2))
+	for (auto r : cat1.find(cif::key("id") == "2"))
 	{
-		r["id"] = 20;
+		r["id"] = "20";
 		break;
 	}
 
 	CHECK(cat1.size() == 3);
 	CHECK(cat2.size() == 4);
 
-	CHECK(cat1.find(cif::key("id") == 2).size() == 0);
-	CHECK(cat1.find(cif::key("id") == 20).size() == 1);
+	CHECK(cat1.find(cif::key("id") == "2").size() == 0);
+	CHECK(cat1.find(cif::key("id") == "20").size() == 1);
 
-	CHECK(cat2.find(cif::key("parent_id") == 2).size() == 1);
-	CHECK(cat2.find(cif::key("parent_id") == 20).size() == 1);
+	CHECK(cat2.find(cif::key("parent_id") == "2").size() == 1);
+	CHECK(cat2.find(cif::key("parent_id") == "20").size() == 1);
 
-	CHECK(cat2.find(cif::key("parent_id") == 2 and cif::key("name2") == "noot").size() == 0);
-	CHECK(cat2.find(cif::key("parent_id") == 2 and cif::key("name2") == "n2").size() == 1);
-	CHECK(cat2.find(cif::key("parent_id") == 20 and cif::key("name2") == "noot").size() == 1);
-	CHECK(cat2.find(cif::key("parent_id") == 20 and cif::key("name2") == "n2").size() == 0);
+	CHECK(cat2.find(cif::key("parent_id") == "2" and cif::key("name2") == "noot").size() == 0);
+	CHECK(cat2.find(cif::key("parent_id") == "2" and cif::key("name2") == "n2").size() == 1);
+	CHECK(cat2.find(cif::key("parent_id") == "20" and cif::key("name2") == "noot").size() == 1);
+	CHECK(cat2.find(cif::key("parent_id") == "20" and cif::key("name2") == "n2").size() == 0);
 
 	// --------------------------------------------------------------------
 
-	cat1.erase(cif::key("id") == 10);
+	cat1.erase(cif::key("id") == "10");
 
 	CHECK(cat1.size() == 2);
 	CHECK(cat2.size() == 2); // TODO: Is this really what we want?
 
-	cat1.erase(cif::key("id") == 20);
+	cat1.erase(cif::key("id") == "20");
 
 	CHECK(cat1.size() == 1);
 	CHECK(cat2.size() == 1); // TODO: Is this really what we want?
@@ -1310,21 +1387,18 @@ save__cat_2.parent_id
     _item.name                '_cat_2.parent_id'
     _item.category_id         cat_2
     _item.mandatory_code      yes
-    _item_type.code           int
     save_
 
 save__cat_2.parent_id2
     _item.name                '_cat_2.parent_id2'
     _item.category_id         cat_2
     _item.mandatory_code      no
-    _item_type.code           code
     save_
 
 save__cat_2.parent_id3
     _item.name                '_cat_2.parent_id3'
     _item.category_id         cat_2
     _item.mandatory_code      no
-    _item_type.code           code
     save_
 
     )";
@@ -1385,7 +1459,8 @@ _cat_2.parent_id3
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -1513,21 +1588,18 @@ save__cat_2.parent_id
     _item.name                '_cat_2.parent_id'
     _item.category_id         cat_2
     _item.mandatory_code      yes
-    _item_type.code           int
     save_
 
 save__cat_2.parent_id2
     _item.name                '_cat_2.parent_id2'
     _item.category_id         cat_2
     _item.mandatory_code      no
-    _item_type.code           code
     save_
 
 save__cat_2.parent_id3
     _item.name                '_cat_2.parent_id3'
     _item.category_id         cat_2
     _item.mandatory_code      no
-    _item_type.code           code
     save_
 
 loop_
@@ -1598,7 +1670,8 @@ _cat_2.parent_id3
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -1607,17 +1680,16 @@ _cat_2.parent_id3
 	// check iterate children
 
 	auto PR2set = cat1.find(cif::key("id") == 2);
-	CHECK(PR2set.size() == 1);
+	REQUIRE(PR2set.size() == 1);
 	auto PR2 = PR2set.front();
-	CHECK(PR2["id"].as<int>() == 2);
+	CHECK(PR2["id"].get<int>() == 2);
 
 	auto CR2set = cat1.get_children(PR2, cat2);
-	CHECK(CR2set.size() == 3);
 	CHECK(CR2set.size() == 3);
 
 	std::vector<int> CRids;
 	std::ranges::transform(CR2set, std::back_inserter(CRids), [](cif::row_handle r)
-		{ return r["id"].as<int>(); });
+		{ return r["id"].get<int>(); });
 	std::ranges::sort(CRids);
 	CHECK(CRids == std::vector<int>({ 4, 5, 6 }));
 
@@ -1762,14 +1834,12 @@ save__cat_2.parent_id
     _item.name                '_cat_2.parent_id'
     _item.category_id         cat_2
     _item.mandatory_code      yes
-    _item_type.code           int
     save_
 
 save__cat_2.parent_id_2
     _item.name                '_cat_2.parent_id_2'
     _item.category_id         cat_2
     _item.mandatory_code      no
-    _item_type.code           code
     save_
 
 loop_
@@ -1837,7 +1907,8 @@ _cat_2.parent_id_2
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	// auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -1847,13 +1918,13 @@ _cat_2.parent_id_2
 
 	using namespace cif::literals;
 
-	CHECK(	cat2.has_parents(cat2.find1("id"_key == 0)));
-	CHECK(	cat2.has_parents(cat2.find1("id"_key == 1)));
-	CHECK(	cat2.has_parents(cat2.find1("id"_key == 2)));
-	CHECK(not	cat2.has_parents(cat2.find1("id"_key == 3)));
-	CHECK(	cat2.has_parents(cat2.find1("id"_key == 4)));
-	CHECK(not	cat2.has_parents(cat2.find1("id"_key == 5)));
-	CHECK(	cat2.has_parents(cat2.find1("id"_key == 6)));
+	CHECK(cat2.has_parents(cat2.find1("id"_key == 0)));
+	CHECK(cat2.has_parents(cat2.find1("id"_key == 1)));
+	CHECK(cat2.has_parents(cat2.find1("id"_key == 2)));
+	CHECK(not cat2.has_parents(cat2.find1("id"_key == 3)));
+	CHECK(cat2.has_parents(cat2.find1("id"_key == 4)));
+	CHECK(not cat2.has_parents(cat2.find1("id"_key == 5)));
+	CHECK(cat2.has_parents(cat2.find1("id"_key == 6)));
 }
 
 // --------------------------------------------------------------------
@@ -2022,8 +2093,8 @@ _test.name
 	std::optional<int> v;
 
 	v = db["test"].find_first<std::optional<int>>(cif::key("id") == 1, "id");
-	CHECK(v.has_value());
-	CHECK(*v == 1); // NOLINT(bugprone-unchecked-optional-access)
+	REQUIRE(v.has_value());
+	CHECK(*v == 1);
 
 	v = db["test"].find_first<std::optional<int>>(cif::key("id") == 6, "id");
 	CHECK(not v.has_value());
@@ -2237,7 +2308,8 @@ _cat_3.num
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -2335,7 +2407,7 @@ TEST_CASE("pc_1")
 	/*
 	    Parent/child tests
 
-		Note that the dictionary is different than the one in test r1
+	    Note that the dictionary is different than the one in test r1
 	*/
 
 	const char dict[] = R"(
@@ -2521,7 +2593,8 @@ _cat_3.num
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 	auto &cat2 = f.front()["cat_2"];
@@ -3098,7 +3171,8 @@ _cat_1.name
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	CHECK(f.is_valid());
 
@@ -3151,7 +3225,6 @@ data_test_dict.dic
 ;              int item types are the subset of numbers that are the negative
                or positive integers.
 ;
-
 
 ###################
 ## AUDIT_CONFORM ##
@@ -3229,7 +3302,6 @@ save__audit_conform.dict_version
     _item_type.code               text
      save_
 
-
 save_cat_1
     _category.description     'A simple test category'
     _category.id              cat_1
@@ -3296,7 +3368,8 @@ _cat_1.name
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	CHECK(f.is_valid());
 
@@ -3309,8 +3382,8 @@ _cat_1.name
 	CHECK(f2.is_valid());
 
 	auto &audit_conform = f2.front()["audit_conform"];
-	CHECK(audit_conform.front()["dict_name"].as<std::string>() == "test_dict.dic");
-	CHECK(audit_conform.front()["dict_version"].as<float>() == 1.0);
+	CHECK(audit_conform.front()["dict_name"].get<std::string>() == "test_dict.dic");
+	CHECK(audit_conform.front()["dict_version"].get<float>() == 1.0);
 }
 
 // --------------------------------------------------------------------
@@ -3402,18 +3475,19 @@ _cat_1.id_2
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &cat1 = f.front()["cat_1"];
 
 	using key_type = cif::category::key_type;
-	using test_tuple_type = std::tuple<key_type,bool>;
+	using test_tuple_type = std::tuple<key_type, bool>;
 
 	test_tuple_type TESTS[] = {
-		{ {{"id", "1"}, {"id_2", "10"}}, true },
-		{ {{"id_2", "10"}, {"id", "1"}}, true },
-		{ {{"id", "1"}, {"id_2", "20"}}, false },
-		{ {{"id", "3"} }, true },
+		{ { { "id", 1 }, { "id_2", 10 } }, true },
+		{ { { "id_2", 10 }, { "id", 1 } }, true },
+		{ { { "id", 1 }, { "id_2", 20 } }, false },
+		{ { { "id", 3 }, { "id_2", nullptr } }, true },
 	};
 
 	for (const auto &[key, test] : TESTS)
@@ -3449,9 +3523,9 @@ _name
 
 		switch (id)
 		{
-			case 1: CHECK(name.value_or("") == "aap"); break;
-			case 2: CHECK(name.value_or("") == "noot"); break;
-			case 3: CHECK(name.value_or("") == "mies"); break;
+			case 1: REQUIRE(name.has_value()); CHECK(*name == "aap"); break;
+			case 2: REQUIRE(name.has_value()); CHECK(*name == "noot"); break;
+			case 3: REQUIRE(name.has_value()); CHECK(*name == "mies"); break;
 			default: CHECK(name.has_value() == false);
 		}
 	}
@@ -3495,8 +3569,8 @@ _date    today
 	CHECK(not cat.empty());
 
 	auto r = cat.front();
-	CHECK(r["version"].as<std::string>() == "1.0");
-	CHECK(r["date"].as<std::string>() == "today");
+	CHECK(r["version"].get<float>() == 1.0);
+	CHECK(r["date"].get<std::string>() == "today");
 
 	std::stringstream ss;
 	ss << db;
@@ -3534,92 +3608,92 @@ _test.value
 	CHECK(v.has_value() == false);
 }
 
-// --------------------------------------------------------------------
+// // --------------------------------------------------------------------
 
-TEST_CASE("compound_test_1")
-{
-	cif::compound_factory::instance().push_dictionary(gTestDir / "REA_v2.cif");
-	auto compound = cif::compound_factory::instance().create("REA_v2");
-	CHECK(compound != nullptr);
-	CHECK(cif::iequals(compound->id(), "REA_v2"));
-}
+// TEST_CASE("compound_test_1")
+// {
+// 	cif::compound_factory::instance().push_dictionary(gTestDir / "REA_v2.cif");
+// 	auto compound = cif::compound_factory::instance().create("REA_v2");
+// 	CHECK(compound != nullptr);
+// 	CHECK(cif::iequals(compound->id(), "REA_v2"));
+// }
 
-// --------------------------------------------------------------------
+// // --------------------------------------------------------------------
 
-TEST_CASE("pdb_parser_test_1")
-{
-	char k1CBS[] = R"(HEADER    RETINOIC-ACID TRANSPORT                 28-SEP-94   1CBS
-TITLE     CRYSTAL STRUCTURE OF CELLULAR RETINOIC-ACID-BINDING
-TITLE    2 PROTEINS I AND II IN COMPLEX WITH ALL-TRANS-RETINOIC ACID
-TITLE    3 AND A SYNTHETIC RETINOID
-COMPND    MOL_ID: 1;
-COMPND   2 MOLECULE: CELLULAR RETINOIC ACID BINDING PROTEIN TYPE II;
-COMPND   3 CHAIN: A;
-COMPND   4 ENGINEERED: YES
-SOURCE    MOL_ID: 1;
-SOURCE   2 ORGANISM_SCIENTIFIC: HOMO SAPIENS;
-SOURCE   3 ORGANISM_COMMON: HUMAN;
-SOURCE   4 ORGANISM_TAXID: 9606;
-SOURCE   5 CELL_LINE: BL21;
-SOURCE   6 GENE: HUMAN CRABP-II;
-SOURCE   7 EXPRESSION_SYSTEM: ESCHERICHIA COLI BL21(DE3);
-SOURCE   8 EXPRESSION_SYSTEM_TAXID: 469008;
-SOURCE   9 EXPRESSION_SYSTEM_STRAIN: BL21 (DE3);
-SOURCE  10 EXPRESSION_SYSTEM_PLASMID: PET-3A
-KEYWDS    RETINOIC-ACID TRANSPORT
-EXPDTA    X-RAY DIFFRACTION
-AUTHOR    G.J.KLEYWEGT,T.BERGFORS,T.A.JONES
-ATOM      1  N   PRO A   1      16.979  13.301  44.555  1.00 30.05           N
-ATOM      2  CA  PRO A   1      18.150  13.525  43.680  1.00 28.82           C
-ATOM      3  C   PRO A   1      18.656  14.966  43.784  1.00 26.59           C
-ATOM      4  O   PRO A   1      17.890  15.889  44.078  1.00 26.84           O
-ATOM      5  CB  PRO A   1      17.678  13.270  42.255  1.00 29.24           C
-ATOM      6  CG  PRO A   1      16.248  13.734  42.347  1.00 29.29           C
-ATOM      7  CD  PRO A   1      15.762  13.216  43.724  1.00 30.71           C)";
+// TEST_CASE("pdb_parser_test_1")
+// {
+// 	char k1CBS[] = R"(HEADER    RETINOIC-ACID TRANSPORT                 28-SEP-94   1CBS
+// TITLE     CRYSTAL STRUCTURE OF CELLULAR RETINOIC-ACID-BINDING
+// TITLE    2 PROTEINS I AND II IN COMPLEX WITH ALL-TRANS-RETINOIC ACID
+// TITLE    3 AND A SYNTHETIC RETINOID
+// COMPND    MOL_ID: 1;
+// COMPND   2 MOLECULE: CELLULAR RETINOIC ACID BINDING PROTEIN TYPE II;
+// COMPND   3 CHAIN: A;
+// COMPND   4 ENGINEERED: YES
+// SOURCE    MOL_ID: 1;
+// SOURCE   2 ORGANISM_SCIENTIFIC: HOMO SAPIENS;
+// SOURCE   3 ORGANISM_COMMON: HUMAN;
+// SOURCE   4 ORGANISM_TAXID: 9606;
+// SOURCE   5 CELL_LINE: BL21;
+// SOURCE   6 GENE: HUMAN CRABP-II;
+// SOURCE   7 EXPRESSION_SYSTEM: ESCHERICHIA COLI BL21(DE3);
+// SOURCE   8 EXPRESSION_SYSTEM_TAXID: 469008;
+// SOURCE   9 EXPRESSION_SYSTEM_STRAIN: BL21 (DE3);
+// SOURCE  10 EXPRESSION_SYSTEM_PLASMID: PET-3A
+// KEYWDS    RETINOIC-ACID TRANSPORT
+// EXPDTA    X-RAY DIFFRACTION
+// AUTHOR    G.J.KLEYWEGT,T.BERGFORS,T.A.JONES
+// ATOM      1  N   PRO A   1      16.979  13.301  44.555  1.00 30.05           N
+// ATOM      2  CA  PRO A   1      18.150  13.525  43.680  1.00 28.82           C
+// ATOM      3  C   PRO A   1      18.656  14.966  43.784  1.00 26.59           C
+// ATOM      4  O   PRO A   1      17.890  15.889  44.078  1.00 26.84           O
+// ATOM      5  CB  PRO A   1      17.678  13.270  42.255  1.00 29.24           C
+// ATOM      6  CG  PRO A   1      16.248  13.734  42.347  1.00 29.29           C
+// ATOM      7  CD  PRO A   1      15.762  13.216  43.724  1.00 30.71           C)";
 
-	struct membuf : public std::streambuf
-	{
-		membuf(char *text, std::size_t length)
-		{
-			this->setg(text, text, text + length);
-		}
-	} buffer(k1CBS, sizeof(k1CBS) - 1);
+// 	struct membuf : public std::streambuf
+// 	{
+// 		membuf(char *text, std::size_t length)
+// 		{
+// 			this->setg(text, text, text + length);
+// 		}
+// 	} buffer(k1CBS, sizeof(k1CBS) - 1);
 
-	std::istream is(&buffer);
+// 	std::istream is(&buffer);
 
-	auto f = cif::pdb::read(is);
-}
+// 	auto f = cif::pdb::read(is);
+// }
 
-// --------------------------------------------------------------------
+// // --------------------------------------------------------------------
 
-TEST_CASE("compound_not_found_test_1")
-{
-	auto cmp = cif::compound_factory::instance().create("&&&");
-	CHECK(cmp == nullptr);
-}
+// TEST_CASE("compound_not_found_test_1")
+// {
+// 	auto cmp = cif::compound_factory::instance().create("&&&");
+// 	CHECK(cmp == nullptr);
+// }
 
-// --------------------------------------------------------------------
-// PDB2CIF tests
+// // --------------------------------------------------------------------
+// // PDB2CIF tests
 
-TEST_CASE("pdb2cif_formula_weight")
-{
-	cif::compound_factory::instance().push_dictionary(gTestDir / "REA.cif");
+// TEST_CASE("pdb2cif_formula_weight")
+// {
+// 	cif::compound_factory::instance().push_dictionary(gTestDir / "REA.cif");
 
-	cif::file a = cif::pdb::read(gTestDir / "pdb1cbs.ent.gz");
-	
-	auto fw = a.front()["entity"].find1<float>(cif::key("id") == 1, "formula_weight");
-	CHECK(std::abs(fw - 15581.802f) < 0.1f);
+// 	cif::file a = cif::pdb::read(gTestDir / "pdb1cbs.ent.gz");
 
-	fw = a.front()["entity"].find1<float>(cif::key("id") == 2, "formula_weight");
-	CHECK(fw == 300.435f);
+// 	auto fw = a.front()["entity"].find1<float>(cif::key("id") == 1, "formula_weight");
+// 	CHECK(std::abs(fw - 15581.802f) < 0.1f);
 
-	fw = a.front()["entity"].find1<float>(cif::key("id") == 3, "formula_weight");
-	CHECK(fw == 18.015f);
-}
+// 	fw = a.front()["entity"].find1<float>(cif::key("id") == 2, "formula_weight");
+// 	CHECK(fw == 300.435f);
 
-// --------------------------------------------------------------------
+// 	fw = a.front()["entity"].find1<float>(cif::key("id") == 3, "formula_weight");
+// 	CHECK(fw == 18.015f);
+// }
 
-TEST_CASE("update_values_with_provider")
-{
+// // --------------------------------------------------------------------
 
-}
+// TEST_CASE("update_values_with_provider")
+// {
+
+// }

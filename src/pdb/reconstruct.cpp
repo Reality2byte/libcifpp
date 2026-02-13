@@ -25,16 +25,26 @@
  */
 
 #include "cif++.hpp"
-#include "cif++/compound.hpp"
-// #include "cif++/cql.hpp"
-#include "cif++/item.hpp"
-#include "cif++/cql.hpp"
-#include "cif++/row.hpp"
-#include "cif++/validate.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <exception>
+#include <functional>
+#include <initializer_list>
+#include <iomanip>
+#include <iostream>
+#include <list>
+#include <map>
+#include <optional>
+#include <ranges>
+#include <set>
 #include <stdexcept>
 #include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 // --------------------------------------------------------------------
 
@@ -650,14 +660,14 @@ void checkAtomRecords(datablock &db)
 			if (auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.length(), v); ec != std::errc{})
 				continue;
 
-		/* 			if (s.length() < prec + 1UL or s[s.length() - prec - 1] != '.')
-		            {
-		                char b[12];
+			/* 			if (s.length() < prec + 1UL or s[s.length() - prec - 1] != '.')
+			            {
+			                char b[12];
 
-		                if (auto [ptr, ec] = std::to_chars(b, b + sizeof(b), v, std::chars_format::fixed, prec); ec == std::errc{})
-		                    row.assign(item_name, { b, static_cast<std::string::size_type>(ptr - b) }, false, false);
-		            }
-		 */
+			                if (auto [ptr, ec] = std::to_chars(b, b + sizeof(b), v, std::chars_format::fixed, prec); ec == std::errc{})
+			                    row.assign(item_name, { b, static_cast<std::string::size_type>(ptr - b) }, false, false);
+			            }
+			 */
 		}
 	}
 
@@ -1682,7 +1692,6 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 							if (iv->validate_value(row[ix].value(), ec))
 								continue;
 						}
-
 
 						if (VERBOSE > 0)
 							std::clog << "Replacing value (" << std::quoted(row[ix].str()) << ") for item " << item_name << " in category " << cat.name() << " since it does not validate: " << ec.message() << "\n";

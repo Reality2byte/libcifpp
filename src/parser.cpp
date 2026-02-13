@@ -24,16 +24,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/parser.hpp"
-
-#include "cif++/file.hpp"
-#include "cif++/forward_decl.hpp"
-#include "cif++/item.hpp"
-#include "cif++/utilities.hpp"
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 
 #include <cassert>
+#include <cctype>
+#include <cstdint>
 #include <iostream>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace cif
 {
@@ -624,13 +627,13 @@ sac_parser::CIFToken sac_parser::get_next_token()
 
 	if (result == CIFToken::VALUE_NUMERIC_INTEGER)
 	{
-		auto [ptr, ec] = std::from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_int);
+		auto [ptr, ec] = from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_int);
 		if (ec != std::errc{})
 			error("Invalid integer value: " + std::make_error_code(ec).message());
 	}
 	else if (result == CIFToken::VALUE_NUMERIC_FLOAT)
 	{
-		auto [ptr, ec] = std::from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_float);
+		auto [ptr, ec] = from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_float);
 		if (ec != std::errc{})
 			error("Invalid integer value: " + std::make_error_code(ec).message());
 	}

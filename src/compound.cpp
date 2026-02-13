@@ -24,35 +24,25 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/compound.hpp" // for compound_atom, compound_bond, compoun...
+#include "cif++.hpp"
 
-#include "cif++/atom_type.hpp" // for atom_type_traits
-#include "cif++/category.hpp"  // for category
-#include "cif++/datablock.hpp" // for datablock
-#include "cif++/file.hpp"      // for file
-#include "cif++/parser.hpp"    // for parser
-#include "cif++/point.hpp"     // for distance, point
-#include "cif++/row.hpp"       // for tie, row_initializer, tie_wrap
-#include "cif++/text.hpp"      // for iequals, replace_all, iset
-#include "cif++/utilities.hpp" // for load_resource, VERBOSE, colour_type
-
-#include <algorithm>    // for find_if
-#include <cstddef>      // for size_t
-#include <exception>    // for exception, throw_with_nested
-#include <filesystem>   // for path, exists
-#include <fstream>      // for char_traits, basic_ostream, operator<<
-#include <iomanip>      // for operator<<, quoted
-#include <iostream>     // for clog, cout, cerr
-#include <limits>       // for numeric_limits
-#include <map>          // for allocator, map, _Rb_tree_iterator
-#include <memory>       // for shared_ptr, unique_ptr, __shared_ptr_...
-#include <optional>     // for optional
-#include <shared_mutex> // for shared_lock, shared_timed_mutex
-#include <stdexcept>    // for runtime_error, invalid_argument, out_...
-#include <string>       // for basic_string, string, operator==, ope...
-#include <string_view>  // for string_view, basic_string_view
-#include <utility>      // for pair, exchange, move
-#include <vector>       // for vector
+#include <cstddef>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <memory>
+#include <optional>
+#include <ranges>
+#include <shared_mutex>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace fs = std::filesystem;
 
@@ -579,9 +569,9 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 			{ "atom_id", atom_id },
 			{ "type_symbol", type_symbol },
 			{ "charge", charge },
-			{ "model_Cartn_x", x.has_value() ? x : xi/* , 3 */ },
-			{ "model_Cartn_y", y.has_value() ? y : yi/* , 3 */ },
-			{ "model_Cartn_z", z.has_value() ? z : zi/* , 3 */ },
+			{ "model_Cartn_x", x.has_value() ? x : xi /* , 3 */ },
+			{ "model_Cartn_y", y.has_value() ? y : yi /* , 3 */ },
+			{ "model_Cartn_z", z.has_value() ? z : zi /* , 3 */ },
 			{ "pdbx_ordinal", ord++ } });
 
 		formal_charge += charge;

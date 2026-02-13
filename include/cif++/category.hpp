@@ -27,11 +27,13 @@
 #pragma once
 
 #include "cif++/condition.hpp"
+#include "cif++/item.hpp"
 #include "cif++/iterator.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 
 #include <algorithm>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <functional>

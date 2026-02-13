@@ -24,14 +24,19 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/item.hpp"
+#include "cif++.hpp"
 
-#include "cif++/row.hpp"
-
+#include <algorithm>
 #include <cassert>
+#include <charconv>
 #include <cmath>
 #include <compare>
+#include <ostream>
+#include <string>
 #include <string_view>
+#include <system_error>
+#include <utility>
+#include <vector>
 
 namespace cif
 {

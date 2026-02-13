@@ -29,6 +29,11 @@
 #include "cif++/datablock.hpp"
 #include "pdb_record.hpp"
 
+#include <cstdint>
+#include <initializer_list>
+#include <regex>
+#include <string>
+
 // --------------------------------------------------------------------
 
 namespace cif::pdb
@@ -73,4 +78,4 @@ class Remark3Parser
 	std::regex mProgramVersion;
 };
 
-} // namespace pdbx
+} // namespace cif::pdb

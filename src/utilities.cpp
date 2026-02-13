@@ -48,10 +48,11 @@
 #include <mutex>
 #include <sstream>
 #include <stdexcept>
-#include <stop_token>
 #include <string>
+#include <sys/ioctl.h>
 #include <system_error>
 #include <thread>
+#include <tuple>
 #include <utility>
 
 #if __cpp_lib_jthread >= 201911L

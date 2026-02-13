@@ -32,6 +32,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <initializer_list>
+#include <string>
 #include <string_view>
 #include <tuple>
 #include <type_traits>
@@ -87,8 +88,6 @@ namespace cif
 {
 
 class category;
-class row_handle;
-class const_row_handle;
 
 namespace cql
 {

@@ -24,13 +24,21 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/symmetry.hpp"
-
-#include "cif++/datablock.hpp"
-#include "cif++/point.hpp"
+#include "cif++.hpp"
 #include "symop_table_data.hpp"
 
+#include <array>
+#include <charconv>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
+#include <vector>
 
 #if defined(_MSC_VER)
 # pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types

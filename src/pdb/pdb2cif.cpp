@@ -24,26 +24,40 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/compound.hpp"
-#include "cif++/datablock.hpp"
-#include "cif++/file.hpp"
-#include "cif++/gzio.hpp"
-#include "cif++/model.hpp"
-#include "cif++/pdb.hpp"
-#include "cif++/symmetry.hpp"
-#include "cif++/text.hpp"
-#include "cif++/utilities.hpp"
+#include "cif++.hpp"
+
+#include "pdb_record.hpp"
 #include "pdb2cif_remark_3.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <cctype>
+#include <charconv>
+#include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <cstdlib>
 #include <cstring>
+#include <exception>
+#include <filesystem>
+#include <format>
+#include <initializer_list>
+#include <iostream>
 #include <iterator>
+#include <limits>
+#include <list>
 #include <map>
+#include <optional>
+#include <regex>
 #include <set>
-#include <stack>
+#include <sstream>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 // NOLINTBEGIN(bugprone-empty-catch)
 

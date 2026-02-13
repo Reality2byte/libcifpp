@@ -24,13 +24,11 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/point.hpp"
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 #include "test-main.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
-#include <cif++.hpp>
 
 #if defined(_MSC_VER)
 # pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types
@@ -233,45 +231,45 @@ TEST_CASE("dh_q_1")
 
 /* TEST_CASE("m2q_0a")
 {
-	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
-	{
-		auto d = cif::kSymopNrTable[i].symop().data();
+    for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
+    {
+        auto d = cif::kSymopNrTable[i].symop().data();
 
-		Eigen::Matrix3f rot;
-		rot << static_cast<float>(d[0]), static_cast<float>(d[1]), static_cast<float>(d[2]), static_cast<float>(d[3]), static_cast<float>(d[4]), static_cast<float>(d[5]), static_cast<float>(d[6]), static_cast<float>(d[7]), static_cast<float>(d[8]);
+        Eigen::Matrix3f rot;
+        rot << static_cast<float>(d[0]), static_cast<float>(d[1]), static_cast<float>(d[2]), static_cast<float>(d[3]), static_cast<float>(d[4]), static_cast<float>(d[5]), static_cast<float>(d[6]), static_cast<float>(d[7]), static_cast<float>(d[8]);
 
-		// check to see if this matrix contains a true rotation
-		if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
-			continue;
+        // check to see if this matrix contains a true rotation
+        if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
+            continue;
 
-		Eigen::Quaternionf qe(rot);
+        Eigen::Quaternionf qe(rot);
 
-		auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
+        auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
 
-		cif::point p1{ 1, 1, 1 };
-		cif::point p2 = p1;
-		p2.rotate(q);
+        cif::point p1{ 1, 1, 1 };
+        cif::point p2 = p1;
+        p2.rotate(q);
 
-		cif::matrix3x3<float> rot_c({ static_cast<float>(d[0]),
-			static_cast<float>(d[1]),
-			static_cast<float>(d[2]),
-			static_cast<float>(d[3]),
-			static_cast<float>(d[4]),
-			static_cast<float>(d[5]),
-			static_cast<float>(d[6]),
-			static_cast<float>(d[7]),
-			static_cast<float>(d[8]) });
+        cif::matrix3x3<float> rot_c({ static_cast<float>(d[0]),
+            static_cast<float>(d[1]),
+            static_cast<float>(d[2]),
+            static_cast<float>(d[3]),
+            static_cast<float>(d[4]),
+            static_cast<float>(d[5]),
+            static_cast<float>(d[6]),
+            static_cast<float>(d[7]),
+            static_cast<float>(d[8]) });
 
-		cif::point p3 = rot_c * p1;
+        cif::point p3 = rot_c * p1;
 
-		CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
-		CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
-		CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
-	}
+        CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
+        CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
+        CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
+    }
 }
  */
 
- // "TEST_CASE(m2q_1")
+// "TEST_CASE(m2q_1")
 // {
 // 	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
 // 	{

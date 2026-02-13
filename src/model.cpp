@@ -24,19 +24,34 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/model.hpp"
-
 #include "cif++.hpp"
-#include "cif++/point.hpp"
-#include "cif++/utilities.hpp"
 
 #include <algorithm>
+#include <cassert>
+#include <charconv>
+#include <cmath>
+#include <cstddef>
 #include <exception>
+#include <format>
+#include <functional>
 #include <initializer_list>
+#include <iostream>
+#include <limits>
+#include <list>
+#include <map>
+#include <memory>
 #include <numeric>
+#include <optional>
+#include <ranges>
+#include <set>
 #include <stack>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
 #include <utility>
+#include <vector>
 
 namespace fs = std::filesystem;
 

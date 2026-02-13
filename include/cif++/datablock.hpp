@@ -27,9 +27,14 @@
 #pragma once
 
 #include "cif++/category.hpp"
-#include "cif++/forward_decl.hpp"
 
+#include <iosfwd>
 #include <list>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 /** \file datablock.hpp
  * Each valid mmCIF file contains at least one @ref cif::datablock.
@@ -38,6 +43,8 @@
 
 namespace cif
 {
+
+class validator;
 
 // --------------------------------------------------------------------
 

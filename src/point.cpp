@@ -24,14 +24,23 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/point.hpp"
-
-#include "cif++/matrix.hpp" // for matrix_subtraction, matrix_cofactors
+#include "cif++.hpp"
 
 #include <algorithm>
+#include <array>
+#include <cassert>
+#include <cmath>
+#include <complex>
+#include <cstdint>
+#include <cstdlib>
 #include <initializer_list>
-#include <random> // for uniform_real_distribution, normal_distri...
+#include <numbers>
+#include <optional>
+#include <random>
 #include <stdexcept>
+#include <tuple>
+#include <valarray>
+#include <vector>
 
 namespace cif
 {

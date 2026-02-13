@@ -24,12 +24,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/condition.hpp"
-
-#include "cif++/category.hpp"
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 
 #include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <set>
+#include <string>
+#include <string_view>
+#include <typeinfo>
+#include <vector>
 
 namespace cif
 {
@@ -118,19 +123,19 @@ namespace detail
 	condition_impl *key_equals_condition_impl::prepare(const category &c)
 	{
 		condition_impl *result = nullptr;
-		
+
 		if (auto ix = get_item_ix(c, m_item_name); ix.has_value())
 		{
 			m_item_ix = *ix;
 			m_icase = is_item_type_uchar(c, m_item_name);
-	
+
 			if (c.get_cat_validator() != nullptr and
 				c.key_item_indices().contains(m_item_ix) and
 				c.key_item_indices().size() == 1)
 			{
 				m_single_hit = c[{ { m_item_name, m_value } }];
 			}
-	
+
 			result = this;
 		}
 

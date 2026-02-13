@@ -24,14 +24,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/file.hpp"
+#include "cif++.hpp"
 
-#include "cif++/gzio.hpp"
-#include "cif++/parser.hpp"
-#include "cif++/text.hpp"
-
+#include <assert.h>
 #include <exception>
+#include <filesystem>
+#include <istream>
+#include <list>
 #include <stdexcept>
+#include <string_view>
+#include <tuple>
 
 namespace cif
 {

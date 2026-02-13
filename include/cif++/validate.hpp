@@ -27,14 +27,22 @@
 #pragma once
 
 #include "cif++/category.hpp"
+#include "cif++/item.hpp"
 #include "cif++/text.hpp"
 
 #include <cassert>
+#include <iosfwd>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 /**
  * @file validate.hpp
@@ -550,20 +558,20 @@ class validator_factory
 		return m_validators.emplace_back(std::move(v));
 	}
 
-// #if __cplusplus >= 202302L
-// 	/// @brief Return validator with info recorded in @a audit_conform
-// 	static validator &operator[](const category &audit_conform)
-// 	{
-// 		return instance()[audit_conform];
-// 	}
+	// #if __cplusplus >= 202302L
+	// 	/// @brief Return validator with info recorded in @a audit_conform
+	// 	static validator &operator[](const category &audit_conform)
+	// 	{
+	// 		return instance()[audit_conform];
+	// 	}
 
-// 	/// @brief Return the single-file validator with name @a dictionary_name
-// 	/// and the dictionary name may be a set of dictionaries separated by comma
-// 	static validator &operator[](std::string_view dict)
-// 	{
-// 		return instance()[dict];
-// 	}
-// #endif
+	// 	/// @brief Return the single-file validator with name @a dictionary_name
+	// 	/// and the dictionary name may be a set of dictionaries separated by comma
+	// 	static validator &operator[](std::string_view dict)
+	// 	{
+	// 		return instance()[dict];
+	// 	}
+	// #endif
 
   private:
 	validator_factory() = default;

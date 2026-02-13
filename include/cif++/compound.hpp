@@ -26,13 +26,16 @@
 
 #pragma once
 
-#include "cif++/atom_type.hpp"
 #include "cif++/datablock.hpp"
 #include "cif++/exports.hpp"
 #include "cif++/point.hpp"
 
+#include <cstdint>
 #include <filesystem>
 #include <map>
+#include <memory>
+#include <string>
+#include <string_view>
 #include <vector>
 
 /// \file compound.hpp
@@ -51,9 +54,10 @@ namespace cif
 
 // --------------------------------------------------------------------
 
-class compound;
-struct compound_atom;
 class compound_factory_impl;
+class datablock;
+class file;
+enum atom_type : uint8_t;
 
 /// \brief The bond type or bond order as defined in the CCD, possible values taken from the mmcif_pdbx file
 enum class bond_type
@@ -244,11 +248,13 @@ class compound_factory
 
 	/// Return whether @a res_name is a valid and known peptide
 	[[deprecated("use is_peptide or is_std_peptide instead)")]]
-	[[nodiscard]] bool is_known_peptide(const std::string &res_name) const;
+	[[nodiscard]] bool
+	is_known_peptide(const std::string &res_name) const;
 
 	/// Return whether @a res_name is a valid and known base
 	[[deprecated("use is_base or is_std_base instead)")]]
-	[[nodiscard]] bool is_known_base(const std::string &res_name) const;
+	[[nodiscard]] bool
+	is_known_base(const std::string &res_name) const;
 
 	/// Return whether @a res_name is a peptide
 	[[nodiscard]] bool is_peptide(std::string_view res_name) const;

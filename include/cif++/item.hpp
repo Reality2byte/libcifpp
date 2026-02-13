@@ -26,12 +26,12 @@
 
 #pragma once
 
+#include "cif++/text.hpp"
+
 #include <algorithm>
 #include <cassert>
-#include <cctype>
 #include <charconv>
 #include <cstdint>
-#include <cstdlib>
 #include <cstring>
 #include <iostream>
 #include <optional>
@@ -41,6 +41,7 @@
 #include <system_error>
 #include <type_traits>
 #include <utility>
+#include <version>
 
 /** \file item.hpp
  *
@@ -288,7 +289,7 @@ class item_value
 			{
 				auto sv = m_data.sv();
 				int64_t v;
-				auto &&[ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.length(), v);
+				auto &&[ptr, ec] = from_chars(sv.data(), sv.data() + sv.length(), v);
 				if (ec != std::errc{})
 					throw std::system_error(std::make_error_code(ec));
 				if (ptr != sv.data() + sv.length())
@@ -314,7 +315,7 @@ class item_value
 			{
 				auto sv = m_data.sv();
 				double v;
-				auto &&[ptr, ec] = std::from_chars(sv.data(), sv.data() + sv.length(), v);
+				auto &&[ptr, ec] = from_chars(sv.data(), sv.data() + sv.length(), v);
 				if (ec != std::errc{})
 					throw std::system_error(std::make_error_code(ec));
 				if (ptr != sv.data() + sv.length())

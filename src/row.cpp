@@ -24,10 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/row.hpp"
-
-#include "cif++/category.hpp"
-#include "cif++/item.hpp"
+#include "cif++.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -35,7 +32,7 @@
 #include <stdexcept>
 #include <string>
 #include <string_view>
-#include <vector>
+#include <utility>
 
 namespace cif
 {

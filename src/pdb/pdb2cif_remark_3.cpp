@@ -26,12 +26,17 @@
 
 #include "pdb2cif_remark_3.hpp"
 
-#include "cif++/utilities.hpp"
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 
 #include <algorithm>
-#include <cif++.hpp>
+#include <cstddef>
+#include <ctype.h>
+#include <exception>
+#include <iostream>
+#include <memory>
+#include <optional>
 #include <utility>
+#include <vector>
 
 // NOLINTBEGIN(bugprone-empty-catch)
 
@@ -1232,7 +1237,7 @@ void Remark3Parser::storeCapture(const char *category, std::initializer_list<con
 				std::optional<float> dResHigh, dResLow;
 				for (auto r : mDb["refine"])
 				{
-					cif::tie(dResHigh, dResLow) = r.get<float,float>("ls_d_res_high", "ls_d_res_low");
+					cif::tie(dResHigh, dResLow) = r.get<float, float>("ls_d_res_high", "ls_d_res_low");
 					break;
 				}
 
@@ -1522,7 +1527,7 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 			if (cat2.empty() or (cat1.name() == "reflns" or cat1.name() == "refine"))
 				r2 = cat2.emplace({});
 			else
-			 	r2 = cat2.front();
+				r2 = cat2.front();
 
 			auto cv = cat1.get_cat_validator();
 			if (cv == nullptr)
@@ -1543,20 +1548,22 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 						r2[iv.m_item_name] = r1[iv.m_item_name].get<int64_t>();
 						continue;
 					}
-					catch (...) {}
+					catch (...)
+					{
+					}
 
 					try
 					{
 						r2[iv.m_item_name] = r1[iv.m_item_name].get<double>();
 						continue;
 					}
-					catch (...) {}
+					catch (...)
+					{
+					}
 				}
 
 				r2[iv.m_item_name] = r1[iv.m_item_name].value();
 			}
-
-			
 
 			// // copy only the values in the first row for the following categories
 			// if (cat1.name() == "reflns" or cat1.name() == "refine")
@@ -1612,6 +1619,6 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 	return result;
 }
 
-} // namespace pdbx
+} // namespace cif::pdb
 
 // NOLINTEND(bugprone-empty-catch)

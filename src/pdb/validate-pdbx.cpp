@@ -25,7 +25,21 @@
  */
 
 #include "cif++.hpp"
-#include "cif++/validate.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <exception>
+#include <iostream>
+#include <map>
+#include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace cif::pdb
 {

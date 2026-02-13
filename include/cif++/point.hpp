@@ -30,16 +30,24 @@
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <cstdlib>
 #include <format>
 #include <functional>
+#include <limits>
 #include <numbers>
 #include <optional>
+#include <ostream>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <valarray>
+#include <vector>
 
 #if __has_include(<clipper/core/coords.h>)
 # define HAVE_LIBCLIPPER 1
 # pragma GCC diagnostic push
 # pragma GCC diagnostic ignored "-Wignored-qualifiers"
+# include <clipper/core/clipper_types.h>
 # include <clipper/core/coords.h>
 # pragma GCC diagnostic pop
 #endif

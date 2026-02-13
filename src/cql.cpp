@@ -24,24 +24,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/cql.hpp"
-
-#include "cif++/category.hpp"
-#include "cif++/condition.hpp"
-#include "cif++/datablock.hpp"
-#include "cif++/item.hpp"
-#include "cif++/iterator.hpp"
-#include "cif++/row.hpp"
-#include "cif++/text.hpp"
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 
 #include <algorithm>
+#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <format>
 #include <iomanip>
 #include <iostream>
+#include <list>
 #include <memory>
 #include <ranges>
 #include <regex>
@@ -49,6 +42,8 @@
 #include <sstream>
 #include <stack>
 #include <stdexcept>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <tuple>
 #include <utility>

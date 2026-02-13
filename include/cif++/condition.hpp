@@ -26,16 +26,24 @@
 
 #pragma once
 
+#include "cif++/item.hpp"
 #include "cif++/row.hpp"
 #include "cif++/text.hpp"
 
 #include <cassert>
-#include <exception>
+#include <cstddef>
+#include <cstdint>
 #include <format>
 #include <functional>
 #include <iostream>
+#include <optional>
 #include <regex>
+#include <string>
+#include <string_view>
+#include <type_traits>
+#include <typeinfo>
 #include <utility>
+#include <vector>
 
 /** \file condition.hpp
  * This file contains code to create conditions: object encapsulating a

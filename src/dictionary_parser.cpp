@@ -24,17 +24,23 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/dictionary_parser.hpp"
+#include "cif++.hpp"
 
-#include "cif++/condition.hpp"
-#include "cif++/file.hpp"
-#include "cif++/parser.hpp"
-#include "cif++/utilities.hpp"
-
-#include <algorithm>
+#include <cstddef>
 #include <exception>
+#include <format>
+#include <iostream>
+#include <map>
 #include <memory>
+#include <optional>
+#include <ranges>
+#include <set>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace cif
 {
@@ -257,7 +263,7 @@ class dictionary_parser : public parser
 		{
 			// if the type code is missing, this must be a pointer, just skip it
 			std::optional<std::string> typeCode;
-			
+
 			if (not dict["item_type"].empty())
 				typeCode = dict["item_type"].front().get<std::optional<std::string>>("code");
 

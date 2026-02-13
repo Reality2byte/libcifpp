@@ -24,21 +24,28 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 
-#include "cif++/category.hpp"
-#include "cif++/dictionary_parser.hpp"
-#include "cif++/text.hpp"
-#include "cif++/utilities.hpp"
-
-#include <algorithm>
 #include <cassert>
-#include <compare>
+#include <charconv>
+#include <cstddef>
+#include <filesystem>
 #include <format>
 #include <iomanip>
 #include <iostream>
+#include <list>
+#include <memory>
 #include <mutex>
+#include <optional>
+#include <ranges>
+#include <set>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 // The validator depends on regular expressions. Unfortunately,
 // the implementation of std::regex in g++ is buggy and crashes

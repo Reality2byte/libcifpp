@@ -24,18 +24,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/category.hpp"
+#include <cif++.hpp>
 
-// #include <cif++.hpp>
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
-#include <cif++/category.hpp>
-#include <cif++/datablock.hpp>
-#include <cif++/file.hpp>
-#include <cif++/item.hpp>
-#include <cif++/parser.hpp>
-#include <cif++/row.hpp>
-#include <cif++/validate.hpp>
 #include <exception>
 #include <stdexcept>
 

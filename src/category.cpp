@@ -24,28 +24,28 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/category.hpp"
-
-#include "cif++/condition.hpp"
-#include "cif++/datablock.hpp"
-#include "cif++/item.hpp"
-#include "cif++/parser.hpp"
-#include "cif++/utilities.hpp"
-#include "cif++/validate.hpp"
+#include "cif++.hpp"
 
 #include <algorithm>
 #include <cassert>
+#include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <functional>
 #include <initializer_list>
 #include <iomanip>
 #include <iostream>
 #include <map>
 #include <numeric>
 #include <ranges>
+#include <set>
 #include <sstream>
 #include <stack>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <system_error>
+#include <tuple>
 #include <utility>
 #include <vector>
 

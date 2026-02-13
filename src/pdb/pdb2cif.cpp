@@ -51,6 +51,7 @@
 #include <regex>
 #include <set>
 #include <sstream>
+#include <stack>
 #include <stdexcept>
 #include <string>
 #include <string_view>

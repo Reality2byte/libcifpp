@@ -39,7 +39,6 @@
 #include <exception>
 #include <format>
 #include <fstream>
-#include <functional>
 #include <iomanip>
 #include <iostream>
 #include <iterator>
@@ -49,7 +48,6 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
-#include <sys/ioctl.h>
 #include <system_error>
 #include <thread>
 #include <tuple>

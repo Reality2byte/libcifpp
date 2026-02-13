@@ -132,7 +132,7 @@ std::optional<float> stringToFloat(std::string_view s)
 	if (not(s.empty() or iequals(s, "null")))
 	{
 		float v;
-		auto r = std::from_chars(s.data(), s.data() + s.length(), v);
+		auto r = from_chars(s.data(), s.data() + s.length(), v);
 		if (r.ec == std::errc{})
 			result = v;
 	}
@@ -5306,7 +5306,7 @@ void PDBFileParser::ParseConnectivtyAnnotation()
 				distance = vS(74, 78);
 
 				double d;
-				auto r = cif::from_chars(distance.data(), distance.data() + distance.length(), d);
+				auto r = from_chars(distance.data(), distance.data() + distance.length(), d);
 				if (r.ec != std::errc{})
 				{
 					if (VERBOSE > 0)

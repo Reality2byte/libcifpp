@@ -298,7 +298,6 @@ list(APPEND project_headers
     include/cif++/exports.hpp
     include/cif++/file.hpp
     include/cif++/format.hpp
-    include/cif++/forward_decl.hpp
     include/cif++/gzio.hpp
     include/cif++/item.hpp
     include/cif++/iterator.hpp

@@ -26,8 +26,6 @@
 
 #pragma once
 
-#include "cif++/text.hpp"
-
 #include <algorithm>
 #include <cassert>
 #include <catch2/catch_tostring.hpp>
@@ -349,6 +347,12 @@ class item_value
 
 	[[nodiscard]] std::string str() const;
 
+	[[nodiscard]] const std::string_view sv() const
+	{
+		assert(m_data.m_type == cif::item_value_type::TEXT);
+		return m_data.sv();
+	}
+
 	// --------------------------------------------------------------------
 
 	friend void swap(item_value &a, item_value &b) noexcept
@@ -623,6 +627,11 @@ struct item_handle
 		return value().str();
 	}
 
+	[[nodiscard]] auto sv() const
+	{
+		return value().sv();
+	}
+
 	/** Swap contents of @a a and @a b */
 	friend void swap(item_handle &a, item_handle &b) noexcept;
 
@@ -755,6 +764,11 @@ struct const_item_handle
 	[[nodiscard]] auto str() const
 	{
 		return value().str();
+	}
+
+	[[nodiscard]] auto sv() const
+	{
+		return value().sv();
 	}
 
 	/** Return the contents of this item as type @tparam T or, if not

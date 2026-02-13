@@ -969,7 +969,11 @@ struct key
 /**
  * @brief Operator to create an equals condition based on a key @a key and a value @a value
  */
-inline condition operator==(const key &key, std::string_view value)
+
+template <typename T>
+concept Numeric = ((std::is_floating_point_v<T> or std::is_integral_v<T>) and not std::is_same_v<T, bool>);
+
+inline condition operator==(const key &key, const item_value &value)
 {
 	if (not value.empty())
 		return condition(new detail::key_equals_condition_impl({ key.m_item_name, value }));

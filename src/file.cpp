@@ -36,8 +36,6 @@
 namespace cif
 {
 
-class validator;
-
 bool file::is_valid() const
 {
 	bool result = true;

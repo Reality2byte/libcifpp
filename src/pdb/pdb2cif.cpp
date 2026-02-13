@@ -31,6 +31,7 @@
 #include "cif++/model.hpp"
 #include "cif++/pdb.hpp"
 #include "cif++/symmetry.hpp"
+#include "cif++/text.hpp"
 #include "cif++/utilities.hpp"
 #include "pdb2cif_remark_3.hpp"
 
@@ -109,6 +110,21 @@ struct is_error_code_enum<error::pdbErrors>
 
 namespace cif::pdb
 {
+
+std::optional<float> stringToFloat(std::string_view s)
+{
+	std::optional<float> result;
+
+	if (not(s.empty() or iequals(s, "null")))
+	{
+		float v;
+		auto r = std::from_chars(s.data(), s.data() + s.length(), v);
+		if (r.ec == std::errc{})
+			result = v;
+	}
+
+	return result;
+}
 
 // --------------------------------------------------------------------
 
@@ -274,10 +290,9 @@ int PDBRecord::vI(int columnFirst, int columnLast)
 	return result;
 }
 
-std::string PDBRecord::vF(std::size_t columnFirst, std::size_t columnLast)
+std::optional<float> PDBRecord::vF(std::size_t columnFirst, std::size_t columnLast)
 {
-	// for now... TODO: check format?
-	return vS(columnFirst, columnLast);
+	return stringToFloat(vS(columnFirst, columnLast));
 }
 
 // --------------------------------------------------------------------
@@ -784,7 +799,7 @@ class PDBFileParser
 		return mRec->vS(columnFirst, columnLast);
 	}
 
-	[[nodiscard]] std::string vF(std::size_t columnFirst, std::size_t columnLast) const
+	[[nodiscard]] std::optional<float> vF(std::size_t columnFirst, std::size_t columnLast) const
 	{
 		return mRec->vF(columnFirst, columnLast);
 	}
@@ -1384,9 +1399,8 @@ void PDBFileParser::PreParseInput(std::istream &is)
 
 			if (type == "LINK") //	 1 -  6         Record name    "LINK  "
 			{
-				auto f = cur->vF(74, 78);
-				auto r = cif::from_chars(f.data(), f.data() + f.length(), link.distance);
-				if (r.ec != std::errc{} and VERBOSE > 0)
+				auto r = cur->vF(74, 78);
+				if (not r.has_value() and VERBOSE > 0)
 					std::cerr << "Error parsing link distance at line " << cur->mLineNr << '\n';
 			}
 			//	74 – 78         Real(5.2)      Length          Link distance
@@ -1840,10 +1854,11 @@ void PDBFileParser::ParseCitation(const std::string &id)
 {
 	const char *rec = mRec->mName;
 
-	std::string auth, titl, edit, publ, pmid, doi;
+	std::string auth, titl, edit, publ, doi;
+	std::optional<int> pmid;
 	std::string pubname, volume, astm, country, issn, csd;
 	std::string pageFirst;
-	int year = 0;
+	std::optional<int> year;
 
 	auto extend = [](std::string &s, const std::string &p)
 	{
@@ -1885,7 +1900,7 @@ void PDBFileParser::ParseCitation(const std::string &id)
 				issn = vS(41, 65);
 		}
 		else if (k == "PMID")
-			pmid = vS(20, 79);
+			pmid = vI(20, 79);
 		else if (k == "DOI")
 			doi = vS(20, 79);
 
@@ -1900,7 +1915,7 @@ void PDBFileParser::ParseCitation(const std::string &id)
 		{ "journal_abbrev", pubname },
 		{ "journal_volume", volume },
 		{ "page_first", pageFirst },
-		{ "year", year > 0 ? std::to_string(year) : "" },
+		{ "year", year },
 		{ "journal_id_ASTM", astm },
 		{ "country", country },
 		{ "journal_id_ISSN", issn },
@@ -2057,8 +2072,8 @@ void PDBFileParser::ParseRemarks()
 					// clang-format off
 					getCategory("exptl_crystal")->emplace({
 						{ "id", 1 },
-						{ "density_Matthews", iequals(density_Matthews, "NULL") ? "" : density_Matthews },
-						{ "density_percent_sol", iequals(densityPercentSol, "NULL") ? "" : densityPercentSol },
+						{ "density_Matthews", stringToFloat(density_Matthews) },
+						{ "density_percent_sol", stringToFloat(densityPercentSol) },
 						{ "description", desc }
 					});
 					// clang-format on
@@ -2310,7 +2325,7 @@ void PDBFileParser::ParseRemarks()
 									int seq2 = vI(46, 50);
 									std::string iCode2 = vS(51, 51);
 
-									std::string distance = vF(63, 71);
+									auto distance = vF(63, 71);
 
 									// clang-format off
 									getCategory("pdbx_validate_close_contact")->emplace({
@@ -2365,7 +2380,7 @@ void PDBFileParser::ParseRemarks()
 										continue;
 									}
 
-									std::string distance = vF(63, 71);
+									auto distance = vF(63, 71);
 
 									// clang-format off
 									getCategory("pdbx_validate_symm_contact")->emplace({
@@ -2420,7 +2435,7 @@ void PDBFileParser::ParseRemarks()
 									std::string alt2 = vS(48, 48);
 									std::string atm2 = vS(44, 47);
 
-									std::string deviation = vF(51, 57);
+									auto deviation = vF(51, 57);
 
 									if (iCode1 == " ")
 										iCode1.clear();
@@ -2473,9 +2488,7 @@ void PDBFileParser::ParseRemarks()
 										iCode.clear();
 
 									std::string atoms[3] = { vS(27, 30), vS(34, 37), vS(41, 44) };
-									std::string deviation = vF(57, 62);
-									if (deviation == "*****")
-										deviation.clear();
+									auto deviation = vF(57, 62);
 
 									// clang-format off
 									getCategory("pdbx_validate_rmsd_angle")->emplace({
@@ -2524,12 +2537,12 @@ void PDBFileParser::ParseRemarks()
 									if (iCode == " ")
 										iCode.clear();
 
-									std::string psi = vF(27, 35);
-									std::string phi = vF(37, 45);
+									auto psi = vF(27, 35);
+									auto phi = vF(37, 45);
 
 									// clang-format off
 									getCategory("pdbx_validate_torsion")->emplace({
-										{ "id", std::to_string(++id) },
+										{ "id", ++id },
 										{ "PDB_model_num", model ? model : 1 },
 										{ "auth_comp_id", resNam },
 										{ "auth_asym_id", chainID },
@@ -2567,7 +2580,7 @@ void PDBFileParser::ParseRemarks()
 									if (iCode2 == " ")
 										iCode2.clear();
 
-									std::string omega = vF(54, 60);
+									auto omega = vF(54, 60);
 
 									// clang-format off
 									getCategory("pdbx_validate_peptide_omega")->emplace({
@@ -2603,7 +2616,7 @@ void PDBFileParser::ParseRemarks()
 									if (iCode == " ")
 										iCode.clear();
 
-									std::string rmsd = vF(32, 36);
+									auto rmsd = vF(32, 36);
 									std::string type = vS(41);
 
 									// clang-format off
@@ -3070,11 +3083,11 @@ void PDBFileParser::ParseRemark200()
 		// clang-format off
 		cat->emplace({
 			{ "entry_id", mStructureID },
-			{ "observed_criterion_sigma_I", mRemark200["REJECTION CRITERIA (SIGMA(I))"] },
+			{ "observed_criterion_sigma_I", stringToFloat(mRemark200["REJECTION CRITERIA (SIGMA(I))"]) },
 			{ "d_resolution_high", mRemark200["RESOLUTION RANGE HIGH (A)"] },
 			{ "d_resolution_low", mRemark200["RESOLUTION RANGE LOW (A)"] },
-			{ "number_obs", mRemark200["NUMBER OF UNIQUE REFLECTIONS"] },
-			{ "percent_possible_obs", mRemark200["COMPLETENESS FOR RANGE (%)"] },
+			{ "number_obs", stringToFloat(mRemark200["NUMBER OF UNIQUE REFLECTIONS"]) },
+			{ "percent_possible_obs", stringToFloat(mRemark200["COMPLETENESS FOR RANGE (%)"]) },
 			{ "pdbx_netI_over_sigmaI", mRemark200["<I/SIGMA(I)> FOR THE DATA SET"] },
 			{ "pdbx_Rmerge_I_obs", mRemark200["R MERGE (I)"] },
 			{ "pdbx_Rsym_value", mRemark200["R SYM (I)"] },
@@ -3246,7 +3259,7 @@ void PDBFileParser::ParseRemark350()
 								oligomer = values["SOFTWARE DETERMINED QUATERNARY STRUCTURE"];
 							to_lower(oligomer);
 
-							int count = 0;
+							std::optional<int> count;
 							std::smatch m2;
 
 							if (std::regex_match(oligomer, m2, std::regex(R"((\d+)-meric)")))
@@ -3289,7 +3302,7 @@ void PDBFileParser::ParseRemark350()
 								{ "details", details },
 								{ "method_details", values["SOFTWARE USED"] },
 								{ "oligomeric_details", oligomer },
-								{ "oligomeric_count", count > 0 ? std::to_string(count) : "" }
+								{ "oligomeric_count", count }
 							});
 
 							auto cat = getCategory("pdbx_struct_assembly_prop");
@@ -3328,18 +3341,18 @@ void PDBFileParser::ParseRemark350()
 								{ "type", type },
 								// { "name", "" },
 							    // { "symmetryOperation", "" },
-								{ "matrix[1][1]", std::format("{:12.10f}", mat[0]) },
-								{ "matrix[1][2]", std::format("{:12.10f}", mat[1]) },
-								{ "matrix[1][3]", std::format("{:12.10f}", mat[2]) },
-								{ "vector[1]", std::format("{:12.10f}", vec[0]) },
-								{ "matrix[2][1]", std::format("{:12.10f}", mat[3]) },
-								{ "matrix[2][2]", std::format("{:12.10f}", mat[4]) },
-								{ "matrix[2][3]", std::format("{:12.10f}", mat[5]) },
-								{ "vector[2]", std::format("{:12.10f}", vec[1]) },
-								{ "matrix[3][1]", std::format("{:12.10f}", mat[6]) },
-								{ "matrix[3][2]", std::format("{:12.10f}", mat[7]) },
-								{ "matrix[3][3]", std::format("{:12.10f}", mat[8]) },
-								{ "vector[3]", std::format("{:12.10f}", vec[2]) }
+								{ "matrix[1][1]", mat[0] },
+								{ "matrix[1][2]", mat[1] },
+								{ "matrix[1][3]", mat[2] },
+								{ "vector[1]", vec[0] },
+								{ "matrix[2][1]", mat[3] },
+								{ "matrix[2][2]", mat[4] },
+								{ "matrix[2][3]", mat[5] },
+								{ "vector[2]", vec[1] },
+								{ "matrix[3][1]", mat[6] },
+								{ "matrix[3][2]", mat[7] },
+								{ "matrix[3][3]", mat[8] },
+								{ "vector[3]", vec[2] }
 							});
 																			// clang-format on
 
@@ -3874,9 +3887,6 @@ void PDBFileParser::ConstructEntities()
 		{
 			mChainSeq2AsymSeq[std::make_tuple(chain.mDbref.chainID, res.mSeqNum, res.mIcode)] = std::make_tuple(asymID, seqNr, true);
 
-			std::string seqID = std::to_string(seqNr);
-			++seqNr;
-
 			std::set<std::string> monIds = { res.mMonID };
 			monIds.insert(res.mAlts.begin(), res.mAlts.end());
 
@@ -3895,9 +3905,9 @@ void PDBFileParser::ConstructEntities()
 					cat->emplace({
 						{ "asym_id", asymID },
 						{ "entity_id", mMolID2EntityID[chain.mMolID] },
-						{ "seq_id", seqID },
+						{ "seq_id", seqNr },
 						{ "mon_id", monID },
-						{ "ndb_seq_num", seqID },
+						{ "ndb_seq_num", seqNr },
 						{ "pdb_seq_num", res.mSeqNum },
 						{ "auth_seq_num", authSeqNum },
 						{ "pdb_mon_id", authMonID },
@@ -3917,9 +3927,9 @@ void PDBFileParser::ConstructEntities()
 					cat->emplace({
 						{ "asym_id", asymID },
 						{ "entity_id", mMolID2EntityID[chain.mMolID] },
-						{ "seq_id", seqID },
+						{ "seq_id", seqNr },
 						{ "mon_id", monID },
-						{ "ndb_seq_num", seqID },
+						{ "ndb_seq_num", seqNr },
 						{ "pdb_seq_num", res.mSeqNum },
 						{ "auth_seq_num", "." },
 						{ "pdb_mon_id", "." },
@@ -3931,6 +3941,8 @@ void PDBFileParser::ConstructEntities()
 					// clang-format on
 				}
 			}
+
+			++seqNr;
 		}
 	}
 
@@ -5349,17 +5361,17 @@ void PDBFileParser::ParseConnectivtyAnnotation()
 		if (mRec->is("CISPEP"))
 		{
 			//	 1 -  6       Record name   "CISPEP"
-			int serNum = vI(8, 10);           //	 8 - 10       Integer       serNum        Record serial number.
-			std::string pep1 = vS(12, 14);    //	12 - 14       LString(3)    pep1          Residue name.
-			char chainID1 = vC(16);           //	16            Character     chainID1      Chain identifier.
-			int seqNum1 = vI(18, 21);         //	18 - 21       Integer       seqNum1       Residue sequence number.
-			char iCode1 = vC(22);             //	22            AChar         icode1        Insertion code.
-			std::string pep2 = vS(26, 28);    //	26 - 28       LString(3)    pep2          Residue name.
-			char chainID2 = vC(30);           //	30            Character     chainID2      Chain identifier.
-			int seqNum2 = vI(32, 35);         //	32 - 35       Integer       seqNum2       Residue sequence number.
-			char iCode2 = vC(36);             //	36            AChar         icode2        Insertion code.
-			int modNum = vI(44, 46);          //	44 - 46       Integer       modNum        Identifies the specific model.
-			std::string measure = vF(54, 59); //	54 - 59       Real(6.2)     measure       Angle measurement in degrees.
+			int serNum = vI(8, 10);        //	 8 - 10       Integer       serNum        Record serial number.
+			std::string pep1 = vS(12, 14); //	12 - 14       LString(3)    pep1          Residue name.
+			char chainID1 = vC(16);        //	16            Character     chainID1      Chain identifier.
+			int seqNum1 = vI(18, 21);      //	18 - 21       Integer       seqNum1       Residue sequence number.
+			char iCode1 = vC(22);          //	22            AChar         icode1        Insertion code.
+			std::string pep2 = vS(26, 28); //	26 - 28       LString(3)    pep2          Residue name.
+			char chainID2 = vC(30);        //	30            Character     chainID2      Chain identifier.
+			int seqNum2 = vI(32, 35);      //	32 - 35       Integer       seqNum2       Residue sequence number.
+			char iCode2 = vC(36);          //	36            AChar         icode2        Insertion code.
+			int modNum = vI(44, 46);       //	44 - 46       Integer       modNum        Identifies the specific model.
+			auto measure = vF(54, 59);     //	54 - 59       Real(6.2)     measure       Angle measurement in degrees.
 
 			if (modNum == 0)
 				modNum = 1;
@@ -5435,12 +5447,14 @@ void PDBFileParser::ParseMiscellaneousFeatures()
 			                                    //	                                           of the  site.
 			char iCode = vC(o + 9);             //	28             AChar         iCode1        Insertion code for first residue of the site.
 
-			int labelSeq;
+			std::optional<int> labelSeq;
 			std::string asym;
 			bool isResseq;
 			std::error_code ec;
 
 			std::tie(asym, labelSeq, isResseq) = MapResidue(chainID, seq, iCode, ec);
+			if (not isResseq)
+				labelSeq.reset();
 
 			if (ec)
 			{
@@ -5455,7 +5469,7 @@ void PDBFileParser::ParseMiscellaneousFeatures()
 					{ "pdbx_num_res", numRes },
 					{ "label_comp_id", resName },
 					{ "label_asym_id", asym },
-					{ "label_seq_id", (labelSeq > 0 and isResseq) ? std::to_string(labelSeq) : std::string(".") },
+					{ "label_seq_id", labelSeq },
 					{ "pdbx_auth_ins_code", iCode == ' ' ? "" : std::string{ iCode } },
 					{ "auth_comp_id", resName },
 					{ "auth_asym_id", std::string{ chainID } },
@@ -5492,11 +5506,12 @@ void PDBFileParser::ParseCrystallographic()
 		});
 		// clang-format on
 
-		std::string spaceGroup, intTablesNr;
+		std::string spaceGroup;
+		std::optional<int> intTablesNr;
 		try
 		{
 			spaceGroup = vS(56, 66);
-			intTablesNr = std::to_string(get_space_group_number(spaceGroup));
+			intTablesNr = get_space_group_number(spaceGroup);
 		}
 		catch (...)
 		{
@@ -5515,7 +5530,7 @@ void PDBFileParser::ParseCrystallographic()
 
 void PDBFileParser::ParseCoordinateTransformation()
 {
-	std::string m[3][3], v[3];
+	std::optional<float> m[3][3], v[3];
 
 	if (cif::starts_with(mRec->mName, "ORIGX"))
 	{
@@ -5730,7 +5745,7 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 	for (auto &a : atoms)
 	{
 		std::string asymID;
-		int seqID;
+		std::optional<int> seqID;
 		bool isResseq;
 		PDBRecord *atom;
 		PDBRecord *anisou;
@@ -5742,19 +5757,19 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 
 		std::string groupPDB = mRec->is("ATOM  ") ? "ATOM" : "HETATM";
 		//		int serial = vI(7, 11);				//	 7 - 11        Integer       serial       Atom  serial number.
-		std::string name = vS(13, 16);       //	13 - 16        Atom          name         Atom name.
-		char altLoc = vC(17);                //	17             Character     altLoc       Alternate location indicator.
-		std::string resName = vS(18, 20);    //	18 - 20        Residue name  resName      Residue name.
-		char chainID = vC(22);               //	22             Character     chainID      Chain identifier.
-		int resSeq = vI(23, 26);             //	23 - 26        Integer       resSeq       Residue sequence number.
-		char iCode = vC(27);                 //	27             AChar         iCode        Code for insertion of residues.
-		std::string x = vF(31, 38);          //	31 - 38        Real(8.3)     x            Orthogonal coordinates for X in Angstroms.
-		std::string y = vF(39, 46);          //	39 - 46        Real(8.3)     y            Orthogonal coordinates for Y in Angstroms.
-		std::string z = vF(47, 54);          //	47 - 54        Real(8.3)     z            Orthogonal coordinates for Z in Angstroms.
-		std::string occupancy = vF(55, 60);  //	55 - 60        Real(6.2)     occupancy    Occupancy.
-		std::string tempFactor = vF(61, 66); //	61 - 66        Real(6.2)     tempFactor   Temperature  factor.
-		std::string element = vS(77, 78);    //	77 - 78        LString(2)    element      Element symbol, right-justified.
-		std::string charge = vS(79, 80);     //	79 - 80        LString(2)    charge       Charge  on the atom.
+		std::string name = vS(13, 16);    //	13 - 16        Atom          name         Atom name.
+		char altLoc = vC(17);             //	17             Character     altLoc       Alternate location indicator.
+		std::string resName = vS(18, 20); //	18 - 20        Residue name  resName      Residue name.
+		char chainID = vC(22);            //	22             Character     chainID      Chain identifier.
+		int resSeq = vI(23, 26);          //	23 - 26        Integer       resSeq       Residue sequence number.
+		char iCode = vC(27);              //	27             AChar         iCode        Code for insertion of residues.
+		auto x = vF(31, 38);              //	31 - 38        Real(8.3)     x            Orthogonal coordinates for X in Angstroms.
+		auto y = vF(39, 46);              //	39 - 46        Real(8.3)     y            Orthogonal coordinates for Y in Angstroms.
+		auto z = vF(47, 54);              //	47 - 54        Real(8.3)     z            Orthogonal coordinates for Z in Angstroms.
+		auto occupancy = vF(55, 60);      //	55 - 60        Real(6.2)     occupancy    Occupancy.
+		auto tempFactor = vF(61, 66);     //	61 - 66        Real(6.2)     tempFactor   Temperature  factor.
+		std::string element = vS(77, 78); //	77 - 78        LString(2)    element      Element symbol, right-justified.
+		std::string charge = vS(79, 80);  //	79 - 80        LString(2)    charge       Charge  on the atom.
 
 		if (element.empty())
 			throw std::runtime_error("Empty element column in PDB file at line " + std::to_string(mRec->mLineNr));
@@ -5792,6 +5807,9 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 			resSeq = branch_scheme.find1<int>("asym_id"_key == asymID and "auth_seq_num"_key == resSeq, "pdb_seq_num");
 		}
 
+		if (not isResseq)
+			seqID.reset();
+
 		// clang-format off
 		getCategory("atom_site")->emplace({
 			{ "group_PDB", groupPDB },
@@ -5802,7 +5820,7 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 			{ "label_comp_id", resName },
 			{ "label_asym_id", asymID },
 			{ "label_entity_id", entityID },
-			{ "label_seq_id", (isResseq and seqID > 0) ? std::to_string(seqID) : "." },
+			{ "label_seq_id", seqID },
 			{ "pdbx_PDB_ins_code", iCode == ' ' ? "" : std::string{ iCode } },
 			{ "Cartn_x", x },
 			{ "Cartn_y", y },
@@ -5848,7 +5866,7 @@ void PDBFileParser::ParseCoordinate(int modelNr)
 				{ "pdbx_label_alt_id", altLoc != ' ' ? std::string{ altLoc } : "." },
 				{ "pdbx_label_comp_id", resName },
 				{ "pdbx_label_asym_id", asymID },
-				{ "pdbx_label_seq_id", (isResseq and seqID > 0) ? std::to_string(seqID) : "." },
+				{ "pdbx_label_seq_id", seqID },
 				{ "U[1][1]", f(static_cast<float>(u11) / 10000.f) },
 				{ "U[2][2]", f(static_cast<float>(u22) / 10000.f) },
 				{ "U[3][3]", f(static_cast<float>(u33) / 10000.f) },

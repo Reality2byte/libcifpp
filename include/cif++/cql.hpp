@@ -64,16 +64,16 @@ class field_ref final
 		return m_index;
 	}
 
-	[[nodiscard]] std::string_view text() const &
-	{
-		return m_row[m_index].text();
-	}
-
 	/** Return the contents of this item as type @tparam T */
 	template <typename T = std::string>
 	[[nodiscard]] auto as() const -> T
 	{
 		return m_row[m_index].as<T>();
+	}
+
+	[[nodiscard]] bool is_null() const
+	{
+		return m_row[m_index].is_null();
 	}
 
 	/** Return the contents of this item as type @tparam T or, if not
@@ -85,8 +85,8 @@ class field_ref final
 		return m_row[m_index].value_or(dv);
 	}
 
-	field_ref(row_handle rh, uint16_t col, std::shared_ptr<result_impl> result_impl)
-		: m_row(rh)
+	field_ref(const_row_handle rh, uint16_t col, std::shared_ptr<result_impl> result_impl)
+		: m_row(std::move(rh))
 		, m_index(col)
 		, m_result_impl(std::move(result_impl))
 	{
@@ -99,7 +99,7 @@ class field_ref final
 	field_ref &operator=(field_ref &&) = default;
 
   private:
-	row_handle m_row;
+	const_row_handle m_row;
 	uint16_t m_index;
 
 	std::shared_ptr<result_impl> m_result_impl;
@@ -168,15 +168,15 @@ class row_ref final
 	  private:
 		friend class row_ref;
 
-		const_field_iterator(row_handle row, uint16_t column, std::shared_ptr<result_impl> result_impl)
-			: m_row(row)
+		const_field_iterator(const_row_handle row, uint16_t column, std::shared_ptr<result_impl> result_impl)
+			: m_row(std::move(row))
 			, m_col(column)
 			, m_current(m_row, m_col, result_impl)
 			, m_result_impl(result_impl)
 		{
 		}
 
-		row_handle m_row;
+		const_row_handle m_row;
 		uint16_t m_col;
 		field_ref m_current;
 
@@ -187,8 +187,8 @@ class row_ref final
 
 	row_ref() = default;
 
-	row_ref(row_handle rh, std::shared_ptr<result_impl> result_impl)
-		: m_row(rh)
+	row_ref(const_row_handle rh, std::shared_ptr<result_impl> result_impl)
+		: m_row(std::move(rh))
 		, m_result_impl(std::move(result_impl))
 	{
 	}
@@ -218,7 +218,7 @@ class row_ref final
 	bool operator!=(const row_ref &rhs) const { return m_row != rhs.m_row; }
 
   private:
-	row_handle m_row;
+	const_row_handle m_row;
 	std::shared_ptr<result_impl> m_result_impl;
 };
 
@@ -242,7 +242,7 @@ class result
 
 		// const_row_iterator() = default;
 
-		iterator(std::shared_ptr<result_impl> result_impl, category::iterator cat_iter)
+		iterator(std::shared_ptr<result_impl> result_impl, category::const_iterator cat_iter)
 			: m_iter(std::move(cat_iter))
 			, m_current(*m_iter, result_impl)
 			, m_result_impl(result_impl)
@@ -290,7 +290,7 @@ class result
 		}
 
 	  private:
-		category::iterator m_iter;
+		category::const_iterator m_iter;
 		row_ref m_current;
 		std::shared_ptr<result_impl> m_result_impl;
 	};

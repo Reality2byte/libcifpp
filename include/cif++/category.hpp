@@ -530,7 +530,7 @@ class category
 	/// @return A special iterator that loops over all elements that match.
 
 	template <typename... Ts, typename... Ns>
-	conditional_iterator_proxy<Ts...> find(const_iterator pos, condition &&cond, Ns... names)
+	conditional_iterator_proxy<Ts...> find(iterator pos, condition &&cond, Ns... names)
 	{
 		static_assert(sizeof...(Ts) == sizeof...(Ns), "The number of item names should be equal to the number of types to return");
 		return { *this, pos, std::move(cond), std::forward<Ns>(names)... };

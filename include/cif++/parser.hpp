@@ -297,11 +297,6 @@ class sac_parser
 		ItemName,
 		TextItem,
 		TextItemNL,
-
-		TextItemBS,
-		TextItemBS2,
-		TextItemBSNL,
-
 		Reserved,
 		Value,
 

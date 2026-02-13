@@ -29,7 +29,6 @@
 // #include "cif++/cql.hpp"
 #include "cif++/item.hpp"
 #include "cif++/cql.hpp"
-#include "cif++/point.hpp"
 #include "cif++/row.hpp"
 #include "cif++/validate.hpp"
 
@@ -1146,9 +1145,9 @@ void createPdbxPolySeqScheme(datablock &db)
 		if (seq_id.has_value() and *seq_id == 0)
 			seq_id.reset();
 
-		bool hetero = entity_id == last_entity_id and asym_id == last_asym_id and seq_id == last_seq_id;
+		std::string hetero = (entity_id == last_entity_id and asym_id == last_asym_id and seq_id == last_seq_id) ? "y" : "n";
 
-		if (hetero)
+		if (hetero == "y")
 			pdbx_poly_seq_scheme.back().assign("hetero", "y", false);
 
 		pdbx_poly_seq_scheme.emplace({ //
@@ -1676,6 +1675,14 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 							if (iv->validate_value(row[ix].value(), ec))
 								continue;
 						}
+
+						if (ec == cif::make_error_code(cif::validation_error::value_is_not_a_number))
+						{
+							row[ix] = item_value{ std::stoi(row[ix].value().get<std::string>()) };
+							if (iv->validate_value(row[ix].value(), ec))
+								continue;
+						}
+
 
 						if (VERBOSE > 0)
 							std::clog << "Replacing value (" << std::quoted(row[ix].str()) << ") for item " << item_name << " in category " << cat.name() << " since it does not validate: " << ec.message() << "\n";

@@ -161,7 +161,11 @@ std::string item_value::str() const
 			return std::string{ m_data.sv() };
 
 		case cif::item_value_type::INT:
-			return std::format("{}", m_data.m_value.m_integer);
+		{
+			char s[32];
+			std::to_chars_result r = std::to_chars(s, s + sizeof(s), m_data.m_value.m_integer);
+			return r.ec == std::errc{} ? std::string{ s, r.ptr } : "*****";
+		}
 
 		case cif::item_value_type::FLOAT:
 		{

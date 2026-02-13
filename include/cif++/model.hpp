@@ -196,21 +196,6 @@ class atom
 	}
 
 	/**
-	 * @brief Move construct a new atom object
-	 */
-	atom(atom &&rhs)
-	{
-		std::swap(m_impl, rhs.m_impl);
-	}
-
-	/// \brief Copy assignement operator
-	atom &operator=(atom rhs)
-	{
-		std::swap(m_impl, rhs.m_impl);
-		return *this;
-	}
-
-	/**
 	 * @brief Construct a new atom object based on a cif::row
 	 *
 	 * @param db The datablock where the _atom_site category resides

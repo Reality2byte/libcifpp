@@ -28,6 +28,7 @@
 
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <string>
 
 /// \file pdb_record.hpp
@@ -59,7 +60,7 @@ struct PDBRecord
 	char vC(std::size_t column);
 	std::string vS(std::size_t columnFirst, std::size_t columnLast = std::numeric_limits<std::size_t>::max());
 	int vI(int columnFirst, int columnLast);
-	std::string vF(std::size_t columnFirst, std::size_t columnLast);
+	std::optional<float> vF(std::size_t columnFirst, std::size_t columnLast);
 };
 
 } // namespace cif::pdb

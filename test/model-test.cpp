@@ -26,7 +26,6 @@
 
 #include "test-main.hpp"
 
-#include <spanstream>
 #include <cif++.hpp>
 
 // --------------------------------------------------------------------
@@ -159,7 +158,7 @@ _atom_type.symbol   C
 
 	expected.front().load_dictionary("mmcif_pdbx.dic");
 
-	if (not(expected_file.front() == structure.get_datablock()))
+	if (not(expected.front() == structure.get_datablock()))
 	{
 		CHECK(false);
 		std::cout << expected << '\n'

@@ -27,6 +27,7 @@
 #include "pdb2cif_remark_3.hpp"
 
 #include "cif++/utilities.hpp"
+#include "cif++/validate.hpp"
 
 #include <algorithm>
 #include <cif++.hpp>
@@ -1228,17 +1229,17 @@ void Remark3Parser::storeCapture(const char *category, std::initializer_list<con
 				});
 			else if (iequals(category, "refine_hist"))
 			{
-				std::string dResHigh, dResLow;
+				std::optional<float> dResHigh, dResLow;
 				for (auto r : mDb["refine"])
 				{
-					cif::tie(dResHigh, dResLow) = r.get("ls_d_res_high", "ls_d_res_low");
+					cif::tie(dResHigh, dResLow) = r.get<float,float>("ls_d_res_high", "ls_d_res_low");
 					break;
 				}
 
 				cat.emplace({ { "pdbx_refine_id", mExpMethod },
 					{ "cycle_id", "LAST" },
-					{ "d_res_high", dResHigh.empty() ? "." : dResHigh },
-					{ "d_res_low", dResLow.empty() ? "." : dResLow } });
+					{ "d_res_high", dResHigh },
+					{ "d_res_low", dResLow } });
 			}
 			else if (iequals(category, "refine_ls_shell"))
 			{
@@ -1515,39 +1516,102 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 
 			auto &cat2 = db[cat1.name()];
 
-			// copy only the values in the first row for the following categories
-			if (cat1.name() == "reflns" or cat1.name() == "refine")
-			{
-				if (cat2.empty())
-					cat2.emplace(cat1.front());
-				else
-				{
+			row_handle r1 = cat1.front();
+			row_handle r2;
 
-					auto r1 = cat1.front();
-					auto r2 = cat2.front();
-
-					auto cv = cat1.get_cat_validator();
-					if (cv == nullptr)
-						cv = validator.get_validator_for_category(cat1.name());
-
-					if (cv == nullptr)
-						continue;
-
-					for (auto &iv : cv->m_item_validators)
-						r2[iv.m_item_name] = r1[iv.m_item_name].str();
-				}
-			}
+			if (cat2.empty() or (cat1.name() == "reflns" or cat1.name() == "refine"))
+				r2 = cat2.emplace({});
 			else
+			 	r2 = cat2.front();
+
+			auto cv = cat1.get_cat_validator();
+			if (cv == nullptr)
+				cv = validator.get_validator_for_category(cat1.name());
+
+			if (cv == nullptr)
+				continue;
+
+			for (auto &iv : cv->m_item_validators)
 			{
-				for (auto rs : cat1)
-					cat2.emplace(rs);
+				if (r1[iv.m_item_name].empty())
+					continue;
+
+				if (iv.m_type and iv.m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+				{
+					try
+					{
+						r2[iv.m_item_name] = r1[iv.m_item_name].get<int64_t>();
+						continue;
+					}
+					catch (...) {}
+
+					try
+					{
+						r2[iv.m_item_name] = r1[iv.m_item_name].get<double>();
+						continue;
+					}
+					catch (...) {}
+				}
+
+				r2[iv.m_item_name] = r1[iv.m_item_name].value();
 			}
+
+			
+
+			// // copy only the values in the first row for the following categories
+			// if (cat1.name() == "reflns" or cat1.name() == "refine")
+			// {
+			// 	if (cat2.empty())
+			// 		cat2.emplace(cat1.front());
+			// 	else
+			// 	{
+			// 		auto r1 = cat1.front();
+			// 		auto r2 = cat2.front();
+
+			// 		auto cv = cat1.get_cat_validator();
+			// 		if (cv == nullptr)
+			// 			cv = validator.get_validator_for_category(cat1.name());
+
+			// 		if (cv == nullptr)
+			// 			continue;
+
+			// 		for (auto &iv : cv->m_item_validators)
+			// 		{
+			// 			if (r1[iv.m_item_name].empty())
+			// 				continue;
+
+			// 			if (iv.m_type and iv.m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+			// 			{
+			// 				try
+			// 				{
+			// 					r2[iv.m_item_name] = r1[iv.m_item_name].get<int64_t>();
+			// 					continue;
+			// 				}
+			// 				catch (...) {}
+
+			// 				try
+			// 				{
+			// 					r2[iv.m_item_name] = r1[iv.m_item_name].get<double>();
+			// 					continue;
+			// 				}
+			// 				catch (...) {}
+			// 			}
+
+			// 			r2[iv.m_item_name] = r1[iv.m_item_name].value();
+			// 		}
+			// 	}
+			// }
+			// else
+			// {
+			// 	for (auto rs : cat1)
+			// 		cat2.emplace(rs);
+			// }
 		}
 	}
 
 	return result;
 }
 
-} // namespace cif::pdb
+} // namespace pdbx
 
 // NOLINTEND(bugprone-empty-catch)

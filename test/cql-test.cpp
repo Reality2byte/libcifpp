@@ -141,7 +141,8 @@ TEST_CASE("cql-1")
 					CHECK(fld.as<int>() == ix + 1);
 					break;
 				default:
-					REQUIRE(false);
+					CHECK(fld.name() == "identifier_ORCID");
+					CHECK(fld.is_null());
 					break;
 			}
 		}
@@ -477,7 +478,8 @@ _cat_2.desc
 	} data_buffer(const_cast<char *>(data), sizeof(data) - 1);
 
 	std::istream is_data(&data_buffer);
-	f.load(is_data, validator);
+	f.load(is_data);
+	f.front().set_validator(&validator);
 
 	auto &db = f.front();
 
@@ -513,7 +515,7 @@ _cat_2.desc
 		cif::cql::connection connection(db);
 		cif::cql::transaction tx(connection);
 
-		tx.exec("UPDATE cat_1 SET id = 4 WHERE id = 1");
+		tx.exec("UPDATE cat_1 SET id = '4' WHERE id = '1'");
 		CHECK(db["cat_1"].size() == 3);
 		CHECK(db["cat_2"].size() == 3);
 		CHECK(db["cat_1"].count(cif::key("id") == 4) == 1);

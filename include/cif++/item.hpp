@@ -673,7 +673,7 @@ struct item_handle
 	[[nodiscard]] bool operator==(const item_value &value) const noexcept
 	{
 		// TODO: icase or not icase?
-		return this->value().compare(value) != 0;
+		return this->value().compare(value) == 0;
 	}
 
 	// We may not have C++20 yet...
@@ -816,7 +816,7 @@ struct const_item_handle
 	[[nodiscard]] bool operator==(const item_value &value) const noexcept
 	{
 		// TODO: icase or not icase?
-		return this->value().compare(value) != 0;
+		return this->value().compare(value) == 0;
 	}
 
 	// We may not have C++20 yet...

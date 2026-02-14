@@ -30,7 +30,7 @@
 
 #include <algorithm>
 #include <cstddef>
-#include <ctype.h>
+#include <cctype>
 #include <exception>
 #include <iostream>
 #include <memory>

@@ -26,7 +26,7 @@
 
 #include "cif++.hpp"
 
-#include <assert.h>
+#include <cassert>
 #include <exception>
 #include <filesystem>
 #include <istream>

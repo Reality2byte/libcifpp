@@ -56,6 +56,11 @@
  *
  */
 
+namespace cif
+{
+class file;
+}
+
 namespace cif::mm
 {
 

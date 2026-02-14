@@ -580,9 +580,9 @@ _test.name
 
 		switch (id)
 		{
-			case 1: CHECK(*name == "aap"); break;
-			case 2: CHECK(*name == "noot"); break;
-			case 3: CHECK(*name == "mies"); break;
+			case 1: REQUIRE(name.has_value()); CHECK(*name == "aap"); break;
+			case 2: REQUIRE(name.has_value()); CHECK(*name == "noot"); break;
+			case 3: REQUIRE(name.has_value()); CHECK(*name == "mies"); break;
 			default: CHECK(name.has_value() == false);
 		}
 	}

@@ -1165,7 +1165,7 @@ void createPdbxPolySeqScheme(datablock &db)
 			{ "entity_id", entity_id },
 			{ "seq_id", seq_id },
 			{ "mon_id", comp_id },
-			{ "ndb_seq_num", seq_id },
+			{ "ndb_seq_num", seq_id.value_or(0) },
 			{ "pdb_seq_num", auth_seq_id },
 			{ "auth_seq_num", auth_seq_id },
 			{ "pdb_mon_id", auth_comp_id },
@@ -1416,7 +1416,7 @@ void createPdbxBranchScheme(datablock &db)
 					{ "num", num },
 					{ "pdb_asym_id", asym_id },
 					{ "pdb_mon_id", comp_id },
-					{ "pdb_seq_num", num }
+					{ "pdb_seq_num", std::to_string(num) }
 					// clang-format on
 				});
 			}

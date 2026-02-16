@@ -26,6 +26,7 @@
 
 #include "cif++.hpp"
 
+#include "cif++/item.hpp"
 #include "pdb_record.hpp"
 #include "pdb2cif_remark_3.hpp"
 
@@ -2956,7 +2957,7 @@ void PDBFileParser::ParseRemark200()
 		getCategory("software")->emplace({
 			{ "name", mRemark200[sw.b] },
 			{ "classification", sw.a },
-			{ "version", "." },
+			{ "version", cif::item_value_type::INAPPLICABLE },
 			{ "pdbx_ordinal", mNextSoftwareOrd++ }
 		});
 		// clang-format on
@@ -3923,7 +3924,7 @@ void PDBFileParser::ConstructEntities()
 						{ "seq_id", seqNr },
 						{ "mon_id", monID },
 						{ "ndb_seq_num", seqNr },
-						{ "pdb_seq_num", res.mSeqNum },
+						{ "pdb_seq_num", std::to_string(res.mSeqNum) },
 						{ "auth_seq_num", authSeqNum },
 						{ "pdb_mon_id", authMonID },
 						{ "auth_mon_id", authMonID },
@@ -3945,10 +3946,10 @@ void PDBFileParser::ConstructEntities()
 						{ "seq_id", seqNr },
 						{ "mon_id", monID },
 						{ "ndb_seq_num", seqNr },
-						{ "pdb_seq_num", res.mSeqNum },
-						{ "auth_seq_num", "." },
-						{ "pdb_mon_id", "." },
-						{ "auth_mon_id", "." },
+						{ "pdb_seq_num", std::to_string(res.mSeqNum) },
+						{ "auth_seq_num", cif::item_value_type::INAPPLICABLE },
+						{ "pdb_mon_id", cif::item_value_type::INAPPLICABLE },
+						{ "auth_mon_id", cif::item_value_type::INAPPLICABLE },
 						{ "pdb_strand_id", std::string{ chain.mDbref.chainID } },
 						{ "pdb_ins_code", authInsCode },
 						{ "hetero", res.mAlts.empty() ? "n" : "y" }
@@ -4489,8 +4490,8 @@ void PDBFileParser::ConstructEntities()
 			{ "asym_id", asymID },
 			{ "entity_id", mHet2EntityID[hetID] },
 			{ "mon_id", hetID },
-			{ "ndb_seq_num", seqNr },
-			{ "pdb_seq_num", het.seqNum },
+			{ "ndb_seq_num", std::to_string(seqNr) },
+			{ "pdb_seq_num", std::to_string(het.seqNum) },
 			{ "auth_seq_num", authSeqNr }, // Yes
 			{ "pdb_mon_id", hetID },
 			{ "auth_mon_id", hetID },
@@ -4836,7 +4837,7 @@ void PDBFileParser::ConstructSugarTrees(int &asymNr)
 						{ "num", ++num },
 						{ "pdb_asym_id", asymID },
 						{ "pdb_mon_id", s.c1.resName },
-						{ "pdb_seq_num", num },
+						{ "pdb_seq_num", std::to_string(num) },
 						{ "auth_asym_id", std::string{ s.c1.chainID } },
 						{ "auth_mon_id", s.next.resName },
 						{ "auth_seq_num", s.c1.resSeq },
@@ -5415,7 +5416,7 @@ void PDBFileParser::ParseConnectivtyAnnotation()
 				{ "label_comp_id", pep1 },
 				{ "label_seq_id", lResSeq1 },
 				{ "label_asym_id", lAsym1 },
-				{ "label_alt_id", "." },
+				{ "label_alt_id", cif::item_value_type::INAPPLICABLE },
 				{ "pdbx_PDB_ins_code", iCode1str },
 				{ "auth_comp_id", pep1 },
 				{ "auth_seq_id", seqNum1 },
@@ -5489,8 +5490,8 @@ void PDBFileParser::ParseMiscellaneousFeatures()
 					{ "auth_comp_id", resName },
 					{ "auth_asym_id", std::string{ chainID } },
 					{ "auth_seq_id", seq },
-					{ "label_atom_id", "." },
-					{ "label_alt_id", "." },
+					{ "label_atom_id", cif::item_value_type::INAPPLICABLE },
+					{ "label_alt_id", cif::item_value_type::INAPPLICABLE },
 				});
 			// clang-format on
 

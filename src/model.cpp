@@ -68,9 +68,9 @@ void atom::atom_impl::moveTo(const point &p)
 
 	auto r = row();
 
-	r.assign("Cartn_x", std::format("{:.3f}", p.m_x), false, false);
-	r.assign("Cartn_y", std::format("{:.3f}", p.m_y), false, false);
-	r.assign("Cartn_z", std::format("{:.3f}", p.m_z), false, false);
+	r.assign("Cartn_x", { p.m_x, 3 }, false, false);
+	r.assign("Cartn_y", { p.m_y, 3 }, false, false);
+	r.assign("Cartn_z", { p.m_z, 3 }, false, false);
 
 	m_location = p;
 }
@@ -2357,9 +2357,9 @@ void structure::create_water(row_initializer atom)
 		{ "asym_id", asym_id },
 		{ "entity_id", entity_id },
 		{ "mon_id", "HOH" },
-		{ "ndb_seq_num", ndb_nr },
-		{ "pdb_seq_num", auth_seq_id },
-		{ "auth_seq_num", auth_seq_id },
+		{ "ndb_seq_num", std::to_string(ndb_nr) },
+		{ "pdb_seq_num", std::to_string(auth_seq_id) },
+		{ "auth_seq_num", std::to_string(auth_seq_id) },
 		{ "pdb_mon_id", "HOH" },
 		{ "auth_mon_id", "HOH" },
 		{ "pdb_strand_id", asym_id },

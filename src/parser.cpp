@@ -577,7 +577,13 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				break;
 
 			case State::Numeric_Exponent1:
-				if (ch == '+' or ch == '-' or (ch >= '0' and ch <= '9'))
+				if (not is_non_blank(ch))
+				{
+					retract();
+					result = CIFToken::VALUE_CHARSTRING;
+					m_token_value = std::string_view(m_token_buffer.data(), m_token_buffer.size());
+				}
+				else if (ch == '+' or ch == '-' or (ch >= '0' and ch <= '9'))
 					state = State::Numeric_Exponent2;
 				else
 				{

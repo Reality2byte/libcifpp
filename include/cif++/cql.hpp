@@ -344,7 +344,7 @@ class result
 
 	void expect_columns(size_t cols) const
 	{
-		if (auto actual = column_count(); cols != actual)
+		if (auto actual = column_count(); size() > 0 and cols != actual)
 			throw std::runtime_error("Unexpected number of columns");
 	}
 

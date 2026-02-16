@@ -578,7 +578,8 @@ std::tuple<point, float> smallest_sphere_around_points(std::vector<point> pts)
 			return smallest_sphere_around_4_points({ pts[cix[0]], pts[cix[1]], pts[cix[2]], pts[cix[3]] });
 		default:
 			assert(false);
-			throw std::runtime_error("Error finding smallest sphere");
+			throw std::runtime_error(std::format("Error finding smallest sphere (cix size: {}, pts size: {})",
+				cix.size(), pts.size()));
 	}
 }
 

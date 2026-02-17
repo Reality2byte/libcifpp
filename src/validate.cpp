@@ -169,8 +169,6 @@ type_validator::type_validator(std::string_view name, DDL_PrimitiveType type, st
 
 int type_validator::compare(const item_value &a, const item_value &b) const
 {
-	int result = 0;
-
 	switch (m_primitive_type)
 	{
 		case DDL_PrimitiveType::Numb:
@@ -199,6 +197,9 @@ int type_validator::compare(const item_value &a, const item_value &b) const
 				return a.compare(b, false);
 
 			return a.str().compare(b.str());
+		
+		default:
+			throw std::runtime_error("invalid primitive type");
 	}
 }
 

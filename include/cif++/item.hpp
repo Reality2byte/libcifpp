@@ -30,7 +30,6 @@
 
 #include <algorithm>
 #include <cassert>
-#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -238,7 +237,7 @@ class item_value
 
 	explicit operator bool() const noexcept
 	{
-		bool result;
+		bool result = false;
 		switch (m_data.m_type)
 		{
 			case item_value_type::INT: result = m_data.m_value.m_integer != 0; break;
@@ -592,15 +591,15 @@ struct item_handle
 	[[nodiscard]] item_value &value();
 	[[nodiscard]] const item_value &value() const;
 
-	[[nodiscard]] constexpr bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
-	[[nodiscard]] constexpr bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
-	[[nodiscard]] constexpr bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
+	[[nodiscard]] bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
+	[[nodiscard]] bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
 
-	[[nodiscard]] constexpr bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
+	[[nodiscard]] bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
 
-	[[nodiscard]] constexpr bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
-	[[nodiscard]] constexpr bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
-	[[nodiscard]] constexpr bool is_number() const noexcept { return is_number_int() or is_number_float(); }
+	[[nodiscard]] bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
+	[[nodiscard]] bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
+	[[nodiscard]] bool is_number() const noexcept { return is_number_int() or is_number_float(); }
 
 	[[nodiscard]] auto type() const { return value().type(); }
 
@@ -731,15 +730,15 @@ struct const_item_handle
 
 	[[nodiscard]] const item_value &value() const;
 
-	[[nodiscard]] constexpr bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
-	[[nodiscard]] constexpr bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
-	[[nodiscard]] constexpr bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
+	[[nodiscard]] bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
+	[[nodiscard]] bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
 
-	[[nodiscard]] constexpr bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
+	[[nodiscard]] bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
 
-	[[nodiscard]] constexpr bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
-	[[nodiscard]] constexpr bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
-	[[nodiscard]] constexpr bool is_number() const noexcept { return is_number_int() or is_number_float(); }
+	[[nodiscard]] bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
+	[[nodiscard]] bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
+	[[nodiscard]] bool is_number() const noexcept { return is_number_int() or is_number_float(); }
 
 	[[nodiscard]] auto type() const { return value().type(); }
 

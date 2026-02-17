@@ -32,6 +32,7 @@
 #include <cmath>
 #include <compare>
 #include <ostream>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -189,6 +190,9 @@ std::string item_value::str() const
 
 			return r.ec == std::errc{} ? std::string{ s, r.ptr } : "*****";
 		}
+
+		default:
+			throw std::runtime_error("invalid data type");
 	}
 }
 

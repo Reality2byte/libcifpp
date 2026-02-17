@@ -1121,8 +1121,8 @@ void createPdbxPolySeqScheme(datablock &db)
 
 	auto &atom_site = db["atom_site"];
 	auto &entity_poly = db["entity_poly"];
-	auto &entity_poly_seq = db["entity_poly_seq"];
-	auto &struct_asym = db["struct_asym"];
+	// auto &entity_poly_seq = db["entity_poly_seq"];
+	// auto &struct_asym = db["struct_asym"];
 	auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
 
 	// Find the mapping between asym_id and pdb_strand_id first

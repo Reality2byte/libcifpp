@@ -946,10 +946,10 @@ class spherical_dots
 	const point operator[](uint32_t inIx) const { return m_points[inIx]; }
 
 	/// \brief iterator pointing to the first point
-	iterator begin() const { return m_points.begin(); }
+	[[nodiscard]] iterator begin() const { return m_points.begin(); }
 
 	/// \brief iterator pointing past the last point
-	iterator end() const { return m_points.end(); }
+	[[nodiscard]] iterator end() const { return m_points.end(); }
 
 	/// \brief return the *weight*,
 	[[nodiscard]] double weight() const { return W; }

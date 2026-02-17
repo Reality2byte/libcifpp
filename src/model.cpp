@@ -1066,7 +1066,8 @@ sugar &branch::construct_sugar(const std::string &compound_id, const std::string
 	auto &pdbx_entity_branch_link = db["pdbx_entity_branch_link"];
 	auto linkID = pdbx_entity_branch_link.get_unique_id("");
 
-	db["pdbx_entity_branch_link"].emplace({ { "link_id", linkID },
+	db["pdbx_entity_branch_link"].emplace(//
+		{ { "link_id", std::stoi(linkID) },
 		{ "entity_id", get_entity_id() },
 		{ "entity_branch_list_num_1", result.num() },
 		{ "comp_id_1", compound_id },
@@ -2660,13 +2661,14 @@ std::string structure::create_entity_for_branch(branch &branch)
 			auto &s2 = branch.at(stoi(l2.get_auth_seq_id()) - 1);
 			auto l1 = s2.get_atom_by_atom_id("C1");
 
-			pdbx_entity_branch_link.emplace({ { "link_id", pdbx_entity_branch_link.get_unique_id("") },
+			pdbx_entity_branch_link.emplace({ //
+				{ "link_id", std::stoi(pdbx_entity_branch_link.get_unique_id("")) },
 				{ "entity_id", entityID },
-				{ "entity_branch_list_num_1", s1.get_pdb_seq_num() },
+				{ "entity_branch_list_num_1", std::stoi(s1.get_pdb_seq_num()) },
 				{ "comp_id_1", s1.get_compound_id() },
 				{ "atom_id_1", l1.get_label_atom_id() },
 				{ "leaving_atom_id_1", "O1" },
-				{ "entity_branch_list_num_2", s2.get_pdb_seq_num() },
+				{ "entity_branch_list_num_2", std::stoi(s2.get_pdb_seq_num()) },
 				{ "comp_id_2", s2.get_compound_id() },
 				{ "atom_id_2", l2.get_label_atom_id() },
 				{ "leaving_atom_id_2", "H" + l2.get_label_atom_id() },

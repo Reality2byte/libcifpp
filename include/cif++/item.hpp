@@ -626,45 +626,17 @@ struct item_handle
 	[[nodiscard]] item_value &value();
 	[[nodiscard]] const item_value &value() const;
 
-	[[nodiscard]] bool is_inapplicable() const noexcept
-	{
-		return not empty() and value().type() == item_value_type::INAPPLICABLE;
-	}
+	[[nodiscard]] bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
+	[[nodiscard]] bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
 
-	[[nodiscard]] bool is_missing() const noexcept
-	{
-		return empty() or value().type() == item_value_type::MISSING;
-	}
+	[[nodiscard]] bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
 
-	[[nodiscard]] bool is_null() const noexcept
-	{
-		return not empty() and (is_inapplicable() or is_missing());
-	}
+	[[nodiscard]] bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
+	[[nodiscard]] bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
+	[[nodiscard]] bool is_number() const noexcept { return is_number_int() or is_number_float(); }
 
-	[[nodiscard]] bool is_string() const noexcept
-	{
-		return not empty() and value().type() == item_value_type::TEXT;
-	}
-
-	[[nodiscard]] bool is_number_int() const noexcept
-	{
-		return not empty() and value().type() == item_value_type::INT;
-	}
-
-	[[nodiscard]] bool is_number_float() const noexcept
-	{
-		return not empty() and value().type() == item_value_type::FLOAT;
-	}
-
-	[[nodiscard]] bool is_number() const noexcept
-	{
-		return not empty() and (is_number_int() or is_number_float());
-	}
-
-	[[nodiscard]] auto type() const
-	{
-		return empty() ? item_value_type::MISSING : value().type();
-	}
+	[[nodiscard]] auto type() const { return value().type(); }
 
 	template <typename T>
 	[[nodiscard]] auto get() const
@@ -777,6 +749,133 @@ struct item_handle
 	{
 	}
 
+  private:
+	category &m_category;
+	row &m_row;
+	uint16_t m_item_ix;
+
+	friend class parser;
+
+	void set(item_value value, bool updateLinked);
+};
+
+struct const_item_handle
+{
+  public:
+	const_item_handle() = delete;
+
+	[[nodiscard]] const item_value &value() const;
+
+	[[nodiscard]] bool is_inapplicable() const noexcept { return value().type() == item_value_type::INAPPLICABLE; }
+	[[nodiscard]] bool is_missing() const noexcept { return value().type() == item_value_type::MISSING; }
+	[[nodiscard]] bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
+
+	[[nodiscard]] bool is_string() const noexcept { return value().type() == item_value_type::TEXT; }
+
+	[[nodiscard]] bool is_number_int() const noexcept { return value().type() == item_value_type::INT; }
+	[[nodiscard]] bool is_number_float() const noexcept { return value().type() == item_value_type::FLOAT; }
+	[[nodiscard]] bool is_number() const noexcept { return is_number_int() or is_number_float(); }
+
+	[[nodiscard]] auto type() const { return value().type(); }
+
+	template <typename T>
+	[[nodiscard]] auto get() const
+	{
+		if (empty())
+			return T{};
+		else
+			return value().template get<T>();
+	}
+
+	template <typename T>
+	[[nodiscard]] auto as() const
+	{
+		if (empty())
+			return T{};
+		else
+			return value().template get<T>();
+	}
+
+	[[nodiscard]] auto str() const
+	{
+		return value().str();
+	}
+
+	[[nodiscard]] auto sv() const
+	{
+		return value().sv();
+	}
+
+	/** Return the contents of this item as type @tparam T or, if not
+	 * set, use @a dv as the default value.
+	 */
+	template <typename T>
+	[[nodiscard]] auto value_or(const T &dv) const
+	{
+		return empty() ? dv : this->get<T>();
+	}
+
+	/**
+	 * @brief Compare the contents of this item with value @a value
+	 * optionally ignoring character case, if @a icase is true.
+	 * Returns 0 if both are equal, -1 if this sorts before @a value
+	 * and 1 if this sorts after @a value
+	 *
+	 * @tparam T Type of the value @a value
+	 * @param value The value to compare with
+	 * @param icase Flag indicating if we should compare character case sensitive
+	 * @return -1, 0 or 1
+	 */
+
+	[[nodiscard]] int compare(const item_value &value, bool icase = true) const noexcept
+	{
+		return this->value().compare(value, icase);
+	}
+
+	[[nodiscard]] int compare(const const_item_handle &value, bool icase = true) const noexcept
+	{
+		if (empty() and value.empty())
+			return 0;
+		else if (empty())
+			return -1;
+		else if (value.empty())
+			return 1;
+		else
+			return compare(value.value(), icase);
+	}
+
+	/**
+	 * @brief Compare the value contained with the value @a value and
+	 * return true if both are equal.
+	 */
+	[[nodiscard]] bool operator==(const item_value &value) const noexcept
+	{
+		// TODO: icase or not icase?
+		return this->value().compare(value) == 0;
+	}
+
+	// We may not have C++20 yet...
+
+	/**
+	 * @brief Compare the value contained with the value @a value and
+	 * return true if both are not equal.
+	 */
+	template <typename T>
+	[[nodiscard]] bool operator!=(const T &value) const noexcept
+	{
+		return not operator==(value);
+	}
+
+	/**
+	 * @brief Returns true if the content string is empty or
+	 * only contains '.' meaning null or '?' meaning unknown
+	 * in a mmCIF context
+	 */
+	[[nodiscard]] bool empty() const;
+
+	/** Easy way to test for an empty item */
+	explicit operator bool() const { return not empty(); }
+
 	/**
 	 * @brief Construct a new item handle object
 	 *
@@ -784,33 +883,17 @@ struct item_handle
 	 * @param row Reference to the row
 	 * @param item_ix Item index
 	 */
-	item_handle(const category &cat, const row &row, uint16_t item_ix)
-		: m_category(const_cast<category &>(cat))
-		, m_row(const_cast<cif::row &>(row))
+	const_item_handle(const category &cat, const row &row, uint16_t item_ix)
+		: m_category(cat)
+		, m_row(row)
 		, m_item_ix(item_ix)
-		, m_is_const(true)
 	{
-	}
-
-	friend std::ostream &operator<<(std::ostream &os, const item_handle &rhs)
-	{
-		if (rhs.empty())
-			os << "NULL";
-		else
-			os << rhs.value();
-
-		return os;
 	}
 
   private:
-	category &m_category;
-	row &m_row;
+	const category &m_category;
+	const row &m_row;
 	uint16_t m_item_ix;
-	bool m_is_const = false;
-
-	friend class parser;
-
-	void set(item_value value, bool updateLinked);
 };
 
 } // namespace cif

@@ -212,7 +212,7 @@ class row_handle
 	}
 
 	/// \brief return a cif::item_handle to the item in item @a item_ix
-	const item_handle operator[](uint16_t item_ix) const
+	const_item_handle operator[](uint16_t item_ix) const
 	{
 		return { *m_category, *m_row, item_ix };
 	}
@@ -224,7 +224,7 @@ class row_handle
 	}
 
 	/// \brief return a cif::item_handle to the item in the item named @a item_name
-	const item_handle operator[](std::string_view item_name) const
+	const_item_handle operator[](std::string_view item_name) const
 	{
 		return { *m_category, *m_row, get_item_ix(item_name) };
 	}
@@ -389,13 +389,13 @@ class const_row_handle
 	[[nodiscard]] size_t size() const { return m_row->size(); }
 
 	/// \brief return a cif::item_handle to the item in item @a item_ix
-	const item_handle operator[](uint16_t item_ix) const
+	const_item_handle operator[](uint16_t item_ix) const
 	{
 		return { *m_category, *m_row, item_ix };
 	}
 
 	/// \brief return a cif::item_handle to the item in the item named @a item_name
-	const item_handle operator[](std::string_view item_name) const
+	const_item_handle operator[](std::string_view item_name) const
 	{
 		return operator[](get_item_ix(item_name));
 	}

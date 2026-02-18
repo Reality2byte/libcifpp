@@ -65,17 +65,6 @@ void item_handle::set(item_value value, bool updateLinked)
 	rh.assign(m_item_ix, std::move(value), updateLinked);
 }
 
-bool const_item_handle::empty() const
-{
-	return m_item_ix >= m_row.size() or m_row[m_item_ix].empty();
-}
-
-const item_value &const_item_handle::value() const
-{
-	assert(m_item_ix < m_row.size());
-	return m_row.operator[](m_item_ix);
-}
-
 int item_value::compare(const item_value &b, bool ignore_case) const noexcept
 {
 	int d = static_cast<int>(m_data.m_type) - static_cast<int>(b.m_data.m_type);

@@ -289,6 +289,7 @@ list(APPEND project_sources
 
 list(APPEND project_headers
     include/cif++.hpp
+    include/cif++/cif++.hpp
     include/cif++/atom_type.hpp
     include/cif++/category.hpp
     include/cif++/compound.hpp

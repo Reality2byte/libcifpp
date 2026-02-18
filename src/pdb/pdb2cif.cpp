@@ -24,7 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++.hpp"
+#include "cif++/cif++.hpp"
 
 #include "cif++/item.hpp"
 #include "pdb_record.hpp"

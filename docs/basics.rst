@@ -7,7 +7,7 @@ Reading a file is as simple as:
 
 .. code-block:: cpp
 
-    #include <cif++.hpp>
+    #include <cif++/cif++.hpp>
 
     cif::file f("/path/to/file.cif");
 
@@ -214,7 +214,7 @@ A simple case:
 
 .. code-block:: cpp
 
-    #include <cif++.hpp>
+    #include <cif++/cif++.hpp>
 
     cif::file f("1cbs.cif.gz");
     f.load_dictionary("mmcif_pdbx.dic");

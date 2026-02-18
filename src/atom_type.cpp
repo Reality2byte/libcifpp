@@ -26,7 +26,7 @@
 
 // NOLINTBEGIN(modernize-use-std-numbers)
 
-#include "cif++.hpp"
+#include "cif++/cif++.hpp"
 
 #include <cassert>
 #include <cstdint>

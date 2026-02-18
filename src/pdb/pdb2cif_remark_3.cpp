@@ -26,7 +26,7 @@
 
 #include "pdb2cif_remark_3.hpp"
 
-#include "cif++.hpp"
+#include "cif++/cif++.hpp"
 
 #include <algorithm>
 #include <cstddef>

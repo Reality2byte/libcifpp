@@ -55,48 +55,31 @@ class category;
 class row;
 
 // --------------------------------------------------------------------
-/** @brief item is a transient class that is used to pass data into rows
- * but it also takes care of formatting data.
- *
- *
- *
- * The class cif::item is often used implicitly when creating a row in a category
- * using the emplace function.
- *
- * @code{.cpp}
- * cif::category cat("my-cat");
- * cat.emplace({
- *   { "item-1", 1 },                             // <- stores an item with value 1
- *   { "item-2", 1.0, 2 },                        // <- stores an item with value 1.00
- *   { "item-3", std::optional<int>() },          // <- stores an item with value ?
- *   { "item-4", std::make_optional<int>(42) },   // <- stores an item with value 42
- *   { "item-5" }                                 // <- stores an item with value .
- * });
- *
- * std::cout << cat << '\n';
- * @endcode
- *
- * Will result in:
- *
- * @code{.txt}
- * _my-cat.item-1 1
- * _my-cat.item-2 1.00
- * _my-cat.item-3 ?
- * _my-cat.item-4 42
- * _my-cat.item-5 .
- * @endcode
- */
 
+/**
+ * The primitive types as known in libcifpp.
+ */
 enum class item_value_type
 {
+	/// Integer, stored as int64_t
 	INT,
+
+	/// Floating point, stored as double
 	FLOAT,
+
+	/// Character string
 	TEXT,
 
+	/// A value is not applicable, no data is stored, output is '.'
 	INAPPLICABLE,
+
+	/// A values is now known or missing, no data is stored, output is '?'
 	MISSING
 };
 
+// --------------------------------------------------------------------
+
+/// \cond
 template <typename T>
 concept IntegralType = (std::is_integral_v<std::remove_cvref_t<T>>);
 
@@ -106,28 +89,41 @@ concept FloatType = std::is_floating_point_v<std::remove_cvref_t<T>>;
 template <typename T>
 concept StringType = (std::is_assignable_v<std::string, T> and not std::is_integral_v<T> and not std::is_floating_point_v<T>);
 
-// --------------------------------------------------------------------
-
-/// \cond
 template <typename T>
 inline constexpr bool is_optional_v = false;
 template <typename T>
 inline constexpr bool is_optional_v<std::optional<T>> = true;
 /// \endcond
 
+/// The data is stored in this item_value type. It contains one of
+/// the five types from @ref cif::item_value_type.
+/// Data is stored internally in the structure, except for strings
+/// larger than 7 characters. 99% of the character strings in a typical
+/// mmCIF file are 7 bytes or less, so this saves a lot of memory allocations.
+
 class item_value
 {
   public:
+	/// Construct an item_value containing the @ref INAPPLICABLE value.
 	item_value() noexcept
+	{
+		m_data.m_type = item_value_type::INAPPLICABLE;
+	}
+
+	/// Construct an item_value containing the @ref MISSING value.
+	item_value(std::nullptr_t)
 	{
 		m_data.m_type = item_value_type::MISSING;
 	}
 
+	/// Create an item_value containing the type specified by @a type
+	/// and a default value for this type.
 	item_value(item_value_type type) noexcept
 		: m_data(type)
 	{
 	}
 
+	/// Copy constructor
 	item_value(const item_value &rhs)
 	{
 		m_data.m_type = rhs.m_data.m_type;
@@ -148,11 +144,7 @@ class item_value
 		}
 	}
 
-	item_value(std::nullptr_t)
-	{
-		m_data.m_type = item_value_type::MISSING;
-	}
-
+	/// Construct an item_value containing the string @a s
 	item_value(std::string_view s)
 	{
 		if (s == ".")
@@ -167,22 +159,26 @@ class item_value
 		}
 	}
 
+	/// Construct an item_value containing the string @a s
 	template <size_t N>
 	item_value(const char(s)[N])
 		: item_value(std::string_view{ s, N })
 	{
 	}
 
+	/// Construct an item_value containing the string @a s
 	item_value(const char *s)
 		: item_value(std::string_view{ s })
 	{
 	}
 
+	/// Construct an item_value containing the string @a s
 	item_value(const std::string &s)
 		: item_value(std::string_view{ s })
 	{
 	}
 
+	/// Construct an item_value containing the integer @a v
 	template <IntegralType T>
 	item_value(T v)
 	{
@@ -190,6 +186,11 @@ class item_value
 		m_data.m_value = static_cast<int64_t>(v);
 	}
 
+	/// Construct an item_value containing the double @a v
+	/// If precision is not zero, output of this value to a file
+	/// will use this precision. When parsing files, this precision
+	/// is taken from the parsed string which will guarantee that
+	/// the output of the data is the same as the input.
 	template <FloatType T>
 	item_value(T v, int precision = 0)
 	{
@@ -198,6 +199,8 @@ class item_value
 		m_data.m_len = precision;
 	}
 
+	/// Construct an item_value containing either the value @a v
+	/// or a MISSING type.
 	template <typename T>
 	item_value(std::optional<T> v)
 	{
@@ -210,11 +213,13 @@ class item_value
 			m_data.m_type = item_value_type::MISSING;
 	}
 
+	/// Move constructor
 	item_value(item_value &&rhs) noexcept
 	{
 		swap(*this, rhs);
 	}
 
+	/// We're using modern move semantics
 	item_value &operator=(item_value rhs) noexcept
 	{
 		swap(*this, rhs);
@@ -223,18 +228,31 @@ class item_value
 
 	// --------------------------------------------------------------------
 
+	/// Test if contained value is of type @ref cif::item_value_type::INAPPLICABLE
 	[[nodiscard]] constexpr bool is_inapplicable() const noexcept { return m_data.m_type == item_value_type::INAPPLICABLE; }
+
+	/// Test if contained value is of type @ref cif::item_value_type::MISSING
 	[[nodiscard]] constexpr bool is_missing() const noexcept { return m_data.m_type == item_value_type::MISSING; }
+
+	/// Test if contained value is null, i.e. of type @ref cif::item_value_type::INAPPLICABLE or  @ref cif::item_value_type::MISSING
 	[[nodiscard]] constexpr bool is_null() const noexcept { return is_inapplicable() or is_missing(); }
 
+	/// Test if contained value is a string, i.e. of type @ref cif::item_value_type::TEXT
 	[[nodiscard]] constexpr bool is_string() const noexcept { return m_data.m_type == item_value_type::TEXT; }
 
+	/// Test if contained value is of type @ref cif::item_value_type::INT
 	[[nodiscard]] constexpr bool is_number_int() const noexcept { return m_data.m_type == item_value_type::INT; }
+
+	/// Test if contained value is of type @ref cif::item_value_type::FLOAT
 	[[nodiscard]] constexpr bool is_number_float() const noexcept { return m_data.m_type == item_value_type::FLOAT; }
+
+	/// Test if contained value is a number, i.e. of type @ref cif::item_value_type::INT or @ref cif::item_value_type::FLOAT
 	[[nodiscard]] constexpr bool is_number() const noexcept { return is_number_int() or is_number_float(); }
 
+	/// Return the type of the contained value
 	[[nodiscard]] constexpr item_value_type type() const { return m_data.m_type; }
 
+	/// Depending on the type, return true if the value is considered to be 'true'
 	explicit operator bool() const noexcept
 	{
 		bool result = false;
@@ -249,6 +267,7 @@ class item_value
 		return result;
 	}
 
+	/// Return true if the contained value is considered to be 'empty'
 	[[nodiscard]] bool empty() const noexcept
 	{
 		switch (m_data.m_type)
@@ -267,12 +286,15 @@ class item_value
 
 	// --------------------------------------------------------------------
 
+	/// Return the string representation of the contained value
 	template <StringType T>
 	[[nodiscard]] inline std::string get() const
 	{
 		return str();
 	}
 
+	/// Return the integer representation of the contained value.
+	/// Will throw if the value cannot be cast to an integer
 	template <IntegralType T>
 	[[nodiscard]] std::remove_cvref_t<T> get() const
 	{
@@ -301,6 +323,8 @@ class item_value
 		}
 	}
 
+	/// Return the floating point representation of the contained value.
+	/// Will throw if the value cannot be cast to the requested type
 	template <FloatType T>
 	[[nodiscard]] std::remove_cvref_t<T> get() const
 	{
@@ -326,6 +350,10 @@ class item_value
 		}
 	}
 
+	/// Return the std::optional<> wrapped value.
+	/// The return value will not have a value if the contained
+	/// value is missing or inapplicable.
+	/// Will throw if the value cannot be cast to the requested type
 	template <typename T>
 		requires is_optional_v<T>
 	[[nodiscard]] auto get() const
@@ -344,8 +372,11 @@ class item_value
 		}
 	}
 
+	/// Return the string representation of the contained value.
 	[[nodiscard]] std::string str() const;
 
+	/// Return a std::string_view to the contained value.
+	/// This will of course throw when the type is not @ref cif::item_value_type::TEXT
 	[[nodiscard]] const std::string_view sv() const
 	{
 		assert(m_data.m_type == cif::item_value_type::TEXT);
@@ -399,6 +430,8 @@ class item_value
 	[[nodiscard]] int compare(const item_value &b, bool ignore_case = false) const noexcept;
 
 	friend std::ostream &operator<<(std::ostream &os, const item_value &v);
+
+	/// @cond
 
   private:
 	union value
@@ -488,6 +521,8 @@ class item_value
 };
 
 static_assert(sizeof(item_value) == 16, "item_value should be 16 bytes");
+
+/// @endcond
 
 class item
 {
@@ -703,8 +738,9 @@ struct item_handle
 	/**
 	 * @brief Construct a new item handle object
 	 *
-	 * @param item Item index
+	 * @param cat Reference to category containing row
 	 * @param row Reference to the row
+	 * @param item_ix Item index
 	 */
 	item_handle(category &cat, row &row, uint16_t item_ix)
 		: m_category(cat)
@@ -843,8 +879,9 @@ struct const_item_handle
 	/**
 	 * @brief Construct a new item handle object
 	 *
-	 * @param item Item index
+	 * @param cat Reference to category containing row
 	 * @param row Reference to the row
+	 * @param item_ix Item index
 	 */
 	const_item_handle(const category &cat, const row &row, uint16_t item_ix)
 		: m_category(cat)
@@ -883,5 +920,7 @@ struct tuple_element<1, ::cif::item>
 {
 	using type = decltype(std::declval<::cif::item>().value());
 };
+
+/// @endcond
 
 } // namespace std

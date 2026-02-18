@@ -26,7 +26,7 @@
 
 #include "test-main.hpp"
 
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 // --------------------------------------------------------------------
 

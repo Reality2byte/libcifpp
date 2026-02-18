@@ -412,8 +412,6 @@ class validator
   public:
 	/**
 	 * @brief Construct a new validator object
-	 *
-	 * @param name The name of the underlying dictionary
 	 */
 	validator()
 		: m_audit_conform("audit_conform")
@@ -423,7 +421,6 @@ class validator
 	/**
 	 * @brief Construct a new validator object
 	 *
-	 * @param name The name of the underlying dictionary
 	 * @param is The data to parse
 	 */
 	validator(std::istream &is)

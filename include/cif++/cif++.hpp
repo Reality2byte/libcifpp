@@ -1,17 +1,17 @@
 /*-
  * SPDX-License-Identifier: BSD-2-Clause
- * 
- * Copyright (c) 2024 NKI/AVL, Netherlands Cancer Institute
- * 
+ *
+ * Copyright (c) 2020 NKI/AVL, Netherlands Cancer Institute
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
- * 
+ *
  * 1. Redistributions of source code must retain the above copyright notice, this
  *    list of conditions and the following disclaimer
  * 2. Redistributions in binary form must reproduce the above copyright notice,
  *    this list of conditions and the following disclaimer in the documentation
  *    and/or other materials provided with the distribution.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -24,52 +24,30 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#pragma once
+
+// IWYU pragma: begin_exports
+#include "cif++/atom_type.hpp"
+#include "cif++/category.hpp"
+#include "cif++/compound.hpp"
+#include "cif++/condition.hpp"
+#include "cif++/cql.hpp"
+#include "cif++/datablock.hpp"
+#include "cif++/dictionary_parser.hpp"
+#include "cif++/exports.hpp"
+#include "cif++/file.hpp"
+#include "cif++/format.hpp"
+#include "cif++/gzio.hpp"
+#include "cif++/item.hpp"
+#include "cif++/iterator.hpp"
+#include "cif++/matrix.hpp"
+#include "cif++/model.hpp"
+#include "cif++/parser.hpp"
+#include "cif++/pdb.hpp"
+#include "cif++/point.hpp"
+#include "cif++/row.hpp"
+#include "cif++/symmetry.hpp"
+#include "cif++/text.hpp"
 #include "cif++/utilities.hpp"
-#include "test-main.hpp"
-
-#include <cif++/cif++.hpp>
-
-#include <filesystem>
-#include <iostream>
-#include <fstream>
-
-TEST_CASE("reconstruct")
-{
-	cif::VERBOSE = 1;
-
-	cif::compound_factory::instance().push_dictionary(gTestDir / "REA.cif");
-
-	for (std::filesystem::directory_iterator i(gTestDir / "reconstruct"); i != std::filesystem::directory_iterator{}; ++i)
-	{
-		std::cout << i->path() << '\n';
-
-		if (i->path().extension() == ".pdb")
-		{
-			cif::file f = cif::pdb::read(i->path());
-
-			std::error_code ec;
-
-			if (not cif::pdb::is_valid_pdbx_file(f, ec))
-				CHECK(cif::pdb::reconstruct_pdbx(f));
-		}
-		else
-		{
-			cif::file f(i->path());
-
-			std::error_code ec;
-			CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f, ec));
-			CHECK(ec != std::errc{});
-
-			auto valid = cif::pdb::reconstruct_pdbx(f);
-
-			CHECK(valid);
-
-			if (not valid)
-			{
-				std::ofstream of(std::filesystem::temp_directory_path() / i->path().filename());
-				of << f;
-				of.close();
-			}
-		}
-	}
-}
+#include "cif++/validate.hpp"
+// IWYU pragma: end_exports

@@ -802,6 +802,16 @@ struct item_handle
 	item_handle(const item_handle &) = delete;
 	item_handle &operator=(const item_handle &) = delete;
 
+
+	friend std::ostream &operator<<(std::ostream &os, const item_handle &h)
+	{
+		if (h.empty())
+			os << "NULL";
+		else
+		 	os << h.value();
+		return os;
+	}
+
   private:
 	category &m_category;
 	row &m_row;

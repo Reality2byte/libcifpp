@@ -675,7 +675,7 @@ class category
 			throw multiple_results_error();
 
 		if (h.empty())
-			return {};
+			return std::nullopt;
 
 		return *h.begin();
 	}

@@ -162,7 +162,7 @@ namespace detail
 		virtual condition_impl *prepare(const category &) { return this; }
 		[[nodiscard]] virtual bool test(const_row_handle) const = 0;
 		virtual void str(std::ostream &) const = 0;
-		[[nodiscard]] virtual std::optional<const_row_handle> single() const { return {}; };
+		[[nodiscard]] virtual std::optional<const_row_handle> single() const { return std::nullopt; };
 
 		virtual bool equals([[maybe_unused]] const condition_impl *rhs) const { return false; }
 	};

@@ -775,11 +775,11 @@ std::optional<cif::point> line_line_intersection(const point_type<F> &p1,
 	auto p13 = p1 - p3;
 	auto p43 = p4 - p3;
 	if (std::abs(p43.m_x) < std::numeric_limits<F>::epsilon() and std::abs(p43.m_y) < std::numeric_limits<F>::epsilon() and std::abs(p43.m_z) < std::numeric_limits<F>::epsilon())
-		return {};
+		return std::nullopt;
 
 	auto p21 = p2 - p1;
 	if (std::abs(p21.m_x) < std::numeric_limits<F>::epsilon() and std::abs(p21.m_y) < std::numeric_limits<F>::epsilon() and std::abs(p21.m_z) < std::numeric_limits<F>::epsilon())
-		return {};
+		return std::nullopt;
 
 	auto d1343 = cif::dot_product(p43, p13);
 	auto d4321 = cif::dot_product(p43, p21);
@@ -789,7 +789,7 @@ std::optional<cif::point> line_line_intersection(const point_type<F> &p1,
 
 	auto denom = d2121 * d4343 - d4321 * d4321;
 	if (std::abs(denom) < std::numeric_limits<F>::epsilon())
-		return {};
+		return std::nullopt;
 
 	auto numer = d1343 * d4321 - d1321 * d4343;
 

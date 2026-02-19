@@ -346,7 +346,7 @@ target_sources(cifpp
 )
 
 # The code now really requires C++20
-target_compile_features(cifpp PUBLIC cxx_std_20)
+target_compile_features(cifpp PUBLIC cxx_std_23)
 
 generate_export_header(cifpp EXPORT_FILE_NAME
     ${CMAKE_CURRENT_SOURCE_DIR}/include/cif++/exports.hpp)

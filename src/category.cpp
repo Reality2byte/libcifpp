@@ -618,7 +618,10 @@ void category::drop_empty_items()
 		for (size_t ix = 0; ix < get_item_count(); ++ix)
 		{
 			if (is_empty[ix] and not row[ix].empty())
+			{
 				is_empty[ix] = false;
+				break;
+			}
 		}
 	}
 

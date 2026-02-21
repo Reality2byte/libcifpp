@@ -24,6 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/compound.hpp"
 #include "cif++/cif++.hpp"
 
 #include <cstddef>
@@ -56,36 +57,32 @@ std::string to_string(bond_type bondType)
 {
 	switch (bondType)
 	{
-		case bond_type::sing: return "sing";
-		case bond_type::doub: return "doub";
-		case bond_type::trip: return "trip";
-		case bond_type::quad: return "quad";
-		case bond_type::arom: return "arom";
-		case bond_type::poly: return "poly";
-		case bond_type::delo: return "delo";
-		case bond_type::pi: return "pi";
+		using enum bond_type;
+
+		case sing: return "sing";
+		case doub: return "doub";
+		case trip: return "trip";
+		case quad: return "quad";
+		case arom: return "arom";
+		case poly: return "poly";
+		case delo: return "delo";
+		case pi: return "pi";
 	}
 	throw std::invalid_argument("Invalid bondType");
 }
 
 bond_type parse_bond_type_from_string(const std::string &bondType)
 {
-	if (cif::iequals(bondType, "sing"))
-		return bond_type::sing;
-	if (cif::iequals(bondType, "doub"))
-		return bond_type::doub;
-	if (cif::iequals(bondType, "trip"))
-		return bond_type::trip;
-	if (cif::iequals(bondType, "quad"))
-		return bond_type::quad;
-	if (cif::iequals(bondType, "arom"))
-		return bond_type::arom;
-	if (cif::iequals(bondType, "poly"))
-		return bond_type::poly;
-	if (cif::iequals(bondType, "delo"))
-		return bond_type::delo;
-	if (cif::iequals(bondType, "pi"))
-		return bond_type::pi;
+	using enum bond_type;
+
+	if (cif::iequals(bondType, "sing")) return sing;
+	if (cif::iequals(bondType, "doub")) return doub;
+	if (cif::iequals(bondType, "trip")) return trip;
+	if (cif::iequals(bondType, "quad")) return quad;
+	if (cif::iequals(bondType, "arom")) return arom;
+	if (cif::iequals(bondType, "poly")) return poly;
+	if (cif::iequals(bondType, "delo")) return delo;
+	if (cif::iequals(bondType, "pi")) return pi;
 	throw std::invalid_argument("Invalid bondType: " + bondType);
 }
 
@@ -93,21 +90,21 @@ std::string to_string(stereo_config_type stereoConfig)
 {
 	switch (stereoConfig)
 	{
-		case stereo_config_type::N: return "N";
-		case stereo_config_type::R: return "R";
-		case stereo_config_type::S: return "S";
+		using enum stereo_config_type;
+
+		case N: return "N";
+		case R: return "R";
+		case S: return "S";
 	}
 	throw std::invalid_argument("Invalid stereoConfig");
 }
 
 stereo_config_type parse_stereo_config_from_string(const std::string &stereoConfig)
 {
-	if (cif::iequals(stereoConfig, "N"))
-		return stereo_config_type::N;
-	if (cif::iequals(stereoConfig, "R"))
-		return stereo_config_type::R;
-	if (cif::iequals(stereoConfig, "S"))
-		return stereo_config_type::S;
+	using enum stereo_config_type;
+	if (cif::iequals(stereoConfig, "N")) return N;
+	if (cif::iequals(stereoConfig, "R")) return R;
+	if (cif::iequals(stereoConfig, "S")) return S;
 	throw std::invalid_argument("Invalid stereoConfig: " + stereoConfig);
 }
 

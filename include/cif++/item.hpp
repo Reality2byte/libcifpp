@@ -129,14 +129,16 @@ class item_value
 		m_data.m_type = rhs.m_data.m_type;
 		switch (m_data.m_type)
 		{
-			case item_value_type::INT:
+			using enum item_value_type;
+
+			case INT:
 				m_data.m_value = rhs.m_data.m_value.m_integer;
 				break;
-			case item_value_type::FLOAT:
+			case FLOAT:
 				m_data.m_len = rhs.m_data.m_len;
 				m_data.m_value = rhs.m_data.m_value.m_float;
 				break;
-			case item_value_type::TEXT:
+			case TEXT:
 				m_data.m_len = rhs.m_data.m_len;
 				m_data.m_value = rhs.m_data.sv();
 				break;
@@ -258,11 +260,13 @@ class item_value
 		bool result = false;
 		switch (m_data.m_type)
 		{
-			case item_value_type::INT: result = m_data.m_value.m_integer != 0; break;
-			case item_value_type::FLOAT: result = m_data.m_value.m_float != 0; break;
-			case item_value_type::TEXT: result = m_data.m_len != 0; break;
-			case item_value_type::INAPPLICABLE:
-			case item_value_type::MISSING: result = false; break;
+			using enum item_value_type;
+
+			case INT: result = m_data.m_value.m_integer != 0; break;
+			case FLOAT: result = m_data.m_value.m_float != 0; break;
+			case TEXT: result = m_data.m_len != 0; break;
+			case INAPPLICABLE:
+			case MISSING: result = false; break;
 		}
 		return result;
 	}
@@ -272,11 +276,13 @@ class item_value
 	{
 		switch (m_data.m_type)
 		{
-			case item_value_type::INAPPLICABLE:
-			case item_value_type::MISSING:
+			using enum item_value_type;
+
+			case INAPPLICABLE:
+			case MISSING:
 				return true;
 
-			case item_value_type::TEXT:
+			case TEXT:
 				return m_data.sv().empty();
 
 			default:
@@ -302,11 +308,13 @@ class item_value
 
 		switch (m_data.m_type)
 		{
-			case item_value_type::INT:
+			using enum item_value_type;
+
+			case INT:
 				return m_data.m_value.m_integer;
-			case item_value_type::FLOAT:
+			case FLOAT:
 				return m_data.m_value.m_float;
-			case item_value_type::TEXT:
+			case TEXT:
 			{
 				auto sv = m_data.sv();
 				int64_t v;
@@ -330,11 +338,13 @@ class item_value
 	{
 		switch (m_data.m_type)
 		{
-			case item_value_type::INT:
+			using enum item_value_type;
+
+			case INT:
 				return m_data.m_value.m_integer;
-			case item_value_type::FLOAT:
+			case FLOAT:
 				return m_data.m_value.m_float;
-			case item_value_type::TEXT:
+			case TEXT:
 			{
 				auto sv = m_data.sv();
 				double v;
@@ -360,8 +370,10 @@ class item_value
 	{
 		switch (m_data.m_type)
 		{
-			case item_value_type::INAPPLICABLE:
-			case item_value_type::MISSING:
+			using enum item_value_type;
+
+			case INAPPLICABLE:
+			case MISSING:
 				return T{};
 
 			default:
@@ -399,11 +411,13 @@ class item_value
 	// 	{
 	// 		switch (m_data.m_type)
 	// 		{
-	// 			case item_value_type::INT: return m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
-	// 			case item_value_type::FLOAT: return m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
-	// 			case item_value_type::TEXT: return m_data.sv() <=> rhs.m_data.sv();
-	// 			case item_value_type::MISSING:
-	// 			case item_value_type::EMPTY: return std::strong_ordering::equivalent;
+	//			using enum item_value_type;
+	//
+	// 			case INT: return m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
+	// 			case FLOAT: return m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
+	// 			case TEXT: return m_data.sv() <=> rhs.m_data.sv();
+	// 			case MISSING:
+	// 			case EMPTY: return std::strong_ordering::equivalent;
 	// 		}
 	// 	}
 	// 	else
@@ -416,11 +430,13 @@ class item_value
 		{
 			switch (m_data.m_type)
 			{
-				case item_value_type::INT: return m_data.m_value.m_integer == rhs.m_data.m_value.m_integer;
-				case item_value_type::FLOAT: return m_data.m_value.m_float == rhs.m_data.m_value.m_float;
-				case item_value_type::TEXT: return m_data.sv() == rhs.m_data.sv();
-				case item_value_type::INAPPLICABLE:
-				case item_value_type::MISSING: return true;
+				using enum item_value_type;
+
+				case INT: return m_data.m_value.m_integer == rhs.m_data.m_value.m_integer;
+				case FLOAT: return m_data.m_value.m_float == rhs.m_data.m_value.m_float;
+				case TEXT: return m_data.sv() == rhs.m_data.sv();
+				case INAPPLICABLE:
+				case MISSING: return true;
 			}
 		}
 

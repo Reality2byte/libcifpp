@@ -24,6 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/validate.hpp"
 #include "cif++/cif++.hpp"
 
 #include <cassert>
@@ -171,7 +172,9 @@ int type_validator::compare(const item_value &a, const item_value &b) const
 {
 	switch (m_primitive_type)
 	{
-		case DDL_PrimitiveType::Numb:
+		using enum DDL_PrimitiveType;
+
+		case Numb:
 		{
 			if (a.is_number() and b.is_number())
 				return a.compare(b);
@@ -186,13 +189,13 @@ int type_validator::compare(const item_value &a, const item_value &b) const
 			           : 0;
 		}
 
-		case DDL_PrimitiveType::UChar:
+		case UChar:
 			if (a.is_string() and b.is_string())
 				return a.compare(b, true);
 
 			return icompare(a.str(), b.str());
 
-		case DDL_PrimitiveType::Char:
+		case Char:
 			if (a.is_string() and b.is_string())
 				return a.compare(b, false);
 

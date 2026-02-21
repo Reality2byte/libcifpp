@@ -282,24 +282,26 @@ class sac_parser
 	{
 		switch (token)
 		{
-			case CIFToken::UNKNOWN: return "Unknown";
-			case CIFToken::END_OF_FILE: return "Eof";
-			case CIFToken::DATA: return "DATA";
-			case CIFToken::LOOP: return "LOOP";
-			case CIFToken::GLOBAL: return "GLOBAL";
-			case CIFToken::SAVE_: return "SAVE";
-			case CIFToken::SAVE_NAME: return "SAVE+name";
-			case CIFToken::STOP: return "STOP";
-			case CIFToken::ITEM_NAME:
-				return "Tag";
-				// case CIFToken::VALUE: return "Value";
+			using enum CIFToken;
 
-			case CIFToken::VALUE_INAPPLICABLE: return "Inapplicable value";
-			case CIFToken::VALUE_UNKNOWN: return "'Unknown' value (=null)";
-			case CIFToken::VALUE_NUMERIC_INTEGER: return "Integer value";
-			case CIFToken::VALUE_NUMERIC_FLOAT: return "Float value";
-			case CIFToken::VALUE_CHARSTRING: return "Charstring value";
-			case CIFToken::VALUE_TEXTFIELD: return "Textfield value";
+			case UNKNOWN: return "Unknown";
+			case END_OF_FILE: return "Eof";
+			case DATA: return "DATA";
+			case LOOP: return "LOOP";
+			case GLOBAL: return "GLOBAL";
+			case SAVE_: return "SAVE";
+			case SAVE_NAME: return "SAVE+name";
+			case STOP: return "STOP";
+			case ITEM_NAME:
+				return "Tag";
+				// case VALUE: return "Value";
+
+			case VALUE_INAPPLICABLE: return "Inapplicable value";
+			case VALUE_UNKNOWN: return "'Unknown' value (=null)";
+			case VALUE_NUMERIC_INTEGER: return "Integer value";
+			case VALUE_NUMERIC_FLOAT: return "Float value";
+			case VALUE_CHARSTRING: return "Charstring value";
+			case VALUE_TEXTFIELD: return "Textfield value";
 
 			default: return "Invalid token parameter";
 		}

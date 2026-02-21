@@ -292,57 +292,59 @@ sac_parser::CIFToken sac_parser::get_next_token()
 
 		switch (state)
 		{
-			case State::Start:
+			using enum State;
+
+			case Start:
 				if (ch == kEOF)
 					result = CIFToken::END_OF_FILE;
 				else if (ch == '\n')
 				{
 					m_bol = true;
-					state = State::White;
+					state = White;
 				}
 				else if (ch == ' ' or ch == '\t')
-					state = State::White;
+					state = White;
 				else if (ch == '#')
-					state = State::Comment;
+					state = Comment;
 				else if (ch == '_')
-					state = State::ItemName;
+					state = ItemName;
 				else if (ch == ';' and m_bol)
 				{
 					if (m_backslash_strings)
-						state = State::TextItemBS;
+						state = TextItemBS;
 					else
-						state = State::TextItem;
+						state = TextItem;
 				}
 				else if (ch == '?')
-					state = State::QuestionMark;
+					state = QuestionMark;
 				else if (ch == '\'' or ch == '"')
 				{
 					quoteChar = ch;
-					state = State::QuotedString;
+					state = QuotedString;
 				}
 				else if (dag.move(ch) == reserved_words_automaton::undefined)
-					state = State::Reserved;
+					state = Reserved;
 				else if (ch == '+' or ch == '-')
 				{
 					negative = true;
-					state = State::Numeric_Integer;
+					state = Numeric_Integer;
 				}
 				else if (ch == '0')
-					state = State::Numeric_Zero;
+					state = Numeric_Zero;
 				else if (ch >= '1' and ch <= '9')
-					state = State::Numeric_Integer;
+					state = Numeric_Integer;
 				else if (ch == '.')
-					state = State::Numeric_Float;
+					state = Numeric_Float;
 				else
-					state = State::Value;
+					state = Value;
 				break;
 
-			case State::White:
+			case White:
 				if (ch == kEOF)
 					result = CIFToken::END_OF_FILE;
 				else if (not is_space(ch))
 				{
-					state = State::Start;
+					state = Start;
 					retract();
 					m_token_buffer.clear();
 				}
@@ -350,10 +352,10 @@ sac_parser::CIFToken sac_parser::get_next_token()
 					m_bol = (ch == '\n');
 				break;
 
-			case State::Comment:
+			case Comment:
 				if (ch == '\n')
 				{
-					state = State::Start;
+					state = Start;
 					m_bol = true;
 					if (m_token_buffer.size() == 3 and m_token_buffer == std::vector{ '#', '\\', '\n' })
 						m_backslash_strings = true;
@@ -365,34 +367,34 @@ sac_parser::CIFToken sac_parser::get_next_token()
 					error("invalid character in comment");
 				break;
 
-			case State::QuestionMark:
+			case QuestionMark:
 				if (not is_non_blank(ch))
 				{
 					retract();
 					result = CIFToken::VALUE_UNKNOWN;
 				}
 				else
-					state = State::Value;
+					state = Value;
 				break;
 
-			case State::TextItemBS:
+			case TextItemBS:
 				if (ch == '\\')
 				{
-					state = State::TextItemBS2;
+					state = TextItemBS2;
 					break;
 				}
 				[[fallthrough]];
 
-			case State::TextItem:
+			case TextItem:
 				if (ch == '\n')
-					state = State::TextItemNL;
+					state = TextItemNL;
 				else if (ch == kEOF)
 					error("unterminated textfield");
 				else if (not is_any_print(ch) and VERBOSE > 2)
 					warning("invalid character in text field '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string(ch) + ")");
 				break;
 
-			case State::TextItemBS2:
+			case TextItemBS2:
 				if (ch == '\n')
 				{
 					if (m_token_buffer[m_token_buffer.size() - 2] == '\\')
@@ -400,7 +402,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 						m_token_buffer.pop_back();
 						m_token_buffer.pop_back();
 					}
-					state = State::TextItemBSNL;
+					state = TextItemBSNL;
 				}
 				else if (ch == kEOF)
 					error("unterminated textfield");
@@ -408,9 +410,9 @@ sac_parser::CIFToken sac_parser::get_next_token()
 					warning("invalid character in text field '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string(ch) + ")");
 				break;
 
-			case State::TextItemBSNL:
+			case TextItemBSNL:
 				if (is_text_lead(ch) or ch == ' ' or ch == '\t')
-					state = State::TextItemBS;
+					state = TextItemBS;
 				else if (ch == ';')
 				{
 					assert(m_token_buffer.size() >= 2);
@@ -423,9 +425,9 @@ sac_parser::CIFToken sac_parser::get_next_token()
 					error("invalid character in text field");
 				break;
 
-			case State::TextItemNL:
+			case TextItemNL:
 				if (is_text_lead(ch) or ch == ' ' or ch == '\t')
-					state = State::TextItem;
+					state = TextItem;
 				else if (ch == ';')
 				{
 					assert(m_token_buffer.size() >= 2);
@@ -438,16 +440,16 @@ sac_parser::CIFToken sac_parser::get_next_token()
 					error("invalid character in text field");
 				break;
 
-			case State::QuotedString:
+			case QuotedString:
 				if (ch == kEOF)
 					error("unterminated quoted string");
 				else if (ch == quoteChar)
-					state = State::QuotedStringQuote;
+					state = QuotedStringQuote;
 				else if (not is_any_print(ch) and VERBOSE > 2)
 					warning("invalid character in quoted string: '" + std::string({ static_cast<char>(ch) }) + "' (" + std::to_string(ch) + ")");
 				break;
 
-			case State::QuotedStringQuote:
+			case QuotedStringQuote:
 				if (is_white(ch))
 				{
 					retract();
@@ -460,14 +462,14 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				else if (ch == quoteChar)
 					;
 				else if (is_any_print(ch))
-					state = State::QuotedString;
+					state = QuotedString;
 				else if (ch == kEOF)
 					error("unterminated quoted string");
 				else
 					error("invalid character in quoted string");
 				break;
 
-			case State::ItemName:
+			case ItemName:
 				if (not is_non_blank(ch))
 				{
 					retract();
@@ -476,7 +478,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				}
 				break;
 
-			case State::Reserved:
+			case Reserved:
 				switch (dag.move(ch))
 				{
 					case reserved_words_automaton::undefined:
@@ -490,7 +492,7 @@ sac_parser::CIFToken sac_parser::get_next_token()
 							m_token_value = std::string_view(m_token_buffer.data(), m_token_buffer.size());
 						}
 						else
-							state = State::Value;
+							state = Value;
 						break;
 
 					case reserved_words_automaton::data:
@@ -527,23 +529,23 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				}
 				break;
 
-			case State::Numeric_Zero:
+			case Numeric_Zero:
 				if (not is_non_blank(ch))
 				{
 					retract();
 					result = CIFToken::VALUE_NUMERIC_INTEGER;
 				}
 				else if (ch == '.')
-					state = State::Numeric_Float;
+					state = Numeric_Float;
 				else
-					state = State::Value;
+					state = Value;
 				break;
 
-			case State::Numeric_Integer:
+			case Numeric_Integer:
 				if (ch == '.')
-					state = State::Numeric_Float;
+					state = Numeric_Float;
 				else if (ch == 'e' or ch == 'E')
-					state = State::Numeric_Exponent1;
+					state = Numeric_Exponent1;
 				else if (not is_non_blank(ch))
 				{
 					retract();
@@ -556,10 +558,10 @@ sac_parser::CIFToken sac_parser::get_next_token()
 						result = CIFToken::VALUE_NUMERIC_INTEGER;
 				}
 				else if (ch < '0' or ch > '9')
-					state = State::Value;
+					state = Value;
 				break;
 
-			case State::Numeric_Float:
+			case Numeric_Float:
 				if (not is_non_blank(ch))
 				{
 					retract();
@@ -569,14 +571,14 @@ sac_parser::CIFToken sac_parser::get_next_token()
 						result = CIFToken::VALUE_NUMERIC_FLOAT;
 				}
 				else if (ch == 'e' or ch == 'E')
-					state = State::Numeric_Exponent1;
+					state = Numeric_Exponent1;
 				else if (ch < '0' or ch > '9')
-					state = State::Value;
+					state = Value;
 				else
 					++m_float_precision;
 				break;
 
-			case State::Numeric_Exponent1:
+			case Numeric_Exponent1:
 				if (not is_non_blank(ch))
 				{
 					retract();
@@ -584,15 +586,15 @@ sac_parser::CIFToken sac_parser::get_next_token()
 					m_token_value = std::string_view(m_token_buffer.data(), m_token_buffer.size());
 				}
 				else if (ch == '+' or ch == '-' or (ch >= '0' and ch <= '9'))
-					state = State::Numeric_Exponent2;
+					state = Numeric_Exponent2;
 				else
 				{
 					// warning(std::format("parsing {}:  Invalid floating point value, expected digit or sign character", std::string_view{ m_token_buffer.data(), m_token_buffer.size() }));
-					state = State::Value;
+					state = Value;
 				}
 				break;
 
-			case State::Numeric_Exponent2:
+			case Numeric_Exponent2:
 				if (not is_non_blank(ch))
 				{
 					retract();
@@ -602,11 +604,11 @@ sac_parser::CIFToken sac_parser::get_next_token()
 				{
 					if (VERBOSE > 0)
 						// warning(std::format("parsing {}:  Invalid floating point value, expected digit or sign character", std::string_view{ m_token_buffer.data(), m_token_buffer.size() }));
-						state = State::Value;
+						state = Value;
 				}
 				break;
 
-			case State::Value:
+			case Value:
 				if (not is_non_blank(ch))
 				{
 					retract();

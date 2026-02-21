@@ -2005,35 +2005,37 @@ void category::write(std::ostream &os, output_format fmt, const std::vector<std:
 
 	switch (fmt)
 	{
-		case output_format::cif:
+		using enum output_format;
+
+		case cif:
 			write_cif(os, order, addMissingItems);
 			break;
 
-		case output_format::csv:
+		case csv:
 			write_delimited(os, order, addMissingItems, ",", false, true);
 			break;
 
-		case output_format::tsv:
+		case tsv:
 			write_delimited(os, order, addMissingItems, "\t", false, true);
 			break;
 
-		case output_format::list:
+		case list:
 			write_delimited(os, order, addMissingItems, "|", false, false);
 			break;
 
-		case output_format::column:
+		case column:
 			write_delimited(os, order, addMissingItems, "  ", true, true);
 			break;
 
-		case output_format::markdown:
+		case markdown:
 			write_markdown(os, order, addMissingItems);
 			break;
 
-		case output_format::table:
+		case table:
 			write_table(os, order, addMissingItems, true);
 			break;
 
-		case output_format::box:
+		case box:
 			write_table(os, order, addMissingItems, false);
 			break;
 	}

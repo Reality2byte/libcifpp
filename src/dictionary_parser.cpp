@@ -172,29 +172,31 @@ class dictionary_parser : public parser
 					{
 						switch (m_lookahead)
 						{
-							case CIFToken::VALUE_INAPPLICABLE:
+							using enum CIFToken;
+
+							case VALUE_INAPPLICABLE:
 								row[item_name] = nullptr;
-								match(CIFToken::VALUE_INAPPLICABLE);
+								match(VALUE_INAPPLICABLE);
 								break;
-							case CIFToken::VALUE_UNKNOWN:
+							case VALUE_UNKNOWN:
 								row[item_name] = item_value{ std::optional<std::string>{} };
-								match(CIFToken::VALUE_UNKNOWN);
+								match(VALUE_UNKNOWN);
 								break;
-							case CIFToken::VALUE_NUMERIC_INTEGER:
+							case VALUE_NUMERIC_INTEGER:
 								row[item_name] = m_token_value_int;
-								match(CIFToken::VALUE_NUMERIC_INTEGER);
+								match(VALUE_NUMERIC_INTEGER);
 								break;
-							case CIFToken::VALUE_NUMERIC_FLOAT:
+							case VALUE_NUMERIC_FLOAT:
 								row[item_name] = m_token_value_float;
-								match(CIFToken::VALUE_NUMERIC_FLOAT);
+								match(VALUE_NUMERIC_FLOAT);
 								break;
-							case CIFToken::VALUE_CHARSTRING:
-							case CIFToken::VALUE_TEXTFIELD:
+							case VALUE_CHARSTRING:
+							case VALUE_TEXTFIELD:
 								row[item_name] = m_token_value;
 								match(m_lookahead);
 								break;
 							default:
-								match(CIFToken::VALUE_CHARSTRING);
+								match(VALUE_CHARSTRING);
 						}
 					}
 				}
@@ -216,29 +218,31 @@ class dictionary_parser : public parser
 
 				switch (m_lookahead)
 				{
-					case CIFToken::VALUE_INAPPLICABLE:
+					using enum CIFToken;
+
+					case VALUE_INAPPLICABLE:
 						cat->back()[item_name] = nullptr;
-						match(CIFToken::VALUE_INAPPLICABLE);
+						match(VALUE_INAPPLICABLE);
 						break;
-					case CIFToken::VALUE_UNKNOWN:
+					case VALUE_UNKNOWN:
 						cat->back()[item_name] = item_value{ std::optional<std::string>{} };
-						match(CIFToken::VALUE_UNKNOWN);
+						match(VALUE_UNKNOWN);
 						break;
-					case CIFToken::VALUE_NUMERIC_INTEGER:
+					case VALUE_NUMERIC_INTEGER:
 						cat->back()[item_name] = m_token_value_int;
-						match(CIFToken::VALUE_NUMERIC_INTEGER);
+						match(VALUE_NUMERIC_INTEGER);
 						break;
-					case CIFToken::VALUE_NUMERIC_FLOAT:
+					case VALUE_NUMERIC_FLOAT:
 						cat->back()[item_name] = m_token_value_float;
-						match(CIFToken::VALUE_NUMERIC_FLOAT);
+						match(VALUE_NUMERIC_FLOAT);
 						break;
-					case CIFToken::VALUE_CHARSTRING:
-					case CIFToken::VALUE_TEXTFIELD:
+					case VALUE_CHARSTRING:
+					case VALUE_TEXTFIELD:
 						cat->back()[item_name] = m_token_value;
 						match(m_lookahead);
 						break;
 					default:
-						match(CIFToken::VALUE_CHARSTRING);
+						match(VALUE_CHARSTRING);
 				}
 			}
 		}

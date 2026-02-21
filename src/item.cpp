@@ -24,6 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/item.hpp"
 #include "cif++/cif++.hpp"
 
 #include <algorithm>
@@ -73,10 +74,12 @@ int item_value::compare(const item_value &b, bool ignore_case) const noexcept
 	{
 		switch (m_data.m_type)
 		{
-			case cif::item_value_type::INT:
+			using enum item_value_type;
+
+			case INT:
 				d = m_data.m_value.m_integer - b.m_data.m_value.m_integer;
 				break;
-			case cif::item_value_type::FLOAT:
+			case FLOAT:
 				// stupid comparison based on chopped textual representation
 				if (m_data.m_len > 0 or b.m_data.m_len > 0)
 				{
@@ -112,7 +115,7 @@ int item_value::compare(const item_value &b, bool ignore_case) const noexcept
 						d = 1;
 				}
 				break;
-			case cif::item_value_type::TEXT:
+			case TEXT:
 				d = m_data.sv().compare(b.m_data.sv());
 				break;
 			default:;
@@ -146,23 +149,25 @@ std::string item_value::str() const
 {
 	switch (m_data.m_type)
 	{
-		case item_value_type::MISSING:
+		using enum item_value_type;
+
+		case MISSING:
 			return "?";
 
-		case item_value_type::INAPPLICABLE:
+		case INAPPLICABLE:
 			return ".";
 
-		case item_value_type::TEXT:
+		case TEXT:
 			return std::string{ m_data.sv() };
 
-		case cif::item_value_type::INT:
+		case INT:
 		{
 			char s[32];
 			std::to_chars_result r = std::to_chars(s, s + sizeof(s), m_data.m_value.m_integer);
 			return r.ec == std::errc{} ? std::string{ s, r.ptr } : "*****";
 		}
 
-		case cif::item_value_type::FLOAT:
+		case FLOAT:
 		{
 			char s[32];
 
@@ -195,21 +200,14 @@ std::ostream &operator<<(std::ostream &os, const item_value &v)
 {
 	switch (v.type())
 	{
-		case cif::item_value_type::INT:
-			os << v.m_data.m_value.m_integer;
-			break;
-		case cif::item_value_type::FLOAT:
-			os << v.m_data.m_value.m_float;
-			break;
-		case cif::item_value_type::TEXT:
-			os << v.m_data.sv();
-			break;
-		case cif::item_value_type::MISSING:
-			os << '?';
-			break;
-		case cif::item_value_type::INAPPLICABLE:
-			os << '.';
-			break;
+		using enum item_value_type;
+
+		case INT: os << v.m_data.m_value.m_integer; break;
+		case FLOAT: os << v.m_data.m_value.m_float; break;
+		case TEXT: os << v.m_data.sv(); break;
+		case MISSING: os << '?'; break;
+		case INAPPLICABLE: os << '.'; break;
+		default: os.setstate(std::ios::failbit);
 	}
 
 	return os;

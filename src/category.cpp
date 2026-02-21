@@ -2091,11 +2091,11 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 				if (v == nullptr)
 					continue;
 
-				if (v->str().find('\n') == std::string_view::npos)
+				if (v->is_string() and v->sv().find('\n') == std::string_view::npos)
 				{
-					std::size_t l = v->str().length();
+					std::size_t l = v->sv().length();
 
-					if (not sac_parser::is_unquoted_string(v->str()))
+					if (not sac_parser::is_unquoted_string(v->sv()))
 						l += 2;
 
 					if (l > 132)
@@ -2617,13 +2617,8 @@ void category::write_table(std::ostream &os, const std::vector<uint16_t> &order,
 			std::size_t w = itemWidths[cix];
 
 			std::string s;
-			auto iv = r->get(cix);
-
-			if (iv != nullptr)
+			if (auto iv = r->get(cix); iv != nullptr and not iv->empty())
 				s = iv->str();
-
-			if (s == "?" or s == ".")
-				s = "";
 
 			if (s.length() < w)
 			{

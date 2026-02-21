@@ -25,6 +25,7 @@
  */
 
 #include "cif++/validate.hpp"
+
 #include "cif++/cif++.hpp"
 
 #include <cassert>
@@ -200,7 +201,7 @@ int type_validator::compare(const item_value &a, const item_value &b) const
 				return a.compare(b, false);
 
 			return a.str().compare(b.str());
-		
+
 		default:
 			throw std::runtime_error("invalid primitive type");
 	}
@@ -236,20 +237,19 @@ bool item_validator::validate_value(const item_value &value, std::error_code &ec
 				{
 					try
 					{
-						auto s = value.str();
-						if (not m_type->m_rx->match(s))
+						if (not m_type->m_rx->match(value.sv()))
 							ec = make_error_code(validation_error::value_does_not_match_rx);
 					}
 					catch (...)
 					{
 						ec = make_error_code(validation_error::value_does_not_match_rx);
 					}
+
+					if (ec == std::errc{} and not m_enums.empty() and m_enums.count(value.str()) == 0)
+						ec = make_error_code(validation_error::value_is_not_in_enumeration_list);
 				}
 			}
 		}
-
-		if (ec == std::errc{} and not m_enums.empty() and m_enums.count(value.str()) == 0)
-			ec = make_error_code(validation_error::value_is_not_in_enumeration_list);
 	}
 
 	return ec == std::errc{};

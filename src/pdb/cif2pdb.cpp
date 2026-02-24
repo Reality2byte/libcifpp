@@ -3338,11 +3338,14 @@ int WriteMiscellaneousFeatures(std::ostream &pdbFile, const datablock &db)
 void WriteCrystallographic(std::ostream &pdbFile, const datablock &db)
 {
 	auto r = db["symmetry"].find_first(key("entry_id") == db.name());
-	auto symmetry = r["space_group_name_H-M"].as<std::string>();
-
-	r = db["cell"].find_first(key("entry_id") == db.name());
-
-	pdbFile << std::format("CRYST1{:9.3f}{:9.3f}{:9.3f}{:7.2f}{:7.2f}{:7.2f} {:<11.11s}{:4}", r["length_a"].as<double>(), r["length_b"].as<double>(), r["length_c"].as<double>(), r["angle_alpha"].as<double>(), r["angle_beta"].as<double>(), r["angle_gamma"].as<double>(), symmetry, r["Z_PDB"].as<int>()) << '\n';
+	if (r)
+	{
+		auto symmetry = r["space_group_name_H-M"].as<std::string>();
+	
+		r = db["cell"].find_first(key("entry_id") == db.name());
+	
+		pdbFile << std::format("CRYST1{:9.3f}{:9.3f}{:9.3f}{:7.2f}{:7.2f}{:7.2f} {:<11.11s}{:4}", r["length_a"].as<double>(), r["length_b"].as<double>(), r["length_c"].as<double>(), r["angle_alpha"].as<double>(), r["angle_beta"].as<double>(), r["angle_gamma"].as<double>(), symmetry, r["Z_PDB"].as<int>()) << '\n';
+	}
 }
 
 int WriteCoordinateTransformation(std::ostream &pdbFile, const datablock &db)

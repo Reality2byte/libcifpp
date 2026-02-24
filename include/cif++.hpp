@@ -26,28 +26,8 @@
 
 #pragma once
 
+#warning "Using this file is deprecated, use #include <cif++/cif++.hpp> instead"
+
 // IWYU pragma: begin_exports
-#include "cif++/atom_type.hpp"
-#include "cif++/category.hpp"
-#include "cif++/compound.hpp"
-#include "cif++/condition.hpp"
-#include "cif++/cql.hpp"
-#include "cif++/datablock.hpp"
-#include "cif++/dictionary_parser.hpp"
-#include "cif++/exports.hpp"
-#include "cif++/file.hpp"
-#include "cif++/format.hpp"
-#include "cif++/gzio.hpp"
-#include "cif++/item.hpp"
-#include "cif++/iterator.hpp"
-#include "cif++/matrix.hpp"
-#include "cif++/model.hpp"
-#include "cif++/parser.hpp"
-#include "cif++/pdb.hpp"
-#include "cif++/point.hpp"
-#include "cif++/row.hpp"
-#include "cif++/symmetry.hpp"
-#include "cif++/text.hpp"
-#include "cif++/utilities.hpp"
-#include "cif++/validate.hpp"
+#include "cif++/cif++.hpp"
 // IWYU pragma: end_exports

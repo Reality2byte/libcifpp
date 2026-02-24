@@ -24,7 +24,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++.hpp"
+#include "cif++/cif++.hpp"
+#include "cif++/item.hpp"
 
 #include <algorithm>
 #include <charconv>
@@ -419,15 +420,17 @@ int connection_impl::Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int 
 
 		switch (item.type())
 		{
-			case item_value_type::FLOAT:
+			using enum item_value_type;
+
+			case FLOAT:
 				sqlite3_result_double(ctx, item.as<double>());
 				break;
 
-			case item_value_type::INT:
+			case INT:
 				sqlite3_result_int64(ctx, item.as<int64_t>());
 				break;
 
-			case item_value_type::TEXT:
+			case TEXT:
 				sqlite3_result_text(ctx, item.sv().data(), static_cast<int>(item.sv().size()), SQLITE_STATIC);
 				break;
 
@@ -716,14 +719,12 @@ int bind_item_value(sqlite3_stmt *stmt, int ix, const item_value &value)
 {
 	switch (value.type())
 	{
-		case item_value_type::FLOAT:
-			return sqlite3_bind_double(stmt, ix, value.get<double>());
-		case item_value_type::INT:
-			return sqlite3_bind_int64(stmt, ix, value.get<int64_t>());
-		case item_value_type::TEXT:
-			return sqlite3_bind_text(stmt, ix, value.sv().data(), static_cast<int>(value.sv().size()), SQLITE_STATIC);
-		default:
-			return sqlite3_bind_null(stmt, ix);
+		using enum item_value_type;
+
+		case FLOAT: return sqlite3_bind_double(stmt, ix, value.get<double>());
+		case INT: return sqlite3_bind_int64(stmt, ix, value.get<int64_t>());
+		case TEXT: return sqlite3_bind_text(stmt, ix, value.sv().data(), static_cast<int>(value.sv().size()), SQLITE_STATIC);
+		default: return sqlite3_bind_null(stmt, ix);
 	}
 }
 

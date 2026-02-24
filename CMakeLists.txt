@@ -289,6 +289,7 @@ list(APPEND project_sources
 
 list(APPEND project_headers
     include/cif++.hpp
+    include/cif++/cif++.hpp
     include/cif++/atom_type.hpp
     include/cif++/category.hpp
     include/cif++/compound.hpp
@@ -345,7 +346,7 @@ target_sources(cifpp
 )
 
 # The code now really requires C++20
-target_compile_features(cifpp PUBLIC cxx_std_20)
+target_compile_features(cifpp PUBLIC cxx_std_23)
 
 generate_export_header(cifpp EXPORT_FILE_NAME
     ${CMAKE_CURRENT_SOURCE_DIR}/include/cif++/exports.hpp)

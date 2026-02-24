@@ -115,35 +115,37 @@ class validation_category_impl : public std::error_category
 	{
 		switch (static_cast<validation_error>(ev))
 		{
-			case validation_error::value_does_not_match_rx:
+			using enum validation_error;
+
+			case value_does_not_match_rx:
 				return "Value in item does not match regular expression";
-			case validation_error::value_is_not_in_enumeration_list:
+			case value_is_not_in_enumeration_list:
 				return "Value is not in the enumerated list of valid values";
-			case validation_error::value_is_not_a_number:
+			case value_is_not_a_number:
 				return "Value is not a number";
-			case validation_error::value_is_not_a_char_string:
+			case value_is_not_a_char_string:
 				return "Value is not a character string";
-			case validation_error::not_a_known_primitive_type:
+			case not_a_known_primitive_type:
 				return "The type is not a known primitive type";
-			case validation_error::undefined_category:
+			case undefined_category:
 				return "Category has no definition in the dictionary";
-			case validation_error::unknown_item:
+			case unknown_item:
 				return "Item is not defined to be part of the category";
-			case validation_error::incorrect_item_validator:
+			case incorrect_item_validator:
 				return "Incorrectly specified validator for item";
-			case validation_error::missing_mandatory_items:
+			case missing_mandatory_items:
 				return "Missing mandatory items";
-			case validation_error::missing_key_items:
+			case missing_key_items:
 				return "An index could not be constructed due to missing key items";
-			case validation_error::item_not_allowed_in_category:
+			case item_not_allowed_in_category:
 				return "Requested item not allowed in category according to dictionary";
-			case validation_error::empty_file:
+			case empty_file:
 				return "The file contains no datablocks";
-			case validation_error::empty_datablock:
+			case empty_datablock:
 				return "The datablock contains no categories";
-			case validation_error::empty_category:
+			case empty_category:
 				return "The category is empty";
-			case validation_error::not_valid_pdbx:
+			case not_valid_pdbx:
 				return "The file is not a valid PDBx file";
 
 			default:
@@ -412,8 +414,6 @@ class validator
   public:
 	/**
 	 * @brief Construct a new validator object
-	 *
-	 * @param name The name of the underlying dictionary
 	 */
 	validator()
 		: m_audit_conform("audit_conform")
@@ -423,7 +423,6 @@ class validator
 	/**
 	 * @brief Construct a new validator object
 	 *
-	 * @param name The name of the underlying dictionary
 	 * @param is The data to parse
 	 */
 	validator(std::istream &is)

@@ -24,7 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>

@@ -28,7 +28,7 @@
 #include "test-main.hpp"
 
 #include <catch2/catch_test_macros.hpp>
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 TEST_CASE("m1")
 {

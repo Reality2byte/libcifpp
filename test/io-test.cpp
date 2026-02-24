@@ -1,4 +1,4 @@
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 class dummy_parser : public cif::sac_parser
 {

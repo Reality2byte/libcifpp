@@ -196,7 +196,7 @@ bool is_valid_pdbx_file(const file &pdbx_file, const validator &v);
  * The dictionary is assumed to be specified in the file or to be the
  * default mmcif_pdbx.dic dictionary.
  *
- * \param file The input file
+ * \param pdbx_file The input file
  * \result Returns true if the file was valid and consistent
  */
 
@@ -211,7 +211,7 @@ bool is_valid_pdbx_file(const file &pdbx_file, std::error_code &ec);
  *
  * Use the common \ref cif::VERBOSE flag to turn on diagnostic messages.
  * 
- * \param file The input file
+ * \param pdbx_file The input file
  * \param v The validator to use
  * \param ec The error_code in case something was wrong
  * \result Returns true if the file was valid and consistent

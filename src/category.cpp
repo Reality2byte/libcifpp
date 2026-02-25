@@ -1978,7 +1978,7 @@ std::vector<std::string> category::get_item_order() const
 void category::write(std::ostream &os) const
 {
 	std::vector<uint16_t> order(get_item_count());
-	iota(order.begin(), order.end(), static_cast<uint16_t>(0));
+	std::ranges::iota(order, static_cast<uint16_t>(0));
 	write_cif(os, order, false);
 }
 

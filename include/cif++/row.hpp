@@ -57,11 +57,11 @@
  * cif::row_handle rh = atom_site.front();
  *
  * // by name:
- * std::string name = rh["label_atom_id"].as<std::string>();
+ * std::string name = rh["label_atom_id"].get<std::string>();
  *
  * // by index:
  * uint16_t ix = atom_site.get_item_ix("label_atom_id");
- * assert(rh[ix].as<std::string() == name);
+ * assert(rh[ix].get<std::string() == name);
  * @endcode
  *
  * There some template magic here to allow easy extracting of data
@@ -109,7 +109,6 @@ class row : public std::vector<item_value>
 	row() = default;
 
   private:
-
 	/**
 	 * @brief Return the item_value pointer for item at index @a ix
 	 */
@@ -295,35 +294,36 @@ class row_handle
 	bool operator!=(const row_handle &rhs) const { return m_category != rhs.m_category or m_row != rhs.m_row; }
 
   protected:
+	/// Return the index number for the item named @a name
 	[[nodiscard]] uint16_t get_item_ix(std::string_view name) const;
+
+	/// Return the name for the item with index number @a ix
 	[[nodiscard]] std::string_view get_item_name(uint16_t ix) const;
 
 	friend cql::connection_impl;
 
+	/// Return the actual row
 	[[nodiscard]] auto get_row() const
 	{
 		return m_row;
 	}
 
-	// void swap(uint16_t item, row_handle &r) noexcept(false);
-	// {
-	// 	if (not m_category)
-	// 		throw std::runtime_error("uninitialized row");
-	//
-	// 	m_category->swap_item(item, *this, b);
-	// }
-
-	category *m_category = nullptr;
-	row *m_row = nullptr;
+	category *m_category = nullptr; ///< The category
+	row *m_row = nullptr;           ///< The row
 
   private:
+	/// @cond
 	uint16_t add_item(std::string_view name);
 
 	void assign(const item &i, bool updateLinked)
 	{
 		assign(i.name(), i.value(), updateLinked);
 	}
+
+	/// @endcond
 };
+
+/// A const version of row_handle.
 
 class const_row_handle
 {
@@ -434,32 +434,29 @@ class const_row_handle
 	bool operator!=(const const_row_handle &rhs) const { return m_category != rhs.m_category or m_row != rhs.m_row; }
 
   protected:
+	/// Return the index number for the item named @a name
 	[[nodiscard]] uint16_t get_item_ix(std::string_view name) const;
+
+	/// Return the name for the item with index number @a ix
 	[[nodiscard]] std::string_view get_item_name(uint16_t ix) const;
 
 	friend cql::connection_impl;
 
+	/// Return the actual row
 	[[nodiscard]] auto get_row() const
 	{
 		return m_row;
 	}
 
-	// void swap(uint16_t item, const_row_handle &r) noexcept(false);
-	// {
-	// 	if (not m_category)
-	// 		throw std::runtime_error("uninitialized row");
-	//
-	// 	m_category->swap_item(item, *this, b);
-	// }
-
-	const category *m_category = nullptr;
-	const row *m_row = nullptr;
+	const category *m_category = nullptr; ///< The category
+	const row *m_row = nullptr;           ///< The row
 };
 
 namespace detail
 {
+	/// @cond
 
-	// some helper classes to help create tuple result types
+	/// some helper classes to help create tuple result types
 	template <typename... C>
 	struct get_row_result
 	{
@@ -518,6 +515,8 @@ namespace detail
 		std::tuple<Ts...> m_value;
 	};
 
+	/// @endcond
+
 } // namespace detail
 
 /// \brief similar to std::tie, assign values to each element in @a v from the
@@ -571,6 +570,7 @@ class row_initializer : public std::vector<item>
 	{
 	}
 
+	/// Constructor
 	row_initializer(const_row_handle rh);
 
 	/// \brief set the value for item name @a name to @a value

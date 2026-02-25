@@ -423,11 +423,11 @@ int connection_impl::Column(sqlite3_vtab_cursor *cur, sqlite3_context *ctx, int 
 			using enum item_value_type;
 
 			case FLOAT:
-				sqlite3_result_double(ctx, item.as<double>());
+				sqlite3_result_double(ctx, item.get<double>());
 				break;
 
 			case INT:
-				sqlite3_result_int64(ctx, item.as<int64_t>());
+				sqlite3_result_int64(ctx, item.get<int64_t>());
 				break;
 
 			case TEXT:

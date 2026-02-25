@@ -107,7 +107,7 @@ int atom::atom_impl::compare(const atom_impl &b) const
 
 int atom::atom_impl::get_charge() const
 {
-	auto formalCharge = row()["pdbx_formal_charge"].as<std::optional<int>>();
+	auto formalCharge = row()["pdbx_formal_charge"].get<std::optional<int>>();
 
 	if (not formalCharge.has_value())
 	{
@@ -809,7 +809,7 @@ polymer::polymer(structure &s, std::string entityID, std::string asym_id, std::s
 
 // std::string polymer::chainID() const
 // {
-// 	return mPolySeq.front()["pdb_strand_id"].as<std::string>();
+// 	return mPolySeq.front()["pdb_strand_id"].get<std::string>();
 // }
 
 // monomer &polymer::getBySeqID(int seqID)
@@ -2694,7 +2694,7 @@ void structure::cleanup_empty_categories()
 
 	for (auto chemComp : chem_comp)
 	{
-		auto compID = chemComp["id"].as<std::string>();
+		auto compID = chemComp["id"].get<std::string>();
 		if (atomSite.contains("label_comp_id"_key == compID or "auth_comp_id"_key == compID) or
 			pdbxPolySeqScheme.contains("mon_id"_key == compID or "auth_mon_id"_key == compID or "pdb_mon_id"_key == compID) or
 			entityPolySeq.contains("mon_id"_key == compID))
@@ -2715,7 +2715,7 @@ void structure::cleanup_empty_categories()
 
 	for (auto entity : entities)
 	{
-		auto entityID = entity["id"].as<std::string>();
+		auto entityID = entity["id"].get<std::string>();
 		if (atomSite.contains("label_entity_id"_key == entityID))
 			continue;
 
@@ -2726,7 +2726,7 @@ void structure::cleanup_empty_categories()
 
 	for (auto entity : obsoleteEntities)
 	{
-		auto entityID = entity["id"].as<std::string>();
+		auto entityID = entity["id"].get<std::string>();
 		if (validator)
 		{
 			for (auto linked : validator->get_links_for_parent("entity"))

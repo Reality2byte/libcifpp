@@ -176,11 +176,13 @@ inline std::error_category &validation_category()
 	return instance;
 }
 
+/// Return a std::error_code for a validation error
 inline std::error_code make_error_code(validation_error e)
 {
 	return { static_cast<int>(e), validation_category() };
 }
 
+/// Return a std::error_condition for a validation error
 inline std::error_condition make_error_condition(validation_error e)
 {
 	return { static_cast<int>(e), validation_category() };
@@ -188,9 +190,13 @@ inline std::error_condition make_error_condition(validation_error e)
 
 // --------------------------------------------------------------------
 
+/// Exception class for validation errors
 class validation_exception : public std::runtime_error
 {
   public:
+	// Constructors
+	/// @cond
+	
 	validation_exception(validation_error err)
 		: validation_exception(make_error_code(err))
 	{
@@ -211,6 +217,7 @@ class validation_exception : public std::runtime_error
 	validation_exception(std::error_code ec, std::string_view category);
 
 	validation_exception(std::error_code ec, std::string_view category, std::string_view item);
+	/// @endcond
 };
 
 // --------------------------------------------------------------------
@@ -271,6 +278,7 @@ struct type_validator
 	/// @brief Destructor
 	~type_validator() = default;
 
+	/// Swap two type validators
 	friend void swap(type_validator &a, type_validator &b)
 	{
 		std::swap(a.m_name, b.m_name);
@@ -296,6 +304,7 @@ struct type_validator
 
 struct item_alias
 {
+	/// constructor
 	item_alias(std::string alias_name, std::string dictionary, std::string version)
 		: m_name(std::move(alias_name))
 		, m_dict(std::move(dictionary))
@@ -303,7 +312,10 @@ struct item_alias
 	{
 	}
 
+	/// default copy constructor
 	item_alias(const item_alias &) = default;
+
+	/// default copy assignment
 	item_alias &operator=(const item_alias &) = default;
 
 	std::string m_name; ///< The alias_name
@@ -434,6 +446,7 @@ class validator
 	/// @brief destructor
 	~validator() = default;
 
+	/// default copy constructor
 	validator(const validator &rhs) = default;
 
 	/// @brief move constructor
@@ -442,12 +455,14 @@ class validator
 		swap(*this, rhs);
 	}
 
+	/// default copy assignment
 	validator &operator=(validator rhs)
 	{
 		swap(*this, rhs);
 		return *this;
 	}
 
+	/// swap the two validators
 	friend void swap(validator &a, validator &b) noexcept;
 
 	friend class dictionary_parser;

@@ -255,11 +255,11 @@ class dictionary_parser : public parser
 
 			std::vector<std::string> keys;
 			for (auto k : dict["category_key"])
-				keys.push_back(std::get<1>(split_item_name(k["name"].as<std::string>())));
+				keys.push_back(std::get<1>(split_item_name(k["name"].get<std::string>())));
 
 			iset groups;
 			for (auto g : dict["category_group"])
-				groups.insert(g["id"].as<std::string>());
+				groups.insert(g["id"].get<std::string>());
 
 			mCategoryValidators.push_back(category_validator{ category, keys, groups });
 		}
@@ -277,7 +277,7 @@ class dictionary_parser : public parser
 
 			iset ess;
 			for (auto e : dict["item_enumeration"])
-				ess.insert(e["value"].as<std::string>());
+				ess.insert(e["value"].get<std::string>());
 
 			std::string defaultValue;
 			if (auto &cat = dict["item_default"]; not cat.empty())
@@ -467,7 +467,7 @@ class dictionary_parser : public parser
 			// look up the label
 			for (auto r : linkedGroup.find("category_id"_key == link.m_child_category and "link_group_id"_key == link.m_link_group_id))
 			{
-				link.m_link_group_label = r["label"].as<std::string>();
+				link.m_link_group_label = r["label"].get<std::string>();
 				break;
 			}
 

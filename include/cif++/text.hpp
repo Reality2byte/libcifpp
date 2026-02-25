@@ -49,6 +49,7 @@ namespace std_experimental = std::experimental;
 #else
 
 // A quick hack to work around the missing is_detected in MSVC
+/// @cond
 namespace std_experimental
 {
 
@@ -73,6 +74,7 @@ using is_detected = typename detail::detector<void, Op, Args...>::value_t;
 template <template <class...> class Op, class... Args>
 const auto is_detected_v = is_detected<Op, Args...>::value;
 
+/// @endcond
 } // namespace std_experimental
 
 #endif
@@ -359,6 +361,9 @@ std::vector<std::string> word_wrap(const std::string &text, std::size_t width);
 
 // --------------------------------------------------------------------
 
+/// @cond
+// Code to select a version of from_chars that is implemented...
+
 template <typename T>
 using from_chars_function = decltype(std::from_chars(std::declval<const char *>(), std::declval<const char *>(), std::declval<T &>()));
 
@@ -388,5 +393,7 @@ constexpr auto from_chars(const char *s, const char *e, T &v)
 {
 	return charconv<T>::from_chars(s, e, v);
 }
+
+/// @endcond
 
 } // namespace cif

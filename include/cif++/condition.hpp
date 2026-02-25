@@ -152,6 +152,7 @@ bool is_item_type_uchar(const category &cat, std::string_view col);
 
 // --------------------------------------------------------------------
 // some more templates to be able to do querying
+/// @cond
 
 namespace detail
 {
@@ -177,6 +178,8 @@ namespace detail
 	struct and_condition_impl;
 	struct not_condition_impl;
 } // namespace detail
+
+/// @endcond
 
 /**
  * @brief The interface class for conditions. This uses the bridge pattern,
@@ -320,6 +323,8 @@ class condition
 
 namespace detail
 {
+	/// @cond
+
 	struct key_is_empty_condition_impl : public condition_impl
 	{
 		key_is_empty_condition_impl(std::string item_name)
@@ -860,6 +865,8 @@ namespace detail
 		condition_impl *mA = nullptr;
 	};
 
+	/// @endcond
+
 } // namespace detail
 
 /**
@@ -974,13 +981,13 @@ struct key
 	std::string m_item_name; ///< The item name
 };
 
-/**
- * @brief Operator to create an equals condition based on a key @a key and a value @a value
- */
-
+/// concept to check for numeric data
 template <typename T>
 concept Numeric = ((std::is_floating_point_v<T> or std::is_integral_v<T>) and not std::is_same_v<T, bool>);
 
+/**
+ * @brief Operator to create an equals condition based on a key @a key and a value @a value
+ */
 inline condition operator==(const key &key, const item_value &value)
 {
 	if (not value.empty())

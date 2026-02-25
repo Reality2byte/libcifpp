@@ -207,7 +207,7 @@ class atom
 	 * @param row The row containing the data for this atom
 	 */
 	atom(datablock &db, const_row_handle row)
-		: atom(std::make_shared<atom_impl>(db, row["id"].as<std::string>()))
+		: atom(std::make_shared<atom_impl>(db, row["id"].get<std::string>()))
 	{
 	}
 
@@ -659,12 +659,15 @@ class monomer : public residue
 	{
 		swap(*this, rhs);
 	}
+
+	/// Assignment for both move and copy (modern move semantics)
 	monomer &operator=(monomer rhs)
 	{
 		swap(*this, rhs);
 		return *this;
 	}
 
+	/// swap two monomers
 	friend void swap(monomer &a, monomer &b) noexcept
 	{
 		assert(a.m_polymer == b.m_polymer);
@@ -675,8 +678,8 @@ class monomer : public residue
 	[[nodiscard]] bool is_first_in_chain() const; ///< Return if this residue is the first residue in the chain
 	[[nodiscard]] bool is_last_in_chain() const;  ///< Return if this residue is the last residue in the chain
 
-	[[nodiscard]] const monomer &prev() const; // Return previous monomer in polymer
-	[[nodiscard]] const monomer &next() const; // Return next monomer in polymer
+	[[nodiscard]] const monomer &prev() const; ///< Return previous monomer in polymer
+	[[nodiscard]] const monomer &next() const; ///< Return next monomer in polymer
 
 	// convenience
 	[[nodiscard]] bool has_alpha() const; ///< Return if a alpha value can be calculated (depends on location in chain)

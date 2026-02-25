@@ -197,6 +197,7 @@ bool is_valid_pdbx_file(const file &pdbx_file, const validator &v);
  * default mmcif_pdbx.dic dictionary.
  *
  * \param pdbx_file The input file
+ * \param ec In case of error, this will contain what went wrong
  * \result Returns true if the file was valid and consistent
  */
 

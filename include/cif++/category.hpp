@@ -106,6 +106,7 @@ class missing_key_error : public std::runtime_error
 	{
 	}
 
+	/// Return the name of the key that was missing
 	[[nodiscard]] const std::string &get_key() const noexcept { return m_key; }
 
   private:
@@ -175,7 +176,8 @@ class category
 		swap(*this, rhs);
 	}
 
-	category &operator=(category rhs) ///< assignement operator
+	/// Assignment operator
+	category &operator=(category rhs)
 	{
 		swap(*this, rhs);
 		return *this;
@@ -186,6 +188,7 @@ class category
 	/// you will not derive from this class.
 	~category();
 
+	/// Swap two categories
 	friend void swap(category &a, category &b) noexcept;
 
 	// --------------------------------------------------------------------
@@ -1005,8 +1008,8 @@ class category
 	}
 
 	/// @brief Create a new row and emplace the values in the range @a b to @a e in it
-	/// @param b Iterator to the beginning of the range of @ref item_value
-	/// @param e Iterator to the end of the range of @ref item_value
+	/// @param b Iterator to the beginning of the range of item_values
+	/// @param e Iterator to the end of the range of item_values
 	/// @return iterator to the newly created row
 	template <typename ItemIter>
 	iterator emplace(ItemIter b, ItemIter e)
@@ -1031,6 +1034,7 @@ class category
 		return insert_impl(cend(), r);
 	}
 
+	/// Create rows with the content of the data in [ @a b, to @a e)
 	void emplace(const_iterator b, const_iterator e)
 	{
 		while (b != e)
@@ -1062,6 +1066,8 @@ class category
 
 	// --------------------------------------------------------------------
 
+	/// The type for a function that provides a value to insert based on a
+	/// value that is the default or the previous value
 	using value_provider_type = std::function<item_value(const item_value &)>;
 
 	/// \brief Update a single item named @a item_name in the rows that match
@@ -1297,7 +1303,7 @@ class category
 		{
 		}
 
-		// TODO: NEED TO FIX THIS!
+		// TODO: NEED TO FIX THIS! (but what was it that needs to be fixed?)
 		category *linked;
 		const link_validator *v;
 	};

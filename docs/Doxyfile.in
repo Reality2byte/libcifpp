@@ -1,4 +1,4 @@
-EXCLUDE_SYMBOLS        = cif::detail::*, std*
+# EXCLUDE_SYMBOLS        = cif::detail::*, std*
 FILE_PATTERNS          = *.hpp
 STRIP_FROM_PATH        = @DOXYGEN_INPUT_DIR@
 RECURSIVE              = YES

@@ -184,10 +184,9 @@ std::string item_value::str() const
 
 			return r.ec == std::errc{} ? std::string{ s, r.ptr } : "*****";
 		}
-
-		default:
-			throw std::runtime_error("invalid data type");
 	}
+
+	std::unreachable();
 }
 
 // void const_item_handle::assign_value(const item_value &value)

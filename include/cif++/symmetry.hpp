@@ -95,7 +95,7 @@ extern CIFPP_EXPORT const std::size_t kNrOfSpaceGroups;
 struct symop_data
 {
 	/// \brief constructor
-	constexpr symop_data(const std::array<int, 15> &data)
+	constexpr symop_data(const std::array<int, 15> &data) noexcept
 		: m_packed((data[0] bitand 0x03ULL) << 34 bitor
 				   (data[1] bitand 0x03ULL) << 32 bitor
 				   (data[2] bitand 0x03ULL) << 30 bitor
@@ -182,7 +182,7 @@ struct symop_data
 struct symop_datablock
 {
 	/// \brief constructor
-	constexpr symop_datablock(int spacegroup, int rotational_number, const std::array<int, 15> &rt_data)
+	constexpr symop_datablock(int spacegroup, int rotational_number, const std::array<int, 15> &rt_data) noexcept
 		: m_v((spacegroup bitand 0xffffULL) << 48 bitor
 			  (rotational_number bitand 0xffULL) << 40 bitor
 			  symop_data(rt_data).m_packed)

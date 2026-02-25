@@ -97,6 +97,7 @@ class version_info : public version_info_base
   public:
 	using implementation_type = T;
 
+	// NOLINTNEXTLINE
 	version_info(const char *name, const char *version, int build_number,
 			const char *git_tag, const char *revision_date, bool is_main) noexcept
 		: version_info_base(name, version, build_number, git_tag, revision_date, is_main)

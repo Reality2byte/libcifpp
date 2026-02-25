@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <compare>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -405,24 +406,26 @@ class item_value
 	}
 
 	// --------------------------------------------------------------------
-	// std::partial_ordering operator<=>(const item_value &rhs) const
-	// {
-	// 	if (m_data.m_type == rhs.m_data.m_type)
-	// 	{
-	// 		switch (m_data.m_type)
-	// 		{
-	//			using enum item_value_type;
-	//
-	// 			case INT: return m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
-	// 			case FLOAT: return m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
-	// 			case TEXT: return m_data.sv() <=> rhs.m_data.sv();
-	// 			case MISSING:
-	// 			case EMPTY: return std::strong_ordering::equivalent;
-	// 		}
-	// 	}
-	// 	else
-	// 		return m_data.m_type <=> rhs.m_data.m_type;
-	// }
+
+	std::partial_ordering operator<=>(const item_value &rhs) const
+	{
+		std::partial_ordering result = std::partial_ordering::unordered;
+		if (m_data.m_type == rhs.m_data.m_type)
+		{
+			switch (m_data.m_type)
+			{
+				using enum item_value_type;
+	
+				case INT: result = m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
+				case FLOAT: result = m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
+				case TEXT: result = m_data.sv() <=> rhs.m_data.sv();
+				default: result = std::partial_ordering::equivalent;
+			}
+		}
+		else
+			result = m_data.m_type <=> rhs.m_data.m_type;
+		return result;
+	}
 
 	bool operator==(const item_value &rhs) const
 	{

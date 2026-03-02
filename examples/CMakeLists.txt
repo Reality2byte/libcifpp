@@ -25,7 +25,9 @@
 cmake_minimum_required(VERSION 3.15)
 project(cifpp_example LANGUAGES CXX)
 
-find_package(cifpp REQUIRED)
+if(PROJECT_IS_TOP_LEVEL AND NOT (TARGET cifpp OR cifpp_FOUND))
+    find_package(cifpp REQUIRED)
+endif()
 
 add_executable(example example.cpp)
 target_link_libraries(example cifpp::cifpp)

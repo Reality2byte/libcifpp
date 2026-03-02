@@ -9,7 +9,7 @@ release = '@PROJECT_VERSION@'
 
 extensions = [
     "breathe",
-    # "exhale",
+    "exhale",
     "myst_parser"
 ]
 
@@ -20,23 +20,23 @@ breathe_projects = {
 myst_enable_extensions = [ "colon_fence" ]
 breathe_default_project = "@PROJECT_NAME@"
 
-# # Setup the exhale extension
-# exhale_args = {
-#     # These arguments are required
-#     "containmentFolder":     "./api",
-#     "rootFileName":          "library_root.rst",
-#     "doxygenStripFromPath":  "../include/",
-#     # Heavily encouraged optional argument (see docs)
-#     "rootFileTitle":         "API Reference",
-#     # Suggested optional arguments
-#     # "createTreeView":        True,
-#     # TIP: if using the sphinx-bootstrap-theme, you need
-#     # "treeViewIsBootstrap": True,
-#     "exhaleExecutesDoxygen": False,
-#     "contentsDirectives" : False,
+# Setup the exhale extension
+exhale_args = {
+    # These arguments are required
+    "containmentFolder":     "./api",
+    "rootFileName":          "library_root.rst",
+    "doxygenStripFromPath":  "../include/",
+    # Heavily encouraged optional argument (see docs)
+    "rootFileTitle":         "API Reference",
+    # Suggested optional arguments
+    # "createTreeView":        True,
+    # TIP: if using the sphinx-bootstrap-theme, you need
+    # "treeViewIsBootstrap": True,
+    "exhaleExecutesDoxygen": False,
+    "contentsDirectives" : False,
     
-#     "verboseBuild": False
-# }
+    "verboseBuild": False
+}
 
 # Tell sphinx what the primary language being documented is.
 primary_domain = 'cpp'

@@ -449,6 +449,7 @@ class item_value
 		return false;
 	}
 
+	/// Compare the value of this item_value with b, optionally ignoring case
 	[[nodiscard]] int compare(const item_value &b, bool ignore_case = false) const noexcept;
 
 	/// For debugging, print out a value
@@ -562,6 +563,7 @@ class item
 	{
 	}
 
+	/// Constructor using @a name and @a value
 	item(std::string name, item_value value)
 		: m_name(std::move(name))
 		, m_value(std::move(value))

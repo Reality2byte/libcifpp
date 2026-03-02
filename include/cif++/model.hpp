@@ -952,6 +952,7 @@ enum class occupancy_policy
 	UNOCCUPIED = 3
 };
 
+/// When creating a structure, you can specify what to include using this options class.
 struct structure_open_options
 {
 	bool skip_hydrogen = false;                              ///< Do not include hydrogen atoms in the structure object

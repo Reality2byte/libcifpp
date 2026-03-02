@@ -366,7 +366,7 @@ void PHENIX_Remark3Parser::fixup()
 	{
 		try
 		{
-			auto val = r["percent_reflns_obs"].as<float>();
+			auto val = r["percent_reflns_obs"].get<float>();
 			int perc = static_cast<int>(val * 100);
 			r["percent_reflns_obs"] = perc;
 		}
@@ -1256,7 +1256,7 @@ void Remark3Parser::storeCapture(const char *category, std::initializer_list<con
 			{
 				std::string tlsID;
 				if (not mDb["pdbx_refine_tls"].empty())
-					tlsID = mDb["pdbx_refine_tls"].back()["id"].as<std::string>();
+					tlsID = mDb["pdbx_refine_tls"].back()["id"].get<std::string>();
 				std::string tlsGroupID = cat.get_unique_id("");
 
 				cat.emplace({ { "pdbx_refine_id", mExpMethod },

@@ -76,7 +76,7 @@ Categories contain rows of data and each row has fields or items. Referencing a 
     auto rh = atom_site.front();
 
     // Get the label_atom_id value from this row handle as a std::string
-    std::string atom_id = rh["label_atom_id"].as<std::string>();
+    std::string atom_id = rh["label_atom_id"].get<std::string>();
 
     // Get the x, y and z coordinates using structered binding
     const auto &[x, y, z] = rh.get<float,float,float>("Cartn_x", "Cartn_y", "Cartn_z");

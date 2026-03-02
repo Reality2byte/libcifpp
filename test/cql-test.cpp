@@ -92,11 +92,11 @@ TEST_CASE("cql-1")
 	{
 		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
 
-		CHECK(row[0].as<std::string>() == kAuthors[ix]);
-		CHECK(row[1].as<size_t>() == ix + 1);
+		CHECK(row[0].get<std::string>() == kAuthors[ix]);
+		CHECK(row[1].get<size_t>() == ix + 1);
 
-		CHECK(row["name"].as<std::string>() == kAuthors[ix]);
-		CHECK(row["ordinal"].as<size_t>() == ix + 1);
+		CHECK(row["name"].get<std::string>() == kAuthors[ix]);
+		CHECK(row["ordinal"].get<size_t>() == ix + 1);
 
 		++ix;
 	}
@@ -108,11 +108,11 @@ TEST_CASE("cql-1")
 	{
 		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
 
-		CHECK(row[1].as<std::string>() == kAuthors[ix]);
-		CHECK(row[0].as<size_t>() == ix + 1);
+		CHECK(row[1].get<std::string>() == kAuthors[ix]);
+		CHECK(row[0].get<size_t>() == ix + 1);
 
-		CHECK(row["name"].as<std::string>() == kAuthors[ix]);
-		CHECK(row["ordinal"].as<size_t>() == ix + 1);
+		CHECK(row["name"].get<std::string>() == kAuthors[ix]);
+		CHECK(row["ordinal"].get<size_t>() == ix + 1);
 
 		++ix;
 	}
@@ -130,15 +130,15 @@ TEST_CASE("cql-1")
 			{
 				case 0:
 					CHECK(fld.name() == "citation_id");
-					CHECK(fld.as<std::string>() == "primary");
+					CHECK(fld.get<std::string>() == "primary");
 					break;
 				case 1:
 					CHECK(fld.name() == "name");
-					CHECK(fld.as<std::string>() == kAuthors[ix]);
+					CHECK(fld.get<std::string>() == kAuthors[ix]);
 					break;
 				case 2:
 					CHECK(fld.name() == "ordinal");
-					CHECK(fld.as<int>() == ix + 1);
+					CHECK(fld.get<int>() == ix + 1);
 					break;
 				default:
 					CHECK(fld.name() == "identifier_ORCID");
@@ -147,9 +147,9 @@ TEST_CASE("cql-1")
 			}
 		}
 
-		CHECK(row["name"].as<std::string>() == kAuthors[ix]);
-		CHECK(row["ordinal"].as<int>() == ix + 1);
-		CHECK(row["citation_id"].as<std::string>() == "primary");
+		CHECK(row["name"].get<std::string>() == kAuthors[ix]);
+		CHECK(row["ordinal"].get<int>() == ix + 1);
+		CHECK(row["citation_id"].get<std::string>() == "primary");
 
 		++ix;
 	}
@@ -172,11 +172,11 @@ TEST_CASE("cql-2")
 	{
 		REQUIRE(ix < (sizeof(kAuthors) / sizeof(char *)));
 
-		CHECK(row[0].as<std::string>() == kAuthors[ix]);
-		CHECK(row[1].as<size_t>() == ix + 1);
+		CHECK(row[0].get<std::string>() == kAuthors[ix]);
+		CHECK(row[1].get<size_t>() == ix + 1);
 
-		CHECK(row["v1"].as<std::string>() == kAuthors[ix]);
-		CHECK(row["v2"].as<size_t>() == ix + 1);
+		CHECK(row["v1"].get<std::string>() == kAuthors[ix]);
+		CHECK(row["v2"].get<size_t>() == ix + 1);
 
 		++ix;
 	}
@@ -192,7 +192,7 @@ TEST_CASE("cql-3")
 	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT name FROM citation_author WHERE ordinal = 10").one_field();
-	CHECK(r.as<std::string>() == kAuthors[9]);
+	CHECK(r.get<std::string>() == kAuthors[9]);
 }
 
 TEST_CASE("cql-4")
@@ -219,7 +219,7 @@ TEST_CASE("cql-5")
 
 	auto r = tx.exec("SELECT (SELECT year FROM citation WHERE id = citation_id) AS jaar FROM citation_author WHERE ordinal IS 23").one_field();
 	CHECK(r.name() == "jaar");
-	CHECK(r.as<int>() == 1988);
+	CHECK(r.get<int>() == 1988);
 }
 
 TEST_CASE("cql-6")
@@ -232,10 +232,10 @@ TEST_CASE("cql-6")
 	cif::cql::transaction tx(connection);
 
 	auto r = tx.exec("SELECT COUNT(*) FROM citation WHERE page_last IS NULL").one_field();
-	CHECK(r.as<int>() == 4);
+	CHECK(r.get<int>() == 4);
 
 	r = tx.exec("SELECT COUNT(*) FROM citation WHERE page_last IS NOT NULL").one_field();
-	CHECK(r.as<int>() == 1);
+	CHECK(r.get<int>() == 1);
 }
 
 TEST_CASE("cql-stream-1")
@@ -278,17 +278,17 @@ _table1.name
 	cif::cql::connection connection(db);
 	cif::cql::transaction tx(connection);
 
-	auto count = tx.exec("SELECT COUNT(*) FROM table1;").one_field().as<int>();
+	auto count = tx.exec("SELECT COUNT(*) FROM table1;").one_field().get<int>();
 	CHECK(count == 2);
 
 	auto r = tx.exec("INSERT INTO table1 (id, name) VALUES (3, 'mies')");
 
-	count = tx.exec("SELECT COUNT(*) FROM table1").one_field().as<int>();
+	count = tx.exec("SELECT COUNT(*) FROM table1").one_field().get<int>();
 	CHECK(count == 3);
 
 	(void)tx.exec("DELETE FROM table1 WHERE CAST(id AS INTEGER) = 1;");
 
-	count = tx.exec("SELECT COUNT(*) FROM table1;").one_field().as<int>();
+	count = tx.exec("SELECT COUNT(*) FROM table1;").one_field().get<int>();
 	CHECK(count == 2);
 
 	(void)tx.exec("UPDATE table1 SET name = 'amandel' WHERE CAST(id AS INTEGER) = 2");

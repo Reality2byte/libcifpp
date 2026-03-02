@@ -83,6 +83,7 @@ class datablock : public std::list<category>
 	}
 	/** @endcond */
 
+	/// Swap two datablocks
 	friend void swap_(datablock &a, datablock &b) noexcept
 	{
 		std::swap(a.m_name, b.m_name);

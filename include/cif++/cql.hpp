@@ -26,6 +26,14 @@
 
 #pragma once
 
+/**
+ * @file cql.hpp
+ *
+ * This file contains code to access stored data as if it were
+ * a relation database. The underlying code uses SQLite as engine.
+ * categories are exposed as virtual tables.
+ */
+
 #include "cif++/category.hpp"
 #include "cif++/item.hpp"
 #include "cif++/iterator.hpp"
@@ -51,14 +59,17 @@ struct result_impl;
 
 // --------------------------------------------------------------------
 
+/// Reference to a field in the result set
 class field_ref final
 {
   public:
+	/// The name of the field
 	[[nodiscard]] std::string_view name() const &
 	{
 		return m_row.get_category().get_item_name(m_index);
 	}
 
+	/// The index number of the field
 	[[nodiscard]] constexpr size_t num() const noexcept
 	{
 		return m_index;
@@ -66,11 +77,12 @@ class field_ref final
 
 	/** Return the contents of this item as type @tparam T */
 	template <typename T = std::string>
-	[[nodiscard]] auto as() const -> T
+	[[nodiscard]] auto get() const -> T
 	{
-		return m_row[m_index].as<T>();
+		return m_row[m_index].get<T>();
 	}
 
+	/// Returns true if the field contains NULL
 	[[nodiscard]] bool is_null() const
 	{
 		return m_row[m_index].is_null();
@@ -85,6 +97,7 @@ class field_ref final
 		return m_row[m_index].value_or(dv);
 	}
 
+	/// Constructor
 	field_ref(const_row_handle rh, uint16_t col, std::shared_ptr<result_impl> result_impl)
 		: m_row(std::move(rh))
 		, m_index(col)
@@ -92,10 +105,14 @@ class field_ref final
 	{
 	}
 
+	/// Copy constructor
 	field_ref(const field_ref &) = default;
+	/// Move constructor
 	field_ref(field_ref &&) = default;
 
+	/// Copy assignment
 	field_ref &operator=(const field_ref &) = default;
+	/// Move assignment
 	field_ref &operator=(field_ref &&) = default;
 
   private:
@@ -107,14 +124,17 @@ class field_ref final
 
 // --------------------------------------------------------------------
 
+/// A reference to a row in the result set
 class row_ref final
 {
   public:
+	/// Iterator for the items in this row
 	class const_field_iterator
 	{
 	  public:
 		friend class result;
 
+		/// @cond
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = const field_ref;
 		using difference_type = std::ptrdiff_t;
@@ -181,58 +201,70 @@ class row_ref final
 		field_ref m_current;
 
 		std::shared_ptr<result_impl> m_result_impl;
+
+		/// @endcond
 	};
 
 	// --------------------------------------------------------------------
 
 	row_ref() = default;
 
+	/// Constructor
 	row_ref(const_row_handle rh, std::shared_ptr<result_impl> result_impl)
 		: m_row(std::move(rh))
 		, m_result_impl(std::move(result_impl))
 	{
 	}
 
+	/// @cond
 	row_ref(const row_ref &) = default;
 	row_ref &operator=(const row_ref &) = default;
+	/// @endcond
 
 	// --------------------------------------------------------------------
 
-	[[nodiscard]] const_field_iterator cbegin() const noexcept { return { m_row, 0, m_result_impl }; }
-	[[nodiscard]] const_field_iterator begin() const noexcept { return { m_row, 0, m_result_impl }; }
-	[[nodiscard]] const_field_iterator cend() const noexcept { return { m_row, static_cast<uint16_t>(size()), m_result_impl }; }
-	[[nodiscard]] const_field_iterator end() const noexcept { return { m_row, static_cast<uint16_t>(size()), m_result_impl }; }
+	[[nodiscard]] const_field_iterator begin() const noexcept { return { m_row, 0, m_result_impl }; }                            ///< Return begin field iterator
+	[[nodiscard]] const_field_iterator cbegin() const noexcept { return { m_row, 0, m_result_impl }; }                           ///< Return cbegin field iterator
+	[[nodiscard]] const_field_iterator end() const noexcept { return { m_row, static_cast<uint16_t>(size()), m_result_impl }; }  ///< Return end field iterator
+	[[nodiscard]] const_field_iterator cend() const noexcept { return { m_row, static_cast<uint16_t>(size()), m_result_impl }; } ///< Return cend field iterator
 
-	[[nodiscard]] field_ref front() const noexcept { return { m_row, 0, m_result_impl }; }
-	[[nodiscard]] field_ref back() const noexcept { return { m_row, static_cast<uint16_t>(size() - 1), m_result_impl }; }
+	[[nodiscard]] field_ref front() const noexcept { return { m_row, 0, m_result_impl }; }                                ///< return reference to front field
+	[[nodiscard]] field_ref back() const noexcept { return { m_row, static_cast<uint16_t>(size() - 1), m_result_impl }; } ///< return reference to back field
 
-	[[nodiscard]] size_t size() const noexcept;
-	[[nodiscard]] bool empty() const noexcept { return size() == 0; }
+	[[nodiscard]] size_t size() const noexcept;                       ///< return number of items in the row
+	[[nodiscard]] bool empty() const noexcept { return size() == 0; } ///< return if the row contains no items at all
 
-	[[nodiscard]] field_ref operator[](uint16_t index) const noexcept { return { m_row, index, m_result_impl }; }
-	[[nodiscard]] field_ref operator[](std::string_view name) const;
+	[[nodiscard]] field_ref operator[](uint16_t index) const noexcept { return { m_row, index, m_result_impl }; } ///< access field by index
+	[[nodiscard]] field_ref operator[](std::string_view name) const;                                              ///< access field by name
 
 	// --------------------------------------------------------------------
 
+	/// @cond
 	bool operator==(const row_ref &rhs) const { return m_row == rhs.m_row; }
 	bool operator!=(const row_ref &rhs) const { return m_row != rhs.m_row; }
 
   private:
 	const_row_handle m_row;
 	std::shared_ptr<result_impl> m_result_impl;
+
+	/// @endcond
 };
 
 // --------------------------------------------------------------------
 
+/// The result set, containing the result of a query
 class result
 {
   public:
 	// --------------------------------------------------------------------
 
+	/// iterator to the rows in the result set
 	class iterator
 	{
 	  public:
 		friend class view;
+
+		/// @cond
 
 		using iterator_category = std::forward_iterator_tag;
 		using value_type = const row_ref;
@@ -293,10 +325,13 @@ class result
 		category::const_iterator m_iter;
 		row_ref m_current;
 		std::shared_ptr<result_impl> m_result_impl;
+
+		/// @endcond
 	};
 
 	// --------------------------------------------------------------------
 
+	/// @cond
 	result() = delete;
 	result(result const &rhs) noexcept = default;
 	result(result &&rhs) noexcept = default;
@@ -306,7 +341,9 @@ class result
 	result(category &&data, const std::string &query = "");
 
 	~result() = default;
+	/// @endcond
 
+	/// Return the row if and only if the result set contains exactly one row, throws otherwise
 	[[nodiscard]] row_ref one_row() const
 	{
 		if (size() != 1)
@@ -314,6 +351,8 @@ class result
 		return front();
 	}
 
+	/// Return the row if and only if the result set contains exactly one row,
+	/// and this row also contains only one field, throws otherwise
 	[[nodiscard]] field_ref one_field() const
 	{
 		expect_columns(1);
@@ -326,6 +365,7 @@ class result
 
 	// --------------------------------------------------------------------
 
+	/// @cond
 	[[nodiscard]] iterator begin() const noexcept;
 	[[nodiscard]] iterator cbegin() const noexcept;
 
@@ -337,11 +377,16 @@ class result
 
 	[[nodiscard]] size_t size() const noexcept;
 	[[nodiscard]] bool empty() const noexcept { return size() == 0; }
+	/// @endcond
 
+	/// Return the number of colums/fields in each row
 	[[nodiscard]] size_t column_count() const;
 
+	/// Return the result set as a cif::category
 	[[nodiscard]] category &get_category() const;
 
+	/// Test to see if the result set contains at least the number of fields/columns
+	/// but only when not empty
 	void expect_columns(size_t cols) const
 	{
 		if (auto actual = column_count(); size() > 0 and cols != actual)
@@ -350,6 +395,7 @@ class result
 
 	// --------------------------------------------------------------------
 
+	/// Print out the result set, for debugging mostly
 	friend std::ostream &operator<<(std::ostream &os, const result &r)
 	{
 		os << r.get_category();
@@ -365,10 +411,12 @@ class result
 
 // --------------------------------------------------------------------
 
+/// Helper class to allow access to the data as a stream
 template <typename... Ts>
 class cql_iterator_proxy : public cif::iterator_proxy<Ts...>
 {
   public:
+	/// Constructor
 	cql_iterator_proxy(result &&res)
 		: cif::iterator_proxy<Ts...>(res.get_category())
 		, m_result(std::forward<result>(res))
@@ -382,14 +430,21 @@ class cql_iterator_proxy : public cif::iterator_proxy<Ts...>
 
 // --------------------------------------------------------------------
 
+/// Transaction class.
+/// At construction, this class starts a transaction on the connection
+/// and at exit an automatic rollback is done, unless commit was called.
 class transaction final
 {
   public:
+    /// Constructor
 	transaction(connection &conn);
+
+	/// @cond
 	~transaction();
 
 	transaction(const transaction &) = delete;
 	transaction &operator=(const transaction &) = delete;
+	/// @endcond
 
 	/// \brief Execute the sql in @a query returning an iterable result
 	result exec(std::string query);
@@ -398,13 +453,18 @@ class transaction final
 	/// Updates @a tail with what remains after the first statement in @a query
 	result exec(std::string query, std::string &tail);
 
+	/// Execute the sql in @a sql and return the result as a stream
 	template <typename... Ts>
 	cql_iterator_proxy<Ts...> stream(const std::string &sql)
 	{
 		return cql_iterator_proxy<Ts...>{ exec(sql) };
 	}
 
+	/// Commit the result of the operations
 	void commit();
+
+	/// Rollback the result of the operations, the underlying data is
+	/// restored to the state before the construction of this transaction.
 	void rollback();
 
   private:
@@ -414,10 +474,15 @@ class transaction final
 
 // --------------------------------------------------------------------
 
+/// This connection class creates a SQLite environment with the data in
+/// the provided datablock as tables.
 class connection final
 {
   public:
+	/// Constructor
 	connection(datablock &db);
+
+	/// Destructor
 	~connection();
 
 	friend class transaction;

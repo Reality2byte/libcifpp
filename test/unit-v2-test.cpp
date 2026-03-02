@@ -24,10 +24,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include <cif++/cif++.hpp>
-
 #include <algorithm>
 #include <catch2/catch_test_macros.hpp>
+#include <cif++/cif++.hpp>
 #include <exception>
 #include <stdexcept>
 
@@ -117,7 +116,7 @@ name)");
 
 TEST_CASE("from_chars_1")
 {
-auto f = R"(data_TEST
+	auto f = R"(data_TEST
 #
 loop_
 _test.v
@@ -220,7 +219,7 @@ TEST_CASE("item_0")
 {
 	cif::item i1("v1", "tekst");
 	cif::item i2("v2", 2);
-	cif::item i3("v3",  { 3.0, 2 });
+	cif::item i3("v3", { 3.0, 2 });
 	// cif::item i4("v4", true);
 	cif::item i5("v5", nullptr);
 
@@ -242,7 +241,7 @@ TEST_CASE("item_0")
 
 	cif::item i6 = std::move(i1);
 	CHECK(i6.value().get<std::string>() == "tekst");
-	CHECK(i1.value().is_null());
+	CHECK(i1.value().is_null()); // NOLINT
 }
 
 // TEST_CASE("row_1")
@@ -580,9 +579,18 @@ _test.name
 
 		switch (id)
 		{
-			case 1: REQUIRE(name.has_value()); CHECK(*name == "aap"); break;
-			case 2: REQUIRE(name.has_value()); CHECK(*name == "noot"); break;
-			case 3: REQUIRE(name.has_value()); CHECK(*name == "mies"); break;
+			case 1:
+				REQUIRE(name.has_value());
+				CHECK(*name == "aap"); // NOLINT
+				break;
+			case 2:
+				REQUIRE(name.has_value());
+				CHECK(*name == "noot"); // NOLINT
+				break;
+			case 3:
+				REQUIRE(name.has_value());
+				CHECK(*name == "mies"); // NOLINT
+				break;
 			default: CHECK(name.has_value() == false);
 		}
 	}
@@ -2086,7 +2094,7 @@ _test.name
 
 	v = db["test"].find_first<std::optional<int>>(cif::key("id") == 1, "id");
 	REQUIRE(v.has_value());
-	CHECK(*v == 1);
+	CHECK(*v == 1); // NOLINT
 
 	v = db["test"].find_first<std::optional<int>>(cif::key("id") == 6, "id");
 	CHECK(not v.has_value());
@@ -3515,9 +3523,18 @@ _name
 
 		switch (id)
 		{
-			case 1: REQUIRE(name.has_value()); CHECK(*name == "aap"); break;
-			case 2: REQUIRE(name.has_value()); CHECK(*name == "noot"); break;
-			case 3: REQUIRE(name.has_value()); CHECK(*name == "mies"); break;
+			case 1:
+				REQUIRE(name.has_value());
+				CHECK(*name == "aap"); // NOLINT
+				break;
+			case 2:
+				REQUIRE(name.has_value());
+				CHECK(*name == "noot"); // NOLINT
+				break;
+			case 3:
+				REQUIRE(name.has_value());
+				CHECK(*name == "mies"); // NOLINT
+				break;
 			default: CHECK(name.has_value() == false);
 		}
 	}

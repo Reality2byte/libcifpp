@@ -30,6 +30,7 @@
 
 #include <algorithm>
 #include <cassert>
+#include <compare>
 #include <cstdint>
 #include <cstring>
 #include <iostream>
@@ -79,7 +80,7 @@ enum class item_value_type
 
 // --------------------------------------------------------------------
 
-/// \cond
+/// @cond
 template <typename T>
 concept IntegralType = (std::is_integral_v<std::remove_cvref_t<T>>);
 
@@ -93,7 +94,7 @@ template <typename T>
 inline constexpr bool is_optional_v = false;
 template <typename T>
 inline constexpr bool is_optional_v<std::optional<T>> = true;
-/// \endcond
+/// @endcond
 
 /// The data is stored in this item_value type. It contains one of
 /// the five types from @ref cif::item_value_type.
@@ -397,6 +398,7 @@ class item_value
 
 	// --------------------------------------------------------------------
 
+	/// Swap two item_values
 	friend void swap(item_value &a, item_value &b) noexcept
 	{
 		std::swap(a.m_data.m_type, b.m_data.m_type);
@@ -405,25 +407,29 @@ class item_value
 	}
 
 	// --------------------------------------------------------------------
-	// std::partial_ordering operator<=>(const item_value &rhs) const
-	// {
-	// 	if (m_data.m_type == rhs.m_data.m_type)
-	// 	{
-	// 		switch (m_data.m_type)
-	// 		{
-	//			using enum item_value_type;
-	//
-	// 			case INT: return m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
-	// 			case FLOAT: return m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
-	// 			case TEXT: return m_data.sv() <=> rhs.m_data.sv();
-	// 			case MISSING:
-	// 			case EMPTY: return std::strong_ordering::equivalent;
-	// 		}
-	// 	}
-	// 	else
-	// 		return m_data.m_type <=> rhs.m_data.m_type;
-	// }
 
+	/// Three way comparison operator
+	auto operator<=>(const item_value &rhs) const noexcept
+	{
+		std::partial_ordering result = std::partial_ordering::unordered;
+		if (m_data.m_type == rhs.m_data.m_type)
+		{
+			switch (m_data.m_type)
+			{
+				using enum item_value_type;
+	
+				case INT: result = m_data.m_value.m_integer <=> rhs.m_data.m_value.m_integer;
+				case FLOAT: result = m_data.m_value.m_float <=> rhs.m_data.m_value.m_float;
+				case TEXT: result = m_data.sv() <=> rhs.m_data.sv();
+				default: result = std::partial_ordering::equivalent;
+			}
+		}
+		else
+			result = m_data.m_type <=> rhs.m_data.m_type;
+		return result;
+	}
+
+	/// Three way comparison operator is not always found TODO: find out why
 	bool operator==(const item_value &rhs) const
 	{
 		if (m_data.m_type == rhs.m_data.m_type)
@@ -445,6 +451,7 @@ class item_value
 
 	[[nodiscard]] int compare(const item_value &b, bool ignore_case = false) const noexcept;
 
+	/// For debugging, print out a value
 	friend std::ostream &operator<<(std::ostream &os, const item_value &v);
 
 	/// @cond
@@ -534,11 +541,12 @@ class item_value
 			return m_type == item_value_type::TEXT ? (m_len >= sizeof(m_value.m_local_str) ? m_value.m_str : m_value.m_local_str) : nullptr;
 		}
 	} m_data{};
+
+	/// @endcond
 };
 
 static_assert(sizeof(item_value) == 16, "item_value should be 16 bytes");
 
-/// @endcond
 
 class item
 {
@@ -575,6 +583,7 @@ class item
 	}
 	/** @endcond */
 
+	/// Swap two items
 	friend void swap(item &a, item &b) noexcept
 	{
 		std::swap(a.m_name, b.m_name);
@@ -639,49 +648,61 @@ struct item_handle
 		return *this;
 	}
 
+	/// Return the value of the item
 	[[nodiscard]] item_value &value();
+
+	/// Return the const value of the item
 	[[nodiscard]] const item_value &value() const;
 
+	/// Return if value in item is of type INAPPLICABLE
 	[[nodiscard]] bool is_inapplicable() const noexcept
 	{
 		return not empty() and value().type() == item_value_type::INAPPLICABLE;
 	}
 
+	/// Return if value in item is of type MISSING
 	[[nodiscard]] bool is_missing() const noexcept
 	{
 		return empty() or value().type() == item_value_type::MISSING;
 	}
 
+	/// Return if value in item is NULL (MISSING or INAPPLICABLE)
 	[[nodiscard]] bool is_null() const noexcept
 	{
 		return empty() or is_inapplicable() or is_missing();
 	}
 
+	/// Return if value in item is of type TEXT
 	[[nodiscard]] bool is_string() const noexcept
 	{
 		return not empty() and value().type() == item_value_type::TEXT;
 	}
 
+	/// Return if value in item is an integer
 	[[nodiscard]] bool is_number_int() const noexcept
 	{
 		return not empty() and value().type() == item_value_type::INT;
 	}
 
+	/// Return if value in item is a double
 	[[nodiscard]] bool is_number_float() const noexcept
 	{
 		return not empty() and value().type() == item_value_type::FLOAT;
 	}
 
+	/// Return if value in item is a number
 	[[nodiscard]] bool is_number() const noexcept
 	{
 		return not empty() and (is_number_int() or is_number_float());
 	}
 
+	/// Return type of the value
 	[[nodiscard]] auto type() const
 	{
 		return empty() ? item_value_type::MISSING : value().type();
 	}
 
+	/// Return the value casted to the type @tparam T
 	template <typename T>
 	[[nodiscard]] auto get() const
 	{
@@ -691,8 +712,9 @@ struct item_handle
 			return value().template get<T>();
 	}
 
+	/// Return the value casted to the type @tparam T, same as get
 	template <typename T>
-	[[nodiscard]] auto as() const
+	[[deprecated("Use get<T> instead")]] [[nodiscard]] auto as() const
 	{
 		if (empty())
 			return T{};
@@ -700,11 +722,13 @@ struct item_handle
 			return value().template get<T>();
 	}
 
+	/// Return the value as a std::string
 	[[nodiscard]] auto str() const
 	{
 		return value().str();
 	}
 
+	/// Return a std::string_view to the character data in the value, throws if the type is not TEXT
 	[[nodiscard]] auto sv() const
 	{
 		return value().sv();
@@ -728,7 +752,6 @@ struct item_handle
 	 * Returns 0 if both are equal, -1 if this sorts before @a value
 	 * and 1 if this sorts after @a value
 	 *
-	 * @tparam T Type of the value @a value
 	 * @param value The value to compare with
 	 * @param icase Flag indicating if we should compare character case sensitive
 	 * @return -1, 0 or 1
@@ -739,7 +762,18 @@ struct item_handle
 		return this->value().compare(value, icase);
 	}
 
-	[[nodiscard]] int compare(const item_handle &value, bool icase = true) const noexcept
+	/**
+	 * @brief Compare the contents of this item with value of item @a value
+	 * optionally ignoring character case, if @a icase is true.
+	 * Returns 0 if both are equal, -1 if this sorts before @a value
+	 * and 1 if this sorts after @a value
+	 *
+	 * @param value The value to compare with
+	 * @param icase Flag indicating if we should compare character case sensitive
+	 * @return -1, 0 or 1
+	 */
+
+	 [[nodiscard]] int compare(const item_handle &value, bool icase = true) const noexcept
 	{
 		if (empty() and value.empty())
 			return 0;
@@ -800,13 +834,7 @@ struct item_handle
 	{
 	}
 
-	/**
-	 * @brief Construct a new item handle object
-	 *
-	 * @param cat Reference to category containing row
-	 * @param row Reference to the row
-	 * @param item_ix Item index
-	 */
+	/// Constructor
 	item_handle(const category &cat, const row &r, uint16_t item_ix)
 		: m_category(const_cast<category &>(cat))
 		, m_row(const_cast<row &>(r))
@@ -818,7 +846,7 @@ struct item_handle
 	item_handle(const item_handle &) = delete;
 	item_handle &operator=(const item_handle &) = delete;
 
-
+	/// Print out the item, for debugging
 	friend std::ostream &operator<<(std::ostream &os, const item_handle &h)
 	{
 		if (h.empty())

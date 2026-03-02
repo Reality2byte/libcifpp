@@ -574,7 +574,7 @@ void checkAtomRecords(datablock &db)
 		if (missingCompounds.contains(comp_id))
 			continue;
 
-		bool is_polymer = polymer_entities.contains(row["label_entity_id"].as<std::string>());
+		bool is_polymer = polymer_entities.contains(row["label_entity_id"].get<std::string>());
 		auto compound = cf.create(comp_id);
 
 		if (not compound)

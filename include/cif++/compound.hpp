@@ -174,8 +174,11 @@ class compound
 	/** \brief Return whether this compound has a type of either 'DNA linking' or 'RNA linking' */
 	[[nodiscard]] bool is_base() const;
 
-	[[nodiscard]] char one_letter_code() const { return m_one_letter_code; }; ///< Return the one letter code to use in a canonical sequence. If unknown the value '\0' is returned
-	[[nodiscard]] std::string parent_id() const { return m_parent_id; };      ///< Return the parent id code in case a parent is specified (e.g. MET for MSE)
+	/// Return the one letter code to use in a canonical sequence. If unknown the value '\0' is returned
+	[[nodiscard]] char one_letter_code() const { return m_one_letter_code; };
+
+	/// Return the parent id code in case a parent is specified (e.g. MET for MSE)
+	[[nodiscard]] std::string parent_id() const { return m_parent_id; };
 
   private:
 	friend class compound_factory_impl;
@@ -299,10 +302,13 @@ class compound_factory
 	CIFPP_EXPORT static const std::map<std::string, char> kAAMap, ///< Globally accessible static list of the default amino acids
 		kBaseMap;                                                 ///< Globally accessible static list of the default bases
 
+	/// Print out a message for a missing compound
 	void report_missing_compound(std::string_view compound_id);
 
+	/// Return a flag indicating if we need to print out a report
 	[[nodiscard]] bool get_report_missing() const { return m_report_missing; }
 
+	/// Set a flag indicating if we need to print out a report
 	void set_report_missing(bool report)
 	{
 		m_report_missing = report;
@@ -339,6 +345,7 @@ class compound_factory
 class compound_source
 {
   public:
+    /// Constructor
 	compound_source(const file &file)
 	{
 		compound_factory::instance().push_dictionary(file);

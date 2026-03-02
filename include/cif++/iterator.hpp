@@ -194,7 +194,7 @@ class iterator_impl_base
 	template <std::size_t... Is>
 	[[nodiscard]] tuple_type get(std::index_sequence<Is...>) const
 	{
-		return m_current ? tuple_type{ m_current[m_item_ix[Is]].template as<Ts>()... } : tuple_type{};
+		return m_current ? tuple_type{ m_current[m_item_ix[Is]].template get<Ts>()... } : tuple_type{};
 	}
 
 	row_handle_type m_current;
@@ -475,12 +475,13 @@ class iterator_impl_base<Const, T>
 
 // --------------------------------------------------------------------
 
+/// A non-const version of iterator_impl
 template<typename ... Ts>
 using iterator_impl = iterator_impl_base<false, Ts...>;
 
+/// A const version of iterator_impl
 template<typename ... Ts>
 using const_iterator_impl = iterator_impl_base<true, Ts...>;
-
 
 // --------------------------------------------------------------------
 // iterator proxy
@@ -541,7 +542,9 @@ class iterator_proxy_base
 	}
 
   protected:
+	/// @cond
 	iterator_proxy_base(category_type &cat);
+	/// @endcond
 
   private:
 	category_type *m_category;
@@ -551,9 +554,11 @@ class iterator_proxy_base
 
 // --------------------------------------------------------------------
 
+/// A non-const version of iterator_proxy_base
 template <typename... Ts>
 using iterator_proxy = iterator_proxy_base<false, Ts...>;
 
+/// A const version of iterator_proxy_base
 template <typename... Ts>
 using const_iterator_proxy = iterator_proxy_base<true, Ts...>;
 
@@ -706,9 +711,11 @@ class conditional_iterator_proxy_base
 
 // --------------------------------------------------------------------
 
+/// A non-const version of conditional_iterator_proxy_base
 template <typename... Ts>
 using conditional_iterator_proxy = conditional_iterator_proxy_base<false, Ts...>;
 
+/// A const version of conditional_iterator_proxy_base
 template <typename... Ts>
 using const_conditional_iterator_proxy = conditional_iterator_proxy_base<true, Ts...>;
 

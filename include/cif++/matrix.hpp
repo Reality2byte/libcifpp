@@ -35,11 +35,11 @@
 
 /**
  * @file matrix.hpp
- * 
+ *
  * Some basic matrix operations and classes to hold matrices.
- * 
+ *
  * We're using expression templates for optimal performance.
- * 
+ *
  */
 
 namespace cif
@@ -50,7 +50,7 @@ namespace cif
 /**
  * @brief Base for the matrix expression templates
  * This all uses the Curiously recurring template pattern
- * 
+ *
  * @tparam M The type of the derived class
  */
 template <typename M>
@@ -123,6 +123,7 @@ class matrix_expression // NOLINT(bugprone-crtp-constructor-accessibility)
 		return os;
 	}
 
+	/// compare two matrices
 	template <typename M2>
 	constexpr bool operator==(const matrix_expression<M2> &m) const
 	{
@@ -145,9 +146,9 @@ class matrix_expression // NOLINT(bugprone-crtp-constructor-accessibility)
 
 /**
  * @brief Storage class implementation of matrix_expression.
- * 
+ *
  * @tparam F The type of the stored values
- *  
+ *
  * matrix is m x n, addressing i,j is 0 <= i < m and 0 <= j < n
  * element m i,j is mapped to [i * n + j] and thus storage is row major
  */
@@ -161,7 +162,7 @@ class matrix : public matrix_expression<matrix<F>>
 
 	/**
 	 * @brief Copy construct a new matrix object using @a m
-	 * 
+	 *
 	 * @tparam M2 Type of @a m
 	 * @param m The matrix expression to copy values from
 	 */
@@ -181,7 +182,7 @@ class matrix : public matrix_expression<matrix<F>>
 	/**
 	 * @brief Construct a new matrix object with dimension @a m and @a n
 	 * setting the values to @a v
-	 * 
+	 *
 	 * @param m Requested dimension M
 	 * @param n Requested dimension N
 	 * @param v Value to store in each element
@@ -232,9 +233,9 @@ class matrix : public matrix_expression<matrix<F>>
 /**
  * @brief Storage class implementation of matrix_expression
  * with compile time fixed size.
- * 
+ *
  * @tparam F The type of the stored values
- *  
+ *
  * matrix is m x n, addressing i,j is 0 <= i < m and 0 <= j < n
  * element m i,j is mapped to [i * n + j] and thus storage is row major
  */
@@ -281,8 +282,8 @@ class matrix_fixed : public matrix_expression<matrix_fixed<F, M, N>>
 	/** @endcond */
 
 	/** Store the values in @a a in the matrix */
-	template<std::size_t... Ixs>
-	matrix_fixed& fill(const F (&a)[kSize], std::index_sequence<Ixs...>)
+	template <std::size_t... Ixs>
+	matrix_fixed &fill(const F (&a)[kSize], std::index_sequence<Ixs...>)
 	{
 		m_data = { a[Ixs]... };
 		return *this;
@@ -323,9 +324,9 @@ using matrix4x4 = matrix_fixed<F, 4, 4>;
 
 /**
  * @brief Storage class implementation of symmetric matrix_expression
- * 
+ *
  * @tparam F The type of the stored values
- *  
+ *
  * matrix is m x n, addressing i,j is 0 <= i < m and 0 <= j < n
  * element m i,j is mapped to [i * n + j] and thus storage is row major
  */
@@ -382,9 +383,9 @@ class symmetric_matrix : public matrix_expression<symmetric_matrix<F>>
 /**
  * @brief Storage class implementation of symmetric matrix_expression
  * with compile time fixed size.
- * 
+ *
  * @tparam F The type of the stored values
- *  
+ *
  * matrix is m x n, addressing i,j is 0 <= i < m and 0 <= j < n
  * element m i,j is mapped to [i * n + j] and thus storage is row major
  */
@@ -445,9 +446,9 @@ using symmetric_matrix4x4 = symmetric_matrix_fixed<F, 4>;
 /**
  * @brief implementation of symmetric matrix_expression with a value
  * of 1 for the diagonal values and 0 for all the others.
- *  
+ *
  * @tparam F The type of the stored values
- *  
+ *
  * matrix is m x n, addressing i,j is 0 <= i < m and 0 <= j < n
  * element m i,j is mapped to [i * n + j] and thus storage is row major
  */
@@ -482,7 +483,7 @@ class identity_matrix : public matrix_expression<identity_matrix<F>>
 
 /**
  * @brief Implementation of a substraction operation as a matrix expression
- * 
+ *
  * @tparam M1 Type of matrix 1
  * @tparam M2 Type of matrix 2
  */
@@ -522,7 +523,7 @@ auto operator-(const matrix_expression<M1> &m1, const matrix_expression<M2> &m2)
 
 /**
  * @brief Implementation of a multiplication operation as a matrix expression
- * 
+ *
  * @tparam M1 Type of matrix 1
  * @tparam M2 Type of matrix 2
  */
@@ -561,7 +562,7 @@ class matrix_matrix_multiplication : public matrix_expression<matrix_matrix_mult
 
 /**
  * @brief Implementation of a multiplication operation of a matrix and a scalar value as a matrix expression
- * 
+ *
  * @tparam M1 Type of matrix
  * @tparam M2 Type of scalar value
  */
@@ -596,23 +597,27 @@ class matrix_scalar_multiplication : public matrix_expression<matrix_scalar_mult
 /** First implementation of operator*, enabled if the second parameter is a scalar */
 template <typename M1, typename T>
 auto operator*(const matrix_expression<M1> &m, T v)
-requires (std::is_floating_point_v<T>) {
+	requires(std::is_floating_point_v<T>)
+{
 	return matrix_scalar_multiplication(m, v);
 }
 
 /** First implementation of operator*, enabled if the second parameter is not a scalar and thus must be a matrix, right? */
 template <typename M1, typename M2>
 auto operator*(const matrix_expression<M1> &m1, const matrix_expression<M2> &m2)
-requires (not std::is_floating_point_v<M2>) {
+	requires(not std::is_floating_point_v<M2>)
+{
 	return matrix_matrix_multiplication(m1, m2);
 }
 
 // --------------------------------------------------------------------
 
+/// A sub-view on a matrix
 template <typename M2>
 class sub_matrix : public matrix_expression<sub_matrix<M2>>
 {
   public:
+	/// Constructor
 	sub_matrix(const M2 &m, int i, int j)
 		: m_m(m)
 		, m_i(i)
@@ -639,7 +644,7 @@ class sub_matrix : public matrix_expression<sub_matrix<M2>>
 // --------------------------------------------------------------------
 
 /** Generic routine to calculate the determinant of a matrix
- * 
+ *
  * @note This is currently only implemented for fixed matrices of size 3x3
  */
 template <typename M>
@@ -667,7 +672,7 @@ F determinant(const matrix4x4<F> &m)
 // --------------------------------------------------------------------
 
 /** Generic routine to calculate the inverse of a matrix
- * 
+ *
  * @note This is currently only implemented for fixed matrices of size 3x3
  */
 template <typename M>
@@ -698,7 +703,7 @@ matrix3x3<F> inverse(const matrix3x3<F> &m)
 
 /**
  * @brief Implementation of a cofactor calculation as a matrix expression
- * 
+ *
  * @tparam M Type of matrix
  */
 template <typename M>

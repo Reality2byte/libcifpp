@@ -38,6 +38,7 @@ Using *libcifpp* is easy, if you are familiar with modern C++:
    basics.rst
    compound.rst
    model.rst
+   cql.rst
    resources.rst
    symmetry.rst
    bitsandpieces.rst

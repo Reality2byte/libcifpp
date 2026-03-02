@@ -23,21 +23,42 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+ 
+#include <cif++/cif++.hpp>
+#include <filesystem>
+#include <iostream>
 
-#include <charconv>
-#include <cassert>
-#include <cstring>
-
-int main()
+int main(int argc, char *argv[])
 {
-	float v;
-	char s[] = "1.0";
+	if (argc != 2)
+	{
+		std::cerr << "Usage: example <inputfile>\n";
+		exit(1);
+	}
 
-	auto r = std::from_chars(s, s + strlen(s), v);
+	cif::file file(argv[1]);
 
-	assert(r.ec == std::errc{});
-	assert(r.ptr = s + strlen(s));
-	assert(v == 1.0f);
+	if (file.empty())
+	{
+		std::cerr << "Empty file\n";
+		exit(1);
+	}
+
+	auto &db = file.front();
+	cif::cql::connection c(db);
+	cif::cql::transaction tx(c);
+
+	auto N = tx.exec("SELECT COUNT(*) FROM atom_site").one_field().get<std::size_t>();
+	auto M = tx.exec("SELECT COUNT(*) FROM atom_site WHERE label_atom_id = 'OXT'").one_field().get<std::size_t>();
+
+	std::cout << "File contains " << N << " atoms of which " << M << (M == 1 ? " is" : " are") << " OXT\n"
+			  << "residues with an OXT are:\n";
+
+	for (const auto &[asym, comp, seqnr] : tx.stream<std::string, std::string, int>(
+			 "SELECT label_asym_id, label_comp_id, label_seq_id FROM atom_site WHERE label_atom_id = 'OXT'"))
+	{
+		std::cout << asym << ' ' << comp << ' ' << seqnr << '\n';
+	}
 
 	return 0;
 }

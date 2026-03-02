@@ -53,8 +53,6 @@
 #include <utility>
 #include <vector>
 
-namespace fs = std::filesystem;
-
 namespace cif::mm
 {
 

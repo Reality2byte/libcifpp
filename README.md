@@ -40,8 +40,6 @@ The documentation can be found at [github.io](https://pdb-redo.github.io/libcifp
 
 #include <cif++/cif++.hpp>
 
-namespace fs = std::filesystem;
-
 int main(int argc, char *argv[])
 {
     if (argc != 2)

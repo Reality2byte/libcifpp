@@ -64,6 +64,9 @@ endif()
 # Build documentation?
 set(BUILD_DOCUMENTATION OFF CACHE BOOL "Build the documentation")
 
+# Build examples?
+set(BUILD_EXAMPLES ON CACHE BOOL "Build the example applications")
+
 # Optionally build a version to be installed inside CCP4
 set(BUILD_FOR_CCP4 OFF CACHE BOOL "Build a version to be installed in CCP4")
 
@@ -583,4 +586,8 @@ endif()
 
 if(BUILD_DOCUMENTATION)
     add_subdirectory(docs)
+endif()
+
+if(BUILD_EXAMPLES)
+    add_subdirectory(examples)
 endif()

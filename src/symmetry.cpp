@@ -75,29 +75,29 @@ cell::cell(const datablock &db)
 
 void cell::init()
 {
-	auto alpha = (m_alpha * kPI) / 180;
-	auto beta = (m_beta * kPI) / 180;
-	auto gamma = (m_gamma * kPI) / 180;
+	auto alpha = (m_alpha * std::numbers::pi_v<float>) / 180;
+	auto beta = (m_beta * std::numbers::pi_v<float>) / 180;
+	auto gamma = (m_gamma * std::numbers::pi_v<float>) / 180;
 
 	auto alpha_star = std::acos((std::cos(gamma) * std::cos(beta) - std::cos(alpha)) / (std::sin(beta) * std::sin(gamma)));
 
 	m_orthogonal = identity_matrix(3);
 
-	m_orthogonal(0, 0) = static_cast<float>(m_a);
-	m_orthogonal(0, 1) = static_cast<float>(m_b * std::cos(gamma));
-	m_orthogonal(0, 2) = static_cast<float>(m_c * std::cos(beta));
-	m_orthogonal(1, 1) = static_cast<float>(m_b * std::sin(gamma));
-	m_orthogonal(1, 2) = static_cast<float>(-m_c * std::sin(beta) * std::cos(alpha_star));
-	m_orthogonal(2, 2) = static_cast<float>(m_c * std::sin(beta) * std::sin(alpha_star));
+	m_orthogonal(0, 0) = m_a;
+	m_orthogonal(0, 1) = m_b * std::cos(gamma);
+	m_orthogonal(0, 2) = m_c * std::cos(beta);
+	m_orthogonal(1, 1) = m_b * std::sin(gamma);
+	m_orthogonal(1, 2) = m_c * std::sin(beta) * std::cos(alpha_star);
+	m_orthogonal(2, 2) = m_c * std::sin(beta) * std::sin(alpha_star);
 
 	m_fractional = inverse(m_orthogonal);
 }
 
 float cell::get_volume() const
 {
-	auto alpha = (m_alpha * kPI) / 180;
-	auto beta = (m_beta * kPI) / 180;
-	auto gamma = (m_gamma * kPI) / 180;
+	auto alpha = (m_alpha * std::numbers::pi_v<float>) / 180;
+	auto beta = (m_beta * std::numbers::pi_v<float>) / 180;
+	auto gamma = (m_gamma * std::numbers::pi_v<float>) / 180;
 
 	auto cos_alpha = std::cos(alpha);
 	auto cos_beta = std::cos(beta);

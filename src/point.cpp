@@ -73,7 +73,7 @@ quaternion_type<T> normalize(quaternion_type<T> q)
 
 quaternion construct_from_angle_axis(float angle, point axis)
 {
-	angle = static_cast<float>((angle * kPI / 180) / 2);
+	angle = (angle * std::numbers::pi_v<float> / 180) / 2;
 	auto s = std::sin(angle);
 	auto c = std::cos(angle);
 
@@ -86,14 +86,14 @@ quaternion construct_from_angle_axis(float angle, point axis)
 		static_cast<float>(s * axis.m_z) });
 }
 
-std::tuple<double, point> quaternion_to_angle_axis(quaternion q)
+std::tuple<float, point> quaternion_to_angle_axis(quaternion q)
 {
 	if (q.get_a() > 1)
 		q = normalize(q);
 
 	// angle:
-	double angle = 2 * std::acos(q.get_a());
-	angle = angle * 180 / kPI;
+	float angle = 2 * std::acos(q.get_a());
+	angle = angle * 180 / std::numbers::pi_v<float>;
 
 	// axis:
 	float s = std::sqrt(1 - q.get_a() * q.get_a());

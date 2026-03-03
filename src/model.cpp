@@ -490,7 +490,7 @@ float monomer::kappa() const
 			{
 				double ckap = cosinus_angle(CAlpha().get_location(), prevPrev.CAlpha().get_location(), nextNext.CAlpha().get_location(), CAlpha().get_location());
 				double skap = std::sqrt(1 - ckap * ckap);
-				result = static_cast<float>(std::atan2(skap, ckap) * 180 / kPI);
+				result = static_cast<float>(std::atan2(skap, ckap) * 180 / std::numbers::pi_v<float>);
 			}
 		}
 	}

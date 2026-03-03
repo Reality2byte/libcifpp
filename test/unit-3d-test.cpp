@@ -117,7 +117,7 @@ TEST_CASE("t2")
 
 	cif::point xp = cif::cross_product(p[1] - p[0], p[2] - p[0]);
 
-	auto q = cif::construct_from_angle_axis(45, xp); // mmcif::Normalize(Quaternion{45 * mmcif::kPI / 180, xp.mX, xp.mY, xp.mZ});
+	auto q = cif::construct_from_angle_axis(45, xp);
 
 	auto &&[angle, axis] = cif::quaternion_to_angle_axis(q);
 
@@ -134,7 +134,7 @@ TEST_CASE("t3")
 
 	cif::point xp = cif::cross_product(p[1] - p[0], p[2] - p[0]);
 
-	auto q = cif::construct_from_angle_axis(45, xp); // mmcif::Normalize(Quaternion{45 * mmcif::kPI / 180, xp.mX, xp.mY, xp.mZ});
+	auto q = cif::construct_from_angle_axis(45, xp);
 
 	auto v = p[1];
 	v -= p[0];

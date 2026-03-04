@@ -26,6 +26,7 @@
 
 #include "test-main.hpp"
 
+#include <catch2/catch_test_macros.hpp>
 #include <cif++/cif++.hpp>
 
 // --------------------------------------------------------------------
@@ -431,6 +432,23 @@ TEST_CASE("remove_residue_1")
 	s.remove_residue(s.get_residue("B"));
 
 	CHECK_NOTHROW(s.validate_atoms());
+}
+
+// --------------------------------------------------------------------
+
+TEST_CASE("test_alternates_1")
+{
+	using namespace cif::literals;
+
+	const std::filesystem::path example(gTestDir / ".." / "examples" / "1cbs.cif.gz");
+	cif::file file(example.string());
+
+	auto &db = file.front();
+
+	cif::mm::structure s(file);
+
+	for (auto atom : s.atoms())
+		CHECK_FALSE(atom.is_alternate());
 }
 
 // --------------------------------------------------------------------

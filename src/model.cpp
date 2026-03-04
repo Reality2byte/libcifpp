@@ -1298,31 +1298,31 @@ void structure::load_data()
 
 	// place atoms in residues
 
-	using key_type = std::tuple<std::string, int, std::string>;
+	using key_type = std::tuple<std::string, int, std::string, std::string>;
 	std::map<key_type, residue *> resMap;
 
 	for (auto &poly : m_polymers)
 	{
 		for (auto &res : poly)
-			resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num() }] = &res;
+			resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num(), res.get_compound_id() }] = &res;
 	}
 
 	for (auto &res : m_non_polymers)
-		resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num() }] = &res;
+		resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num(), res.get_compound_id() }] = &res;
 
 	std::set<std::string> sugars;
 	for (auto &branch : m_branches)
 	{
 		for (auto &sugar : branch)
 		{
-			resMap[{ sugar.get_asym_id(), sugar.get_seq_id(), sugar.get_pdb_seq_num() }] = &sugar;
+			resMap[{ sugar.get_asym_id(), sugar.get_seq_id(), sugar.get_pdb_seq_num(), sugar.get_compound_id() }] = &sugar;
 			sugars.insert(sugar.get_compound_id());
 		}
 	}
 
 	for (auto &atom : m_atoms)
 	{
-		key_type k(atom.get_label_asym_id(), atom.get_label_seq_id(), atom.get_auth_seq_id());
+		key_type k(atom.get_label_asym_id(), atom.get_label_seq_id(), atom.get_auth_seq_id(), atom.get_label_comp_id());
 		auto ri = resMap.find(k);
 
 		if (ri == resMap.end())

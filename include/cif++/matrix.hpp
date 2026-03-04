@@ -536,7 +536,7 @@ class matrix_matrix_multiplication : public matrix_expression<matrix_matrix_mult
 		: m_m1(m1)
 		, m_m2(m2)
 	{
-		assert(m1.dim_m() == m2.dim_n());
+		assert(m1.dim_n() == m2.dim_m());
 	}
 
 	[[nodiscard]] constexpr std::size_t dim_m() const { return m_m1.dim_m(); } ///< Return dimension m
@@ -549,7 +549,7 @@ class matrix_matrix_multiplication : public matrix_expression<matrix_matrix_mult
 
 		value_type result = {};
 
-		for (std::size_t k = 0; k < m_m1.dim_m(); ++k)
+		for (std::size_t k = 0; k < m_m1.dim_n(); ++k)
 			result += m_m1(i, k) * m_m2(k, j);
 
 		return result;

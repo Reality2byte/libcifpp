@@ -85,7 +85,7 @@ TEST_CASE("m4")
 		}
 	};
 
-	// std::cout << m << "\n\n";
+	std::cout << m << "\n\n";
 
 	// std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 0)) << "\n\n";
 	// std::cout << cif::matrix3x3<int>(cif::sub_matrix<decltype(m)>(m, 0, 1)) << "\n\n";
@@ -100,4 +100,16 @@ TEST_CASE("m4")
 	CHECK(cif::determinant(m) == 332);
 }
 
+// --------------------------------------------------------------------
+
+TEST_CASE("m5")
+{
+    cif::matrix4x4<float> m = cif::identity_matrix<float>(4);
+    cif::matrix_fixed<float, 1, 4> v({ 0, 0.5f, 0, 1.0f });
+
+    auto mv = v * m;
+
+    CHECK(mv == v);
+
+}
 

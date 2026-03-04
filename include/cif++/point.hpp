@@ -62,12 +62,6 @@ namespace cif
 {
 
 // --------------------------------------------------------------------
-
-/// \brief Our value for Pi
-const double
-	kPI = std::numbers::pi;
-
-// --------------------------------------------------------------------
 /**
  * @brief A stripped down quaternion implementation, based on boost::math::quaternion
  *
@@ -809,7 +803,7 @@ constexpr auto angle(const point_type<F> &p1, const point_type<F> &p2, const poi
 	point_type<F> v1 = p1 - p2;
 	point_type<F> v2 = p3 - p2;
 
-	return std::acos(dot_product(v1, v2) / (v1.length() * v2.length())) * 180 / kPI;
+	return std::acos(dot_product(v1, v2) / (v1.length() * v2.length())) * 180 / std::numbers::pi_v<F>;
 }
 
 /// \brief return the dihedral angle in degrees for the four points @a p1, @a p2, @a p3 and @a p4
@@ -836,7 +830,7 @@ constexpr auto dihedral_angle(const point_type<F> &p1, const point_type<F> &p2, 
 		u = dot_product(p, x) / std::sqrt(u);
 		v = dot_product(p, y) / std::sqrt(v);
 		if (u != 0 or v != 0)
-			result = std::atan2(v, u) * static_cast<F>(180 / kPI);
+			result = std::atan2(v, u) * static_cast<F>(180 / std::numbers::pi_v<F>);
 	}
 
 	return result;
@@ -882,7 +876,7 @@ point nudge(point p, float offset);
 quaternion construct_from_angle_axis(float angle, point axis);
 
 /// \brief Return a tuple of an angle and an axis for quaternion @a q
-std::tuple<double, point> quaternion_to_angle_axis(quaternion q);
+std::tuple<float, point> quaternion_to_angle_axis(quaternion q);
 
 /// @brief Given four points and an angle, return the quaternion required to rotate
 /// point p4 along the p2-p3 axis and around point p3 to obtain the required within
@@ -924,7 +918,7 @@ class spherical_dots
 	constexpr static int P = 2 * N * 1;
 
 	/// \brief the *weight* of the fibonacci sphere
-	constexpr static double W = (4 * kPI) / P;
+	constexpr static double W = (4 * std::numbers::pi) / P;
 
 	/// \brief the internal storage type
 	using array_type = typename std::array<point, P>;
@@ -964,7 +958,7 @@ class spherical_dots
 		for (int32_t i = -N; i <= N; ++i)
 		{
 			double lat = std::asin((2.0 * i) / P);
-			double lon = std::fmod(i, kGoldenRatio) * 2 * kPI / kGoldenRatio;
+			double lon = std::fmod(i, kGoldenRatio) * 2 * std::numbers::pi / kGoldenRatio;
 
 			p->m_x = std::sin(lon) * std::cos(lat);
 			p->m_y = std::cos(lon) * std::cos(lat);

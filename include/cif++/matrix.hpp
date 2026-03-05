@@ -443,6 +443,32 @@ using symmetric_matrix4x4 = symmetric_matrix_fixed<F, 4>;
 
 // --------------------------------------------------------------------
 
+/// A transposed matrix view
+
+template <typename M>
+class transposed_matrix : public cif::matrix_expression<transposed_matrix<M>>
+{
+  public:
+	transposed_matrix(const M &m)
+		: m_m(m)
+	{
+	}
+
+	[[nodiscard]] constexpr std::size_t dim_m() const { return m_m.dim_n(); } ///< Return dimension m
+	[[nodiscard]] constexpr std::size_t dim_n() const { return m_m.dim_m(); } ///< Return dimension n
+
+	/** Access to the value of element [ @a i, @a j ] */
+	[[nodiscard]] constexpr auto operator()(std::size_t i, std::size_t j) const
+	{
+		return m_m(j, i);
+	}
+
+  private:
+	const M &m_m;
+};
+
+// --------------------------------------------------------------------
+
 /**
  * @brief implementation of symmetric matrix_expression with a value
  * of 1 for the diagonal values and 0 for all the others.

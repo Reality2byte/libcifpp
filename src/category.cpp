@@ -2091,11 +2091,11 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 				if (v == nullptr)
 					continue;
 
-				if (v->is_string() and v->sv().find('\n') == std::string_view::npos)
+				if (auto s = v->str(); s.find('\n') == std::string_view::npos)
 				{
-					std::size_t l = v->sv().length();
+					std::size_t l = s.length();
 
-					if (not sac_parser::is_unquoted_string(v->sv()))
+					if (not sac_parser::is_unquoted_string(s))
 						l += 2;
 
 					if (l > 132)

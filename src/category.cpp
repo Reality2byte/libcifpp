@@ -412,7 +412,7 @@ category_index::entry *category_index::insert(category &cat, entry *h, row *v)
 		std::ostringstream os;
 		for (auto col : cat.key_items())
 		{
-			if (rh[col])
+			if (not rh[col].empty())
 				os << col << ": " << std::quoted(rh[col].str()) << "; ";
 		}
 

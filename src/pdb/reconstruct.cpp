@@ -474,13 +474,13 @@ void checkChemCompRecords(datablock &db)
 		{
 			std::vector<item> items;
 
-			if (not chem_comp_entry["type"])
+			if (chem_comp_entry["type"].empty())
 				items.emplace_back("type", compound->type());
-			if (not chem_comp_entry["name"])
+			if (chem_comp_entry["name"].empty())
 				items.emplace_back("name", compound->name());
-			if (not chem_comp_entry["formula"])
+			if (chem_comp_entry["formula"].empty())
 				items.emplace_back("formula", compound->formula());
-			if (not chem_comp_entry["formula_weight"])
+			if (chem_comp_entry["formula_weight"].empty())
 				items.emplace_back("formula_weight", item_value{ compound->formula_weight(), 3 });
 
 			if (not items.empty())
@@ -605,15 +605,15 @@ void checkAtomRecords(datablock &db)
 		{
 			std::vector<item> items;
 
-			if (not chem_comp_entry["type"])
+			if (chem_comp_entry["type"].empty())
 				items.emplace_back("type", compound->type());
-			if (not chem_comp_entry["mon_nstd_flag"] and non_std.has_value())
+			if (chem_comp_entry["mon_nstd_flag"].empty() and non_std.has_value())
 				items.emplace_back("mon_nstd_flag", non_std);
-			if (not chem_comp_entry["name"])
+			if (chem_comp_entry["name"].empty())
 				items.emplace_back("name", compound->name());
-			if (not chem_comp_entry["formula"])
+			if (chem_comp_entry["formula"].empty())
 				items.emplace_back("formula", compound->formula());
-			if (not chem_comp_entry["formula_weight"])
+			if (chem_comp_entry["formula_weight"].empty())
 				items.emplace_back("formula_weight", item_value{ compound->formula_weight(), 3 });
 
 			if (not items.empty())

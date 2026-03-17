@@ -60,6 +60,13 @@ const item_value &item_handle::value() const
 	return m_row.operator[](m_item_ix);
 }
 
+void swap(item_handle a, item_handle b) noexcept
+{
+	item_value v(std::move(a.value()));
+	a.value() = std::move(b.value());
+	b.value() = std::move(v);
+}
+
 void item_handle::set(item_value value, bool updateLinked)
 {
 	row_handle rh{ m_category, m_row };

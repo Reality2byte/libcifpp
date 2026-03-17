@@ -737,7 +737,7 @@ struct item_handle
 	}
 
 	/** Swap contents of @a a and @a b */
-	friend void swap(item_handle &a, item_handle &b) noexcept;
+	friend void swap(item_handle a, item_handle b) noexcept;
 
 	/** Return the contents of this item as type @tparam T or, if not
 	 * set, use @a dv as the default value.

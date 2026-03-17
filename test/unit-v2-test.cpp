@@ -25,6 +25,7 @@
  */
 
 #include "cif++/category.hpp"
+#include "cif++/model.hpp"
 #include "cif++/row.hpp"
 #include "test-main.hpp"
 
@@ -32,6 +33,7 @@
 #include <catch2/catch_test_macros.hpp>
 #include <cif++/cif++.hpp>
 #include <exception>
+#include <ostream>
 #include <sstream>
 #include <stdexcept>
 
@@ -3584,4 +3586,74 @@ _test.v1
 )");
 
 }
+
+TEST_CASE("io-test-3")
+{
+	auto data = R"(data_test
+loop_
+_atom_site.group_PDB               
+_atom_site.id                      
+_atom_site.type_symbol             
+_atom_site.label_atom_id           
+_atom_site.label_alt_id            
+_atom_site.label_comp_id           
+_atom_site.label_asym_id           
+_atom_site.label_entity_id         
+_atom_site.label_seq_id            
+_atom_site.pdbx_PDB_ins_code       
+_atom_site.Cartn_x                 
+_atom_site.Cartn_y                 
+_atom_site.Cartn_z                 
+_atom_site.occupancy               
+_atom_site.B_iso_or_equiv          
+_atom_site.pdbx_formal_charge      
+_atom_site.auth_atom_id            
+_atom_site.auth_comp_id            
+_atom_site.auth_seq_id             
+_atom_site.auth_asym_id            
+_atom_site.pdbx_PDB_model_num      
+HETATM 1 O O . HOH A 1 . ? 10.518 -1.781 0 1 37.22 ? O HOH 1 D 1 
+)"_cf;
+
+	auto &db = data.front();
+	db.load_dictionary("mmcif_pdbx.dic");
+
+	auto row = db["atom_site"].front();
+	const auto &[x, y, z, id, label_asym_id, auth_asym_id, auth_seq_id] = row.get<float, float, float, std::string, std::string, std::string, int>("cartn_x", "cartn_y", "cartn_z", "id", "label_asym_id", "auth_asym_id", "auth_seq_id");
+
+	cif::mm::structure s(data);
+	s.create_water(row);
+
+	std::ostringstream os;
+	os << db["atom_site"];
+
+	CHECK(os.str() == R"(loop_
+_atom_site.group_PDB 
+_atom_site.id 
+_atom_site.type_symbol 
+_atom_site.label_atom_id 
+_atom_site.label_alt_id 
+_atom_site.label_comp_id 
+_atom_site.label_asym_id 
+_atom_site.label_entity_id 
+_atom_site.label_seq_id 
+_atom_site.pdbx_PDB_ins_code 
+_atom_site.Cartn_x 
+_atom_site.Cartn_y 
+_atom_site.Cartn_z 
+_atom_site.occupancy 
+_atom_site.B_iso_or_equiv 
+_atom_site.pdbx_formal_charge 
+_atom_site.auth_atom_id 
+_atom_site.auth_comp_id 
+_atom_site.auth_seq_id 
+_atom_site.auth_asym_id 
+_atom_site.pdbx_PDB_model_num 
+HETATM 1 O O . HOH A 1 . ? 10.518 -1.781 0 1 37.22 ? O HOH 1 D 1 
+HETATM 2 O O . HOH A 1 . ? 10.518 -1.781 0 1 37.22 ? O HOH 2 D 1 
+# 
+)");
+}
+
+
 

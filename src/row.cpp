@@ -122,8 +122,6 @@ row_initializer::row_initializer(const_row_handle rh)
 	for (uint16_t ix = 0; std::cmp_less(ix, r->size()); ++ix)
 	{
 		auto &i = r->operator[](ix);
-		if (not i)
-			continue;
 		emplace_back(cat.get_item_name(ix), i);
 	}
 }

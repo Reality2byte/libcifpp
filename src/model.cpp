@@ -2307,7 +2307,11 @@ void structure::create_water(row_initializer atom)
 {
 	using namespace literals;
 
-	auto entity_id = insert_compound("HOH", true);
+	std::string entity_id;
+	if (auto id = m_db["entity"].find_first<std::optional<std::string>>("type"_key == "water", "id"))
+		entity_id = *id;
+	else
+		entity_id = insert_compound("HOH", true);
 
 	auto &struct_asym = m_db["struct_asym"];
 	std::string asym_id;
@@ -2326,17 +2330,28 @@ void structure::create_water(row_initializer atom)
 	}
 
 	auto &atom_site = m_db["atom_site"];
-	auto auth_seq_id = atom_site.find_max<int>("auth_seq_id", "label_entity_id"_key == entity_id) + 1;
+
+	int auth_seq_id = atom_site.find_max<int>("auth_seq_id", "label_entity_id"_key == entity_id) + 1;
 	if (auth_seq_id < 0)
 		auth_seq_id = 1;
+
+	for (auto i : atom)
+	{
+		if (i.name() == "auth_seq_id")
+		{
+			auth_seq_id = i.value().get<int>();
+			break;
+		}
+	}
 
 	auto atom_id = atom_site.get_unique_id("");
 
 	atom.set_value("id", atom_id);
 	atom.set_value("label_asym_id", asym_id);
-	atom.set_value("auth_asym_id", asym_id);
 	atom.set_value("label_entity_id", entity_id);
-	atom.set_value("auth_seq_id", std::to_string(auth_seq_id));
+
+	atom.set_value_if_empty("auth_asym_id", asym_id);
+	atom.set_value_if_empty("auth_seq_id", std::to_string(auth_seq_id));
 
 	atom.set_value_if_empty({ "group_PDB", "HETATM" });
 	atom.set_value_if_empty({ "label_comp_id", "HOH" });

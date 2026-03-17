@@ -255,23 +255,6 @@ class item_value
 	/// Return the type of the contained value
 	[[nodiscard]] constexpr item_value_type type() const { return m_data.m_type; }
 
-	/// Depending on the type, return true if the value is considered to be 'true'
-	explicit operator bool() const noexcept
-	{
-		bool result = false;
-		switch (m_data.m_type)
-		{
-			using enum item_value_type;
-
-			case INT: result = m_data.m_value.m_integer != 0; break;
-			case FLOAT: result = m_data.m_value.m_float != 0; break;
-			case TEXT: result = m_data.m_len != 0; break;
-			case INAPPLICABLE:
-			case MISSING: result = false; break;
-		}
-		return result;
-	}
-
 	/// Return true if the contained value is considered to be 'empty'
 	[[nodiscard]] bool empty() const noexcept
 	{
@@ -815,9 +798,6 @@ struct item_handle
 	 * in a mmCIF context
 	 */
 	[[nodiscard]] bool empty() const;
-
-	/** Easy way to test for an empty item */
-	explicit operator bool() const { return not empty(); }
 
 	/** Return a std::string_view for the contents */
 	[[nodiscard]] std::string_view text_() const;

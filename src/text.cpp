@@ -516,7 +516,7 @@ std::vector<std::string> word_wrap(const std::string &text, std::size_t width)
 	return result;
 }
 
-#if __has_include("fast_float/fast_float.h")
+#if defined(USE_FAST_FLOAT)
 
 template <typename T>
 std::from_chars_result ff_charconv<T, typename std::enable_if_t<std::is_floating_point_v<T>>>::from_chars(const char *a, const char *b, T &v)

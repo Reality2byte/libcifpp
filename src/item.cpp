@@ -26,7 +26,8 @@
 
 #include "cif++/item.hpp"
 
-#include "cif++/cif++.hpp"
+#include "cif++/row.hpp"
+#include "cif++/text.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -238,7 +239,7 @@ void item_value::cast_to_int()
 		{
 			auto s = sv();
 			int64_t v;
-			auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+			auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.size(), v);
 			if (ec != std::errc{})
 				throw std::system_error(std::make_error_code(ec), "attempt to cast value to integer failed");
 			if (ptr != s.data() + s.size())
@@ -270,7 +271,7 @@ void item_value::cast_to_float()
 		{
 			auto s = sv();
 			double v;
-			auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+			auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.size(), v);
 			if (ec != std::errc{})
 				throw std::system_error(std::make_error_code(ec), "attempt to cast value to integer failed");
 			if (ptr != s.data() + s.size())

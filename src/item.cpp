@@ -25,6 +25,7 @@
  */
 
 #include "cif++/item.hpp"
+
 #include "cif++/cif++.hpp"
 
 #include <algorithm>
@@ -32,6 +33,7 @@
 #include <charconv>
 #include <cmath>
 #include <compare>
+#include <cstdint>
 #include <ostream>
 #include <stdexcept>
 #include <string>
@@ -217,6 +219,74 @@ std::ostream &operator<<(std::ostream &os, const item_value &v)
 	}
 
 	return os;
+}
+
+void item_value::cast_to_int()
+{
+	switch (type())
+	{
+		using enum item_value_type;
+
+		case INT:
+			break;
+
+		case FLOAT:
+			*this = std::rint(m_data.m_value.m_float);
+			break;
+
+		case TEXT:
+		{
+			auto s = sv();
+			int64_t v;
+			auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+			if (ec != std::errc{})
+				throw std::system_error(std::make_error_code(ec), "attempt to cast value to integer failed");
+			if (ptr != s.data() + s.size())
+				throw std::runtime_error("attempt to cast value to integer failed, trailing data");
+
+			*this = v;
+			break;
+		}
+
+		default:
+			break;
+	}
+}
+
+void item_value::cast_to_float()
+{
+	switch (type())
+	{
+		using enum item_value_type;
+
+		case INT:
+			*this = static_cast<double>(m_data.m_value.m_integer);
+			break;
+
+		case FLOAT:
+			break;
+
+		case TEXT:
+		{
+			auto s = sv();
+			double v;
+			auto [ptr, ec] = std::from_chars(s.data(), s.data() + s.size(), v);
+			if (ec != std::errc{})
+				throw std::system_error(std::make_error_code(ec), "attempt to cast value to integer failed");
+			if (ptr != s.data() + s.size())
+				throw std::runtime_error("attempt to cast value to integer failed, trailing data");
+			*this = v;
+			break;
+		}
+
+		default:
+			break;
+	}
+}
+
+void item_value::cast_to_string()
+{
+	*this = str();
 }
 
 } // namespace cif

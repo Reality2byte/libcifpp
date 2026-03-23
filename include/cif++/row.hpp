@@ -559,7 +559,7 @@ class row_initializer : public std::vector<item>
 	/// \brief constructor taking a range of items
 	template <typename ItemIter>
 	row_initializer(ItemIter b, ItemIter e)
-		requires(std::is_same_v<typename ItemIter::value_type, item>)
+		requires(std::is_constructible_v<item, typename ItemIter::value_type>)
 		: std::vector<item>(b, e)
 	{
 	}
@@ -589,6 +589,12 @@ class row_initializer : public std::vector<item>
 	void set_value_if_empty(const item &i)
 	{
 		set_value_if_empty(i.name(), i.value());
+	}
+
+	/// \brief enable emplace_back for more complex items (floats with precission)
+	auto emplace_back(std::string name, item_value value)
+	{
+		return std::vector<item>::emplace_back(item(std::forward<std::string>(name), std::forward<item_value>(value)));
 	}
 };
 

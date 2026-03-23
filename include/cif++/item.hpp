@@ -190,12 +190,23 @@ class item_value
 	}
 
 	/// Construct an item_value containing the double @a v
+	/// No precission is recorded, so output will be as
+	/// long as required to contain value.
+	template <FloatType T>
+	item_value(T v)
+	{
+		m_data.m_type = item_value_type::FLOAT;
+		m_data.m_value = static_cast<double>(v);
+		m_data.m_len = 0;
+	}
+
+	/// Construct an item_value containing the double @a v
 	/// If precision is not zero, output of this value to a file
 	/// will use this precision. When parsing files, this precision
 	/// is taken from the parsed string which will guarantee that
 	/// the output of the data is the same as the input.
 	template <FloatType T>
-	item_value(T v, int precision = 0)
+	item_value(T v, int precision)
 	{
 		m_data.m_type = item_value_type::FLOAT;
 		m_data.m_value = static_cast<double>(v);
@@ -214,6 +225,25 @@ class item_value
 		}
 		else
 			m_data.m_type = item_value_type::MISSING;
+	}
+
+	/// Construct an item_value containing the double @a v
+	/// If precision is not zero, output of this value to a file
+	/// will use this precision. When parsing files, this precision
+	/// is taken from the parsed string which will guarantee that
+	/// the output of the data is the same as the input.
+	/// If v is emtpy, the proper MISSING value type will be used.
+	template <FloatType T>
+	item_value(std::optional<T> v, int precision)
+	{
+		if (v.has_value())
+		{
+			item_value iv{ *v };
+			swap(*this, iv);
+		}
+		else
+			m_data.m_type = item_value_type::MISSING;
+		m_data.m_len = precision;
 	}
 
 	/// Move constructor
@@ -454,6 +484,15 @@ class item_value
 
 	/// For debugging, print out a value
 	friend std::ostream &operator<<(std::ostream &os, const item_value &v);
+
+	/// \brief Cast the value to an integer, will throw if not possible
+	void cast_to_int();
+
+	/// \brief Cast the value to a float, will throw if not possible
+	void cast_to_float();
+
+	/// \brief Cast the value to a string, may throw (when value is null)
+	void cast_to_string();
 
 	/// @cond
 

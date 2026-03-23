@@ -958,7 +958,8 @@ _cat_2.desc
 		//     { "desc", "moet fout gaan" }
 		// }), std::exception);
 
-		CHECK_THROWS_AS(cat2.emplace({ { "id", "vijf" }, // <- invalid value
+		CHECK_THROWS_AS(cat2.emplace({        //
+							{ "id", "vijf" }, // <- invalid value
 							{ "parent_id", 2 },
 							{ "desc", "moet fout gaan" } }),
 			std::exception);
@@ -984,6 +985,13 @@ _cat_2.desc
 	// 	CHECK(cat2.find1<int>(cif::key("id") == 2, "parent_id") == 2);
 	// 	CHECK(cat2.find1<int>(cif::key("id") == 3, "parent_id") == 3);
 	// }
+
+	SECTION("three")
+	{
+		auto &cat2 = f.front()["cat_2"];
+
+		cat2.emplace({ { "id", "4" }, { "parent_id", "1" }, { "name", "Brulaap" } });
+	}
 }
 
 // --------------------------------------------------------------------
@@ -1097,7 +1105,8 @@ mies Mies
 	CHECK(cat1.size() == 2);
 
 	// should fail with duplicate key:
-	CHECK_THROWS_AS(cat1.emplace({ { "id", "aap" },
+	CHECK_THROWS_AS(cat1.emplace({ //
+						{ "id", "aap" },
 						{ "c", "2e-aap" } }),
 		std::exception);
 
@@ -1105,7 +1114,8 @@ mies Mies
 
 	CHECK(cat1.size() == 1);
 
-	cat1.emplace({ { "id", "aap" },
+	cat1.emplace({ //
+		{ "id", "aap" },
 		{ "c", "2e-aap" } });
 
 	CHECK(cat1.size() == 2);
@@ -3553,7 +3563,7 @@ TEST_CASE("io-test-1")
 {
 	cif::category cat("test");
 	cat.emplace({ { "v1", { 0.0, 3 } } });
-	
+
 	std::ostringstream os;
 	os << cat;
 
@@ -3582,6 +3592,4 @@ _test.v1
 0.000 
 # 
 )");
-
 }
-

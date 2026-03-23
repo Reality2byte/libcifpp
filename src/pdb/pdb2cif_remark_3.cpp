@@ -1541,26 +1541,26 @@ bool Remark3Parser::parse(const std::string &expMethod, PDBRecord *r, cif::datab
 				if (r1[iv.m_item_name].empty())
 					continue;
 
-				if (iv.m_type and iv.m_type->m_primitive_type == DDL_PrimitiveType::Numb)
-				{
-					try
-					{
-						r2[iv.m_item_name] = r1[iv.m_item_name].get<int64_t>();
-						continue;
-					}
-					catch (...)
-					{
-					}
+				// if (iv.m_type and iv.m_type->m_primitive_type == DDL_PrimitiveType::Numb)
+				// {
+				// 	try
+				// 	{
+				// 		r2[iv.m_item_name] = r1[iv.m_item_name].get<int64_t>();
+				// 		continue;
+				// 	}
+				// 	catch (...)
+				// 	{
+				// 	}
 
-					try
-					{
-						r2[iv.m_item_name] = r1[iv.m_item_name].get<double>();
-						continue;
-					}
-					catch (...)
-					{
-					}
-				}
+				// 	try
+				// 	{
+				// 		r2[iv.m_item_name] = r1[iv.m_item_name].get<double>();
+				// 		continue;
+				// 	}
+				// 	catch (...)
+				// 	{
+				// 	}
+				// }
 
 				r2[iv.m_item_name] = r1[iv.m_item_name].value();
 			}

@@ -25,10 +25,10 @@
  */
 
 #include "cif++/cif++.hpp"
-
 #include "cif++/item.hpp"
-#include "pdb_record.hpp"
+#include "cif++/row.hpp"
 #include "pdb2cif_remark_3.hpp"
+#include "pdb_record.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -4934,10 +4934,10 @@ void PDBFileParser::ParseSecondaryStructure()
 
 				{ "beg_auth_comp_id", vS(16, 18) },
 				{ "beg_auth_asym_id", vS(20, 20) },
-				{ "beg_auth_seq_id", vI(22, 25) },
+				{ "beg_auth_seq_id", vS(22, 25) },
 				{ "end_auth_comp_id", vS(28, 30) },
 				{ "end_auth_asym_id", vS(32, 32) },
-				{ "end_auth_seq_id", vI(34, 37) },
+				{ "end_auth_seq_id", vS(34, 37) },
 
 				{ "pdbx_PDB_helix_class", vS(39, 40) },
 				{ "details", vS(41, 70) },

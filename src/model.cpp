@@ -25,6 +25,7 @@
  */
 
 #include "cif++/cif++.hpp"
+#include "cif++/item.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -198,15 +199,16 @@ atom residue::create_new_atom(atom_type inType, const std::string &inAtomID, poi
 		{ "label_entity_id", get_entity_id() },
 		{ "label_atom_id", inAtomID },
 		{ "label_asym_id", m_asym_id },
-		{ "label_alt_id", nullptr },
+		{ "label_alt_id", cif::item_value_type::INAPPLICABLE },
 		{ "label_comp_id", m_compound_id },
 		{ "label_seq_id", m_seq_id },
+		{ "pdbx_PDB_ins_code", get_pdb_ins_code() },
 		{ "auth_asym_id", m_pdb_strand_id },
 		{ "auth_atom_id", inAtomID },
 		{ "auth_comp_id", m_compound_id },
 		{ "auth_seq_id", m_pdb_seq_num },
 		{ "occupancy", { 1.0f, 2 } },
-		{ "B_iso_or_equiv", 20.0f },
+		{ "B_iso_or_equiv", { 20.0f, 3 } },
 		{ "pdbx_PDB_model_num", m_structure->get_model_nr() },
 	});
 
@@ -1064,18 +1066,18 @@ sugar &branch::construct_sugar(const std::string &compound_id, const std::string
 	auto &pdbx_entity_branch_link = db["pdbx_entity_branch_link"];
 	auto linkID = pdbx_entity_branch_link.get_unique_id("");
 
-	db["pdbx_entity_branch_link"].emplace(//
+	db["pdbx_entity_branch_link"].emplace( //
 		{ { "link_id", std::stoi(linkID) },
-		{ "entity_id", get_entity_id() },
-		{ "entity_branch_list_num_1", result.num() },
-		{ "comp_id_1", compound_id },
-		{ "atom_id_1", atom_id },
-		{ "leaving_atom_id_1", "O1" }, /// TODO: Need to fix this!
-		{ "entity_branch_list_num_2", linked.num() },
-		{ "comp_id_2", linked.get_compound_id() },
-		{ "atom_id_2", linked_atom_id },
-		{ "leaving_atom_id_2", nullptr },
-		{ "value_order", "sing" } });
+			{ "entity_id", get_entity_id() },
+			{ "entity_branch_list_num_1", result.num() },
+			{ "comp_id_1", compound_id },
+			{ "atom_id_1", atom_id },
+			{ "leaving_atom_id_1", "O1" }, /// TODO: Need to fix this!
+			{ "entity_branch_list_num_2", linked.num() },
+			{ "comp_id_2", linked.get_compound_id() },
+			{ "atom_id_2", linked_atom_id },
+			{ "leaving_atom_id_2", nullptr },
+			{ "value_order", "sing" } });
 
 	return result;
 }

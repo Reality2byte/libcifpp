@@ -25,6 +25,7 @@
  */
 
 #include "cif++/cif++.hpp"
+#include "cif++/validate.hpp"
 
 #include <algorithm>
 #include <cassert>
@@ -1768,10 +1769,32 @@ category::iterator category::insert_impl(const_iterator pos, row *n)
 
 				bool seen = false;
 
-				auto i = n->get(ix);
-				if (i != nullptr)
+				auto v = n->get(ix);
+				if (v != nullptr)
 				{
-					iv->validate_value(*i);
+					std::error_code ec;
+					if (not iv->validate_value(*v, ec))
+					{
+						if (ec == cif::make_error_code(cif::validation_error::value_is_not_a_number))
+						{
+							// Try cast the value to a number and throw in case of failure
+							try
+							{
+								v->cast_to_int();
+							}
+							catch (...)
+							{
+								v->cast_to_float();
+							}
+						}
+						else if (ec == cif::make_error_code(cif::validation_error::value_is_not_a_char_string))
+							v->cast_to_string();
+						else
+							throw std::system_error(ec, "Attempt to insert invalid value");
+
+						iv->validate_value(*v);
+					}
+
 					seen = true;
 				}
 

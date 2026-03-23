@@ -185,14 +185,14 @@ try_compile(STD_CHARCONV_COMPILING
 
 if(NOT STD_CHARCONV_COMPILING)
     message(NOTICE "libcifpp: Using fast_float for std::from_chars")
-    find_package(FastFloat 8.0 QUIET CONFIG)
+    find_package(FastFloat 8.0 REQUIRED CONFIG)
     if(NOT FastFloat_FOUND)
         message(STATUS "FastFloat not found in system, fetching from GitHub")
-        FetchContent_Declare(fastfloat
+        FetchContent_Declare(FastFloat
             GIT_REPOSITORY "https://github.com/fastfloat/fast_float"
             GIT_TAG v8.0.2
             EXCLUDE_FROM_ALL)
-        FetchContent_MakeAvailable(fastfloat)
+        FetchContent_MakeAvailable(FastFloat)
     endif()
 endif()
 
@@ -375,7 +375,6 @@ else()
 endif()
 
 if(NOT STD_CHARCONV_COMPILING)
-#    target_link_libraries(cifpp PRIVATE FastFloat::fast_float)
      target_include_directories(cifpp PRIVATE ${FastFloat_INCLUDE_DIRS})
 endif()
 

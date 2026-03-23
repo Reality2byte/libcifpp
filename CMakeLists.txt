@@ -375,7 +375,8 @@ else()
 endif()
 
 if(NOT STD_CHARCONV_COMPILING)
-    target_link_libraries(cifpp PRIVATE FastFloat::fast_float)
+#    target_link_libraries(cifpp PRIVATE FastFloat::fast_float)
+     target_include_directories(cifpp PRIVATE ${FastFloat_INCLUDE_DIRS})
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")

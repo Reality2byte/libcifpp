@@ -31,7 +31,7 @@
 #include <cctype>
 #include <stdexcept>
 
-#if __has_include("fast_float/fast_float.h")
+#if defined(USE_FAST_FLOAT)
 # include "fast_float/fast_float.h"
 #endif
 

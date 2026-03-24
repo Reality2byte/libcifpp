@@ -38,9 +38,7 @@ The documentation can be found at [github.io](https://pdb-redo.github.io/libcifp
 #include <filesystem>
 #include <iostream>
 
-#include <cif++.hpp>
-
-namespace fs = std::filesystem;
+#include <cif++/cif++.hpp>
 
 int main(int argc, char *argv[])
 {

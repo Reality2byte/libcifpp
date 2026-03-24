@@ -27,9 +27,14 @@
 #pragma once
 
 #include "cif++/category.hpp"
-#include "cif++/forward_decl.hpp"
 
+#include <iosfwd>
 #include <list>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 /** \file datablock.hpp
  * Each valid mmCIF file contains at least one @ref cif::datablock.
@@ -38,6 +43,8 @@
 
 namespace cif
 {
+
+class validator;
 
 // --------------------------------------------------------------------
 
@@ -76,6 +83,7 @@ class datablock : public std::list<category>
 	}
 	/** @endcond */
 
+	/// Swap two datablocks
 	friend void swap_(datablock &a, datablock &b) noexcept
 	{
 		std::swap(a.m_name, b.m_name);
@@ -88,7 +96,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Return the name of this datablock
 	 */
-	const std::string &name() const { return m_name; }
+	[[nodiscard]] const std::string &name() const { return m_name; }
 
 	/**
 	 * @brief Set the name of this datablock to @a name
@@ -107,6 +115,12 @@ class datablock : public std::list<category>
 	void load_dictionary();
 
 	/**
+	 * @brief Attempt to load the dictionary @a dict
+	 *
+	 */
+	void load_dictionary(std::string_view dict);
+
+	/**
 	 * @brief Set the validator object to @a v
 	 *
 	 * @param v The new validator object, may be null
@@ -118,7 +132,7 @@ class datablock : public std::list<category>
 	 *
 	 * @return const validator* The validator or nullptr if there is none
 	 */
-	const validator *get_validator() const;
+	[[nodiscard]] const validator *get_validator() const;
 
 	/**
 	 * @brief Validates the content of this datablock and all its content
@@ -126,7 +140,7 @@ class datablock : public std::list<category>
 	 * @return true If the content is valid
 	 * @return false If the content is not valid
 	 */
-	bool is_valid() const;
+	[[nodiscard]] bool is_valid() const;
 
 	/**
 	 * @brief Validates all contained data for valid links between parents and children
@@ -135,7 +149,7 @@ class datablock : public std::list<category>
 	 * @return true If all links are valid
 	 * @return false If all links are not valid
 	 */
-	bool validate_links() const;
+	[[nodiscard]] bool validate_links() const;
 
 	/**
 	 * @brief Strip removes all categories and items that are invalid according
@@ -181,12 +195,12 @@ class datablock : public std::list<category>
 	 * @param name The name of the category
 	 * @return category* Pointer to the category found or nullptr
 	 */
-	const category *get(std::string_view name) const;
+	[[nodiscard]] const category *get(std::string_view name) const;
 
 	/**
 	 * @brief Return true if this datablock contains a non-empty category
 	 */
-	bool contains(std::string_view name) const
+	[[nodiscard]] bool contains(std::string_view name) const
 	{
 		return get(name) != nullptr;
 	}
@@ -207,16 +221,7 @@ class datablock : public std::list<category>
 	/**
 	 * @brief Get the preferred order of the categories when writing them
 	 */
-	[[deprecated("use get_item_order instead")]]
-	std::vector<std::string> get_tag_order() const
-	{
-		return get_item_order();
-	}
-
-	/**
-	 * @brief Get the preferred order of the categories when writing them
-	 */
-	std::vector<std::string> get_item_order() const;
+	[[nodiscard]] std::vector<std::string> get_item_order() const;
 
 	/**
 	 * @brief Write out the contents to @a os

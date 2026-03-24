@@ -24,43 +24,32 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/compound.hpp" // for compound_atom, compound_bond, compoun...
+#include "cif++/compound.hpp"
+#include "cif++/cif++.hpp"
 
-#include "cif++/atom_type.hpp" // for atom_type_traits
-#include "cif++/category.hpp"  // for category
-#include "cif++/datablock.hpp" // for datablock
-#include "cif++/file.hpp"      // for file
-#include "cif++/item.hpp"      // for item
-#include "cif++/iterator.hpp"  // for iterator_proxy
-#include "cif++/parser.hpp"    // for parser
-#include "cif++/point.hpp"     // for distance, point
-#include "cif++/row.hpp"       // for tie, row_initializer, tie_wrap
-#include "cif++/text.hpp"      // for iequals, replace_all, iset
-#include "cif++/utilities.hpp" // for load_resource, VERBOSE, colour_type
-
-#include <algorithm>    // for find_if
-#include <cstddef>      // for size_t
-#include <exception>    // for exception, throw_with_nested
-#include <filesystem>   // for path, exists
-#include <fstream>      // for char_traits, basic_ostream, operator<<
-#include <iomanip>      // for operator<<, quoted
-#include <iostream>     // for clog, cout, cerr
-#include <limits>       // for numeric_limits
-#include <list>         // for _List_iterator
-#include <map>          // for allocator, map, _Rb_tree_iterator
-#include <memory>       // for shared_ptr, unique_ptr, __shared_ptr_...
-#include <optional>     // for optional
-#include <shared_mutex> // for shared_lock, shared_timed_mutex
-#include <stdexcept>    // for runtime_error, invalid_argument, out_...
-#include <string>       // for basic_string, string, operator==, ope...
-#include <string_view>  // for string_view, basic_string_view
-#include <utility>      // for pair, exchange, move
-#include <vector>       // for vector
+#include <cstddef>
+#include <exception>
+#include <filesystem>
+#include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <memory>
+#include <optional>
+#include <ranges>
+#include <shared_mutex>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <utility>
+#include <vector>
 
 namespace fs = std::filesystem;
 
 namespace cif
 {
+using std::shared_ptr;
 
 // --------------------------------------------------------------------
 
@@ -68,36 +57,32 @@ std::string to_string(bond_type bondType)
 {
 	switch (bondType)
 	{
-		case bond_type::sing: return "sing";
-		case bond_type::doub: return "doub";
-		case bond_type::trip: return "trip";
-		case bond_type::quad: return "quad";
-		case bond_type::arom: return "arom";
-		case bond_type::poly: return "poly";
-		case bond_type::delo: return "delo";
-		case bond_type::pi: return "pi";
+		using enum bond_type;
+
+		case sing: return "sing";
+		case doub: return "doub";
+		case trip: return "trip";
+		case quad: return "quad";
+		case arom: return "arom";
+		case poly: return "poly";
+		case delo: return "delo";
+		case pi: return "pi";
 	}
 	throw std::invalid_argument("Invalid bondType");
 }
 
 bond_type parse_bond_type_from_string(const std::string &bondType)
 {
-	if (cif::iequals(bondType, "sing"))
-		return bond_type::sing;
-	if (cif::iequals(bondType, "doub"))
-		return bond_type::doub;
-	if (cif::iequals(bondType, "trip"))
-		return bond_type::trip;
-	if (cif::iequals(bondType, "quad"))
-		return bond_type::quad;
-	if (cif::iequals(bondType, "arom"))
-		return bond_type::arom;
-	if (cif::iequals(bondType, "poly"))
-		return bond_type::poly;
-	if (cif::iequals(bondType, "delo"))
-		return bond_type::delo;
-	if (cif::iequals(bondType, "pi"))
-		return bond_type::pi;
+	using enum bond_type;
+
+	if (cif::iequals(bondType, "sing")) return sing;
+	if (cif::iequals(bondType, "doub")) return doub;
+	if (cif::iequals(bondType, "trip")) return trip;
+	if (cif::iequals(bondType, "quad")) return quad;
+	if (cif::iequals(bondType, "arom")) return arom;
+	if (cif::iequals(bondType, "poly")) return poly;
+	if (cif::iequals(bondType, "delo")) return delo;
+	if (cif::iequals(bondType, "pi")) return pi;
 	throw std::invalid_argument("Invalid bondType: " + bondType);
 }
 
@@ -105,21 +90,21 @@ std::string to_string(stereo_config_type stereoConfig)
 {
 	switch (stereoConfig)
 	{
-		case stereo_config_type::N: return "N";
-		case stereo_config_type::R: return "R";
-		case stereo_config_type::S: return "S";
+		using enum stereo_config_type;
+
+		case N: return "N";
+		case R: return "R";
+		case S: return "S";
 	}
 	throw std::invalid_argument("Invalid stereoConfig");
 }
 
 stereo_config_type parse_stereo_config_from_string(const std::string &stereoConfig)
 {
-	if (cif::iequals(stereoConfig, "N"))
-		return stereo_config_type::N;
-	if (cif::iequals(stereoConfig, "R"))
-		return stereo_config_type::R;
-	if (cif::iequals(stereoConfig, "S"))
-		return stereo_config_type::S;
+	using enum stereo_config_type;
+	if (cif::iequals(stereoConfig, "N")) return N;
+	if (cif::iequals(stereoConfig, "R")) return R;
+	if (cif::iequals(stereoConfig, "S")) return S;
 	throw std::invalid_argument("Invalid stereoConfig: " + stereoConfig);
 }
 
@@ -176,9 +161,16 @@ compound::compound(cif::datablock &db)
 	{
 		compound_atom atom;
 		std::string type_symbol, stereo_config;
-		cif::tie(atom.id, type_symbol, atom.charge, atom.aromatic, atom.leaving_atom, stereo_config, atom.x, atom.y, atom.z) =
+
+		std::string aromaticFlag, leavingAtomFlag;
+
+		cif::tie(atom.id, type_symbol, atom.charge, aromaticFlag, leavingAtomFlag, stereo_config, atom.x, atom.y, atom.z) =
 			row.get("atom_id", "type_symbol", "charge", "pdbx_aromatic_flag", "pdbx_leaving_atom_flag", "pdbx_stereo_config",
 				"model_Cartn_x", "model_Cartn_y", "model_Cartn_z");
+
+		atom.aromatic = iequals(aromaticFlag, "Y");
+		atom.leaving_atom = iequals(leavingAtomFlag, "Y");
+
 		atom.type_symbol = atom_type_traits(type_symbol).type();
 		if (stereo_config.empty())
 			atom.stereo_config = stereo_config_type::N;
@@ -191,8 +183,13 @@ compound::compound(cif::datablock &db)
 	for (auto row : chemCompBond)
 	{
 		compound_bond bond;
-		std::string valueOrder;
-		cif::tie(bond.atom_id[0], bond.atom_id[1], valueOrder, bond.aromatic, bond.stereo_config) = row.get("atom_id_1", "atom_id_2", "value_order", "pdbx_aromatic_flag", "pdbx_stereo_config");
+		std::string valueOrder, aromaticFlag, stereoConfigFlag;
+
+		cif::tie(bond.atom_id[0], bond.atom_id[1], valueOrder, aromaticFlag, stereoConfigFlag) = row.get("atom_id_1", "atom_id_2", "value_order", "pdbx_aromatic_flag", "pdbx_stereo_config");
+
+		bond.aromatic = iequals(aromaticFlag, "Y");
+		bond.stereo_config = iequals(stereoConfigFlag, "Y");
+
 		if (valueOrder.empty())
 			bond.type = bond_type::sing;
 		else
@@ -221,7 +218,7 @@ compound_atom compound::get_atom_by_atom_id(const std::string &atom_id) const
 
 bool compound::atoms_bonded(const std::string &atomId_1, const std::string &atomId_2) const
 {
-	auto i = find_if(m_bonds.begin(), m_bonds.end(),
+	auto i = std::ranges::find_if(m_bonds,
 		[&](const compound_bond &b)
 		{
 			return (b.atom_id[0] == atomId_1 and b.atom_id[1] == atomId_2) or (b.atom_id[0] == atomId_2 and b.atom_id[1] == atomId_1);
@@ -232,7 +229,7 @@ bool compound::atoms_bonded(const std::string &atomId_1, const std::string &atom
 
 float compound::bond_length(const std::string &atomId_1, const std::string &atomId_2) const
 {
-	auto i = find_if(m_bonds.begin(), m_bonds.end(),
+	auto i = std::ranges::find_if(m_bonds,
 		[&](const compound_bond &b)
 		{
 			return (b.atom_id[0] == atomId_1 and b.atom_id[1] == atomId_2) or (b.atom_id[0] == atomId_2 and b.atom_id[1] == atomId_1);
@@ -266,7 +263,7 @@ bool compound::is_base() const
 // --------------------------------------------------------------------
 // known amino acids and bases
 
-const std::map<std::string, char> compound_factory::kAAMap{
+const std::map<std::string, char> compound_factory::kAAMap{ // NOLINT(bugprone-throwing-static-initialization,cert-err58-cpp)
 	{ "ALA", 'A' },
 	{ "ARG", 'R' },
 	{ "ASN", 'N' },
@@ -291,7 +288,7 @@ const std::map<std::string, char> compound_factory::kAAMap{
 	{ "ASX", 'B' }
 };
 
-const std::map<std::string, char> compound_factory::kBaseMap{
+const std::map<std::string, char> compound_factory::kBaseMap{ // NOLINT(bugprone-throwing-static-initialization,cert-err58-cpp)
 	{ "A", 'A' },
 	{ "C", 'C' },
 	{ "G", 'G' },
@@ -309,21 +306,21 @@ const std::map<std::string, char> compound_factory::kBaseMap{
 class compound_factory_impl : public std::enable_shared_from_this<compound_factory_impl>
 {
   public:
-	compound_factory_impl();
+	compound_factory_impl() = default;
 	compound_factory_impl(const fs::path &file, std::shared_ptr<compound_factory_impl> next);
 
-	virtual ~compound_factory_impl()
+	virtual ~compound_factory_impl() // NOLINT(modernize-use-equals-default)
 	{
 		for (auto c : m_compounds)
 			delete c;
 	}
 
-	virtual bool exists_self(const std::string &id) const
+	[[nodiscard]] virtual bool exists_self(const std::string &id) const
 	{
 		if (m_missing.contains(id))
 			return false;
 
-		if (std::find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c)
+		if (std::ranges::find_if(m_compounds, [id](compound *c)
 				{ return c->id() == id; }) != m_compounds.end())
 			return true;
 
@@ -384,12 +381,8 @@ class compound_factory_impl : public std::enable_shared_from_this<compound_facto
 	std::shared_ptr<compound_factory_impl> m_next;
 };
 
-compound_factory_impl::compound_factory_impl()
-{
-}
-
 compound_factory_impl::compound_factory_impl(std::shared_ptr<compound_factory_impl> next)
-	: m_next(next)
+	: m_next(std::move(next))
 {
 }
 
@@ -406,7 +399,7 @@ compound *compound_factory_impl::create(const std::string &id)
 	if (m_missing.contains(id))
 		return nullptr;
 
-	if (auto i = find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c)
+	if (auto i = std::ranges::find_if(m_compounds, [id](compound *c)
 			{ return c->id() == id; });
 		i != m_compounds.end())
 		return *i;
@@ -425,13 +418,13 @@ compound *compound_factory_impl::create(const std::string &id)
 		}
 	}
 	else
-		ccd.reset(new std::ifstream(m_file));
+		ccd = std::make_unique<std::ifstream>(m_file);
 
 	cif::file file;
 
 	if (m_index.empty())
 	{
-		if (cif::VERBOSE > 1)
+		if (VERBOSE > 1)
 		{
 			std::cout << "Creating component index "
 					  << "...";
@@ -441,7 +434,7 @@ compound *compound_factory_impl::create(const std::string &id)
 		cif::parser parser(*ccd, file);
 		m_index = parser.index_datablocks();
 
-		if (cif::VERBOSE > 1)
+		if (VERBOSE > 1)
 			std::cout << " done\n";
 
 		// reload the resource, perhaps this should be improved...
@@ -452,10 +445,10 @@ compound *compound_factory_impl::create(const std::string &id)
 				throw std::runtime_error("Could not locate the CCD components.cif file, please make sure the software is installed properly and/or use the update-libcifpp-data to fetch the data.");
 		}
 		else
-			ccd.reset(new std::ifstream(m_file));
+			ccd = std::make_unique<std::ifstream>(m_file);
 	}
 
-	if (cif::VERBOSE > 1)
+	if (VERBOSE > 1)
 	{
 		std::cout << "Loading component " << id << "...";
 		std::cout.flush();
@@ -464,7 +457,7 @@ compound *compound_factory_impl::create(const std::string &id)
 	cif::parser parser(*ccd, file);
 	parser.parse_single_datablock(id, m_index);
 
-	if (cif::VERBOSE > 1)
+	if (VERBOSE > 1)
 		std::cout << " done\n";
 
 	if (not file.empty())
@@ -490,9 +483,9 @@ compound *compound_factory_impl::create(const std::string &id)
 class local_compound_factory_impl : public compound_factory_impl
 {
   public:
-	local_compound_factory_impl(const cif::file &file, std::shared_ptr<compound_factory_impl> next)
+	local_compound_factory_impl(cif::file file, shared_ptr<compound_factory_impl> next)
 		: compound_factory_impl(next)
-		, m_local_file(file)
+		, m_local_file(std::move(file))
 	{
 	}
 
@@ -509,7 +502,7 @@ compound *local_compound_factory_impl::create(const std::string &id)
 	if (m_missing.contains(id))
 		return nullptr;
 
-	if (auto i = find_if(m_compounds.begin(), m_compounds.end(), [id](compound *c)
+	if (auto i = std::ranges::find_if(m_compounds, [id](compound *c)
 			{ return c->id() == id; });
 		i != m_compounds.end())
 		return *i;
@@ -573,16 +566,16 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 			{ "atom_id", atom_id },
 			{ "type_symbol", type_symbol },
 			{ "charge", charge },
-			{ "model_Cartn_x", x.has_value() ? x : xi, 3 },
-			{ "model_Cartn_y", y.has_value() ? y : yi, 3 },
-			{ "model_Cartn_z", z.has_value() ? z : zi, 3 },
+			{ "model_Cartn_x", { x.has_value() ? x : xi , 3 } },
+			{ "model_Cartn_y", { y.has_value() ? y : yi , 3 } },
+			{ "model_Cartn_z", { z.has_value() ? z : zi , 3 } },
 			{ "pdbx_ordinal", ord++ } });
 
 		formal_charge += charge;
 	}
 
 	for (std::size_t ord = 1; const auto &[atom_id_1, atom_id_2, type, aromatic] :
-		rdb["chem_comp_bond"].rows<std::string, std::string, std::string, bool>("atom_id_1", "atom_id_2", "type", "aromatic"))
+		rdb["chem_comp_bond"].rows<std::string, std::string, std::string, std::string>("atom_id_1", "atom_id_2", "type", "aromatic"))
 	{
 		std::string value_order("SING");
 
@@ -629,7 +622,7 @@ compound *local_compound_factory_impl::construct_compound(const datablock &rdb, 
 		{ "type", type },
 		{ "formula", formula },
 		{ "pdbx_formal_charge", formal_charge },
-		{ "formula_weight", formula_weight },
+		{ "formula_weight", { formula_weight, 3 } },
 		{ "three_letter_code", three_letter_code } });
 
 	std::shared_lock lock(mMutex);
@@ -656,12 +649,8 @@ compound_factory::compound_factory()
 	auto ccd = cif::load_resource("components.cif");
 	if (ccd)
 		m_impl = std::make_shared<compound_factory_impl>();
-	else if (cif::VERBOSE > 0)
+	else if (VERBOSE > 0)
 		std::cerr << "CCD components.cif resource was not found\n";
-}
-
-compound_factory::~compound_factory()
-{
 }
 
 compound_factory &compound_factory::instance()
@@ -695,7 +684,7 @@ void compound_factory::set_default_dictionary(const fs::path &inDictFile)
 
 	try
 	{
-		m_impl.reset(new compound_factory_impl(inDictFile, m_impl));
+		m_impl = std::make_shared<compound_factory_impl>(inDictFile, m_impl);
 	}
 	catch (const std::exception &)
 	{
@@ -710,7 +699,7 @@ void compound_factory::push_dictionary(const fs::path &inDictFile)
 
 	try
 	{
-		m_impl.reset(new compound_factory_impl(inDictFile, m_impl));
+		m_impl = std::make_shared<compound_factory_impl>(inDictFile, m_impl);
 	}
 	catch (const std::exception &)
 	{
@@ -722,7 +711,7 @@ void compound_factory::push_dictionary(const cif::file &inDictFile)
 {
 	try
 	{
-		m_impl.reset(new local_compound_factory_impl(inDictFile, m_impl));
+		m_impl = std::make_shared<local_compound_factory_impl>(inDictFile, m_impl);
 	}
 	catch (const std::exception &)
 	{

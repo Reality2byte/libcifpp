@@ -26,19 +26,34 @@
 
 #pragma once
 
+#include "cif++/category.hpp"
+#include "cif++/datablock.hpp"
+#include "cif++/item.hpp"
 #include "cif++/row.hpp"
+#include "cif++/text.hpp"
+#include "cif++/utilities.hpp"
 
+#include <cstddef>
+#include <cstdint>
+#include <iostream>
 #include <map>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <vector>
 
 /**
  * @file parser.hpp
- * 
+ *
  * This file contains the declaration of an mmCIF parser
  */
 
 namespace cif
 {
 
+class category;
+class datablock;
+class file;
 class validator;
 
 // --------------------------------------------------------------------
@@ -57,14 +72,14 @@ class parse_error : public std::runtime_error
 // --------------------------------------------------------------------
 
 /**
- * @brief The sac_parser is a similar to SAX parsers (Simple API for XML, 
+ * @brief The sac_parser is a similar to SAX parsers (Simple API for XML,
  * in our case it is Simple API for CIF)
- * 
+ *
  * This is a hand crafted, optimised parser for reading cif files,
  * both cif 1.0 and cif 1.1 is supported. But version 2.0 is not.
  * That means that the content of files strictly contains only
  * ASCII characters. Anything else will generate an error.
- * 
+ *
  * This class is an abstract base class. Derived classes should
  * implement the produce_ methods.
  */
@@ -92,10 +107,10 @@ class sac_parser
 	/// create a table with character properties.
 	enum CharTraitsMask : uint8_t
 	{
-		kOrdinaryMask = 1 << 0,	///< The character is in the Ordinary class
-		kNonBlankMask = 1 << 1,	///< The character is in the NonBlank class
-		kTextLeadMask = 1 << 2,	///< The character is in the TextLead class
-		kAnyPrintMask = 1 << 3	///< The character is in the AnyPrint class
+		kOrdinaryMask = 1 << 0, ///< The character is in the Ordinary class
+		kNonBlankMask = 1 << 1, ///< The character is in the NonBlank class
+		kTextLeadMask = 1 << 2, ///< The character is in the TextLead class
+		kAnyPrintMask = 1 << 3  ///< The character is in the AnyPrint class
 	};
 
 	/// \brief Return true if the character @a ch is a *space* character
@@ -143,12 +158,102 @@ class sac_parser
 
 	static constexpr uint8_t kCharTraitsTable[128] = {
 		//	0	1	2	3	4	5	6	7	8	9	a	b	c	d	e	f
-		14, 15, 14, 14, 14, 15, 15, 14, 15, 15, 15, 15, 15, 15, 15, 15, //	2
-		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 10, 15, 15, 15, 15, //	3
-		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, //	4
-		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 14, 15, 14, 15, 14, //	5
-		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, //	6
-		15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 15, 0,  //	7
+		14,
+		15,
+		14,
+		14,
+		14,
+		15,
+		15,
+		14,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15, //	2
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		10,
+		15,
+		15,
+		15,
+		15, //	3
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15, //	4
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		14,
+		15,
+		14,
+		15,
+		14, //	5
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15, //	6
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		15,
+		0, //	7
 	};
 
 	enum class CIFToken
@@ -164,23 +269,40 @@ class sac_parser
 		SAVE_NAME,
 		STOP,
 		ITEM_NAME,
-		VALUE
+
+		VALUE_INAPPLICABLE,
+		VALUE_UNKNOWN,
+		VALUE_NUMERIC_INTEGER,
+		VALUE_NUMERIC_FLOAT,
+		VALUE_CHARSTRING,
+		VALUE_TEXTFIELD
 	};
 
 	static constexpr const char *get_token_name(CIFToken token)
 	{
 		switch (token)
 		{
-			case CIFToken::UNKNOWN: return "Unknown";
-			case CIFToken::END_OF_FILE: return "Eof";
-			case CIFToken::DATA: return "DATA";
-			case CIFToken::LOOP: return "LOOP";
-			case CIFToken::GLOBAL: return "GLOBAL";
-			case CIFToken::SAVE_: return "SAVE";
-			case CIFToken::SAVE_NAME: return "SAVE+name";
-			case CIFToken::STOP: return "STOP";
-			case CIFToken::ITEM_NAME: return "Tag";
-			case CIFToken::VALUE: return "Value";
+			using enum CIFToken;
+
+			case UNKNOWN: return "Unknown";
+			case END_OF_FILE: return "Eof";
+			case DATA: return "DATA";
+			case LOOP: return "LOOP";
+			case GLOBAL: return "GLOBAL";
+			case SAVE_: return "SAVE";
+			case SAVE_NAME: return "SAVE+name";
+			case STOP: return "STOP";
+			case ITEM_NAME:
+				return "Tag";
+				// case VALUE: return "Value";
+
+			case VALUE_INAPPLICABLE: return "Inapplicable value";
+			case VALUE_UNKNOWN: return "'Unknown' value (=null)";
+			case VALUE_NUMERIC_INTEGER: return "Integer value";
+			case VALUE_NUMERIC_FLOAT: return "Float value";
+			case VALUE_CHARSTRING: return "Charstring value";
+			case VALUE_TEXTFIELD: return "Textfield value";
+
 			default: return "Invalid token parameter";
 		}
 	}
@@ -199,7 +321,6 @@ class sac_parser
 	/** @endcond */
 
   public:
-
 	/** \brief Parse only a single datablock in the string @a datablock
 	 * The start of the datablock is first located and then data
 	 * is parsed up until the next start of a datablock or the end of
@@ -214,10 +335,10 @@ class sac_parser
 
 	/**
 	 * @brief Parse the datablock named @a datablock
-	 * 
+	 *
 	 * This will first lookup the datablock's offset in the index @a index
 	 * and then start parsing from that location until the next datablock.
-	 * 
+	 *
 	 * @param datablock Name of the datablock to parse
 	 * @param index The index created using index_datablocks
 	 * @return true If the datablock was found
@@ -227,12 +348,11 @@ class sac_parser
 
 	/**
 	 * @brief Parse the file
-	 * 
+	 *
 	 */
 	void parse_file();
 
   protected:
-
 	/** @cond */
 
 	sac_parser(std::istream &is, bool init = true);
@@ -245,7 +365,7 @@ class sac_parser
 
 	void error(const std::string &msg)
 	{
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::cerr << "Error parsing mmCIF: " << msg << '\n';
 
 		throw parse_error(m_line_nr, msg);
@@ -253,7 +373,7 @@ class sac_parser
 
 	void warning(const std::string &msg)
 	{
-		if (cif::VERBOSE > 0)
+		if (VERBOSE > 0)
 			std::cerr << "parser warning at line " << m_line_nr << ": " << msg << '\n';
 	}
 
@@ -262,10 +382,9 @@ class sac_parser
 	virtual void produce_datablock(std::string_view name) = 0;
 	virtual void produce_category(std::string_view name) = 0;
 	virtual void produce_row() = 0;
-	virtual void produce_item(std::string_view category, std::string_view item, std::string_view value) = 0;
+	virtual void produce_item(std::string_view category, std::string_view item, item_value value) = 0;
 
   protected:
-
 	enum class State
 	{
 		Start,
@@ -281,7 +400,17 @@ class sac_parser
 		TextItem,
 		TextItemNL,
 		Reserved,
-		Value
+		Value,
+
+		TextItemBS,
+		TextItemBS2,
+		TextItemBSNL,
+
+		Numeric_Zero,
+		Numeric_Integer,
+		Numeric_Float,
+		Numeric_Exponent1,
+		Numeric_Exponent2
 	};
 
 	std::streambuf &m_source;
@@ -289,11 +418,15 @@ class sac_parser
 	// Parser state
 	uint32_t m_line_nr;
 	bool m_bol;
+	bool m_backslash_strings = false;
 	CIFToken m_lookahead;
 
 	// token buffer
 	std::vector<char> m_token_buffer;
 	std::string_view m_token_value;
+	int64_t m_token_value_int;
+	double m_token_value_float;
+	int m_float_precision;
 
 	/** @endcond */
 };
@@ -302,7 +435,7 @@ class sac_parser
 
 /**
  * @brief An actual implementation of a sac_parser generating data in a file
- * 
+ *
  * This parser will create the cif::file, cif::datablock and cif::category
  * objects required to contain all data
  */
@@ -331,7 +464,7 @@ class parser : public sac_parser
 
 	void produce_row() override;
 
-	void produce_item(std::string_view category, std::string_view item, std::string_view value) override;
+	void produce_item(std::string_view category, std::string_view item, item_value value) override;
 
   protected:
 	file &m_file;

@@ -24,19 +24,35 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/model.hpp"
-#include "cif++.hpp"
-#include "cif++/point.hpp"
+#include "cif++/cif++.hpp"
+#include "cif++/item.hpp"
 
-#include <filesystem>
-#include <fstream>
+#include <algorithm>
+#include <cassert>
+#include <charconv>
+#include <cmath>
+#include <cstddef>
+#include <exception>
+#include <format>
+#include <functional>
 #include <initializer_list>
-#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <list>
+#include <map>
+#include <memory>
 #include <numeric>
+#include <optional>
+#include <ranges>
+#include <set>
 #include <stack>
 #include <stdexcept>
-
-namespace fs = std::filesystem;
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace cif::mm
 {
@@ -51,95 +67,50 @@ void atom::atom_impl::moveTo(const point &p)
 
 	auto r = row();
 
-	r.assign("Cartn_x", cif::format("{:.3f}", p.m_x), false, false);
-	r.assign("Cartn_y", cif::format("{:.3f}", p.m_y), false, false);
-	r.assign("Cartn_z", cif::format("{:.3f}", p.m_z), false, false);
+	r.assign("Cartn_x", { p.m_x, 3 }, false, false);
+	r.assign("Cartn_y", { p.m_y, 3 }, false, false);
+	r.assign("Cartn_z", { p.m_z, 3 }, false, false);
 
 	m_location = p;
 }
 
 // const compound *compound() const;
 
-std::string atom::atom_impl::get_property(std::string_view name) const
+const item_value &atom::atom_impl::get_property(std::string_view name) const
 {
-	return row()[name].as<std::string>();
+	if (auto rh = row(); rh)
+		return rh[name].value();
+	throw std::runtime_error(std::format("Missing property {} for atom", name));
 }
 
-int atom::atom_impl::get_property_int(std::string_view name) const
-{
-	int result = 0;
-	if (not row()[name].empty())
-	{
-		auto s = get_property(name);
-
-		std::from_chars_result r = std::from_chars(s.data(), s.data() + s.length(), result);
-		if ((bool)r.ec and VERBOSE > 0)
-			std::cerr << "Error converting " << s << " to number for property " << name << '\n';
-	}
-	return result;
-}
-
-float atom::atom_impl::get_property_float(std::string_view name) const
-{
-	float result = 0;
-	if (not row()[name].empty())
-	{
-		auto s = get_property(name);
-
-		std::from_chars_result r = cif::from_chars(s.data(), s.data() + s.length(), result);
-		if ((bool)r.ec and VERBOSE > 0)
-			std::cerr << "Error converting " << s << " to number for property " << name << '\n';
-	}
-	return result;
-}
-
-void atom::atom_impl::set_property(const std::string_view name, const std::string &value)
+void atom::atom_impl::set_property(const std::string_view name, item_value value)
 {
 	auto r = row();
 	if (not r)
 		throw std::runtime_error("Trying to modify a row that does not exist");
-	r.assign(name, value, true, true);
+	r.assign(name, std::move(value), true, true);
 }
 
 int atom::atom_impl::compare(const atom_impl &b) const
 {
 	int d = get_property("label_asym_id").compare(b.get_property("label_asym_id"));
 	if (d == 0)
-		d = get_property_int("label_seq_id") - b.get_property_int("label_seq_id");
+		d = get_property("label_seq_id").compare(b.get_property("label_seq_id"));
 	if (d == 0)
-		d = get_property_int("auth_seq_id") - b.get_property_int("auth_seq_id");
+		d = get_property("auth_seq_id").compare(b.get_property("auth_seq_id"));
 	if (d == 0)
 		d = get_property("label_atom_id").compare(b.get_property("label_atom_id"));
 
 	return d;
 }
 
-// bool atom::atom_impl::getAnisoU(float anisou[6]) const
-// {
-// 	bool result = false;
-
-// 	auto cat = m_db.get("atom_site_anisotrop");
-// 	if (cat)
-// 	{
-// 		for (auto r : cat->find(key("id") == m_id))
-// 		{
-// 			tie(anisou[0], anisou[1], anisou[2], anisou[3], anisou[4], anisou[5]) =
-// 				r.get("U[1][1]", "U[1][2]", "U[1][3]", "U[2][2]", "U[2][3]", "U[3][3]");
-// 			result = true;
-// 			break;
-// 		}
-// 	}
-
-// 	return result;
-// }
-
 int atom::atom_impl::get_charge() const
 {
-	auto formalCharge = row()["pdbx_formal_charge"].as<std::optional<int>>();
+	auto formalCharge = row()["pdbx_formal_charge"].get<std::optional<int>>();
 
 	if (not formalCharge.has_value())
 	{
-		auto c = cif::compound_factory::instance().create(get_property("label_comp_id"));
+		auto c = cif::compound_factory::instance().create(get_property("label_comp_id").get<std::string>());
 
 		if (c != nullptr and c->atoms().size() == 1)
 			formalCharge = c->atoms().front().charge;
@@ -228,15 +199,16 @@ atom residue::create_new_atom(atom_type inType, const std::string &inAtomID, poi
 		{ "label_entity_id", get_entity_id() },
 		{ "label_atom_id", inAtomID },
 		{ "label_asym_id", m_asym_id },
-		{ "label_alt_id", "." },
+		{ "label_alt_id", cif::item_value_type::INAPPLICABLE },
 		{ "label_comp_id", m_compound_id },
 		{ "label_seq_id", m_seq_id },
+		{ "pdbx_PDB_ins_code", get_pdb_ins_code() },
 		{ "auth_asym_id", m_pdb_strand_id },
 		{ "auth_atom_id", inAtomID },
 		{ "auth_comp_id", m_compound_id },
 		{ "auth_seq_id", m_pdb_seq_num },
-		{ "occupancy", 1.0f, 2 },
-		{ "B_iso_or_equiv", 20.0f },
+		{ "occupancy", { 1.0f, 2 } },
+		{ "B_iso_or_equiv", { 20.0f, 3 } },
 		{ "pdbx_PDB_model_num", m_structure->get_model_nr() },
 	});
 
@@ -357,13 +329,13 @@ std::tuple<point, float> residue::center_and_radius() const
 
 bool residue::has_alternate_atoms() const
 {
-	return std::find_if(m_atoms.begin(), m_atoms.end(), [](const atom &atom)
+	return std::ranges::find_if(m_atoms, [](const atom &atom)
 			   { return atom.is_alternate(); }) != m_atoms.end();
 }
 
 bool residue::has_alternate_atoms_for(const std::string &atomID) const
 {
-	return std::find_if(m_atoms.begin(), m_atoms.end(), [atomID](const atom &atom)
+	return std::ranges::find_if(m_atoms, [atomID](const atom &atom)
 			   { return atom.get_label_atom_id() == atomID and atom.is_alternate(); }) != m_atoms.end();
 }
 
@@ -405,24 +377,6 @@ monomer::monomer(const polymer &polymer, std::size_t index, int seqID, const std
 	, m_polymer(&polymer)
 	, m_index(index)
 {
-}
-
-monomer::monomer(monomer &&rhs)
-	: residue(std::move(rhs))
-	, m_polymer(rhs.m_polymer)
-	, m_index(rhs.m_index)
-{
-	rhs.m_polymer = nullptr;
-}
-
-monomer &monomer::operator=(monomer &&rhs)
-{
-	residue::operator=(std::move(rhs));
-	m_polymer = rhs.m_polymer;
-	rhs.m_polymer = nullptr;
-	m_index = rhs.m_index;
-
-	return *this;
 }
 
 bool monomer::is_first_in_chain() const
@@ -538,7 +492,7 @@ float monomer::kappa() const
 			{
 				double ckap = cosinus_angle(CAlpha().get_location(), prevPrev.CAlpha().get_location(), nextNext.CAlpha().get_location(), CAlpha().get_location());
 				double skap = std::sqrt(1 - ckap * ckap);
-				result = static_cast<float>(std::atan2(skap, ckap) * 180 / kPI);
+				result = static_cast<float>(std::atan2(skap, ckap) * 180 / std::numbers::pi_v<float>);
 			}
 		}
 	}
@@ -594,7 +548,7 @@ float monomer::omega() const
 	return result;
 }
 
-const std::map<std::string, std::vector<std::string>> kChiAtomsMap = {
+const std::map<std::string, std::vector<std::string>> kChiAtomsMap = { // NOLINT(bugprone-throwing-static-initialization,cert-err58-cpp)
 	{ "ASP", { "CG", "OD1" } },
 	{ "ASN", { "CG", "OD1" } },
 	{ "ARG", { "CG", "CD", "NE", "CZ" } },
@@ -773,8 +727,10 @@ bool monomer::are_bonded(const monomer &a, const monomer &b, float errorMargin)
 
 		result = std::abs(distanceCACA - maxCACADistance) < errorMargin;
 	}
-	catch (...)
+	catch (const std::exception &ex)
 	{
+		if (VERBOSE > 2)
+			std::cerr << "missing atoms in monomer::are_bonded: " << ex.what() << '\n';
 	}
 
 	return result;
@@ -816,11 +772,11 @@ atom monomer::create_new_atom(atom_type inType, const std::string &inAtomID, poi
 // --------------------------------------------------------------------
 // polymer
 
-polymer::polymer(structure &s, const std::string &entityID, const std::string &asym_id, const std::string &auth_asym_id)
+polymer::polymer(structure &s, std::string entityID, std::string asym_id, std::string auth_asym_id)
 	: m_structure(const_cast<structure *>(&s))
-	, m_entity_id(entityID)
-	, m_asym_id(asym_id)
-	, m_pdb_strand_id(auth_asym_id)
+	, m_entity_id(std::move(entityID))
+	, m_asym_id(std::move(asym_id))
+	, m_pdb_strand_id(std::move(auth_asym_id))
 {
 	using namespace cif::literals;
 
@@ -829,7 +785,7 @@ polymer::polymer(structure &s, const std::string &entityID, const std::string &a
 	auto &poly_seq_scheme = s.get_datablock()["pdbx_poly_seq_scheme"];
 	reserve(poly_seq_scheme.size());
 
-	for (auto r : poly_seq_scheme.find("asym_id"_key == asym_id))
+	for (auto r : poly_seq_scheme.find("asym_id"_key == m_asym_id))
 	{
 		int seqID;
 		std::string compoundID, pdbSeqNum, pdbInsCode;
@@ -853,7 +809,7 @@ polymer::polymer(structure &s, const std::string &entityID, const std::string &a
 
 // std::string polymer::chainID() const
 // {
-// 	return mPolySeq.front()["pdb_strand_id"].as<std::string>();
+// 	return mPolySeq.front()["pdb_strand_id"].get<std::string>();
 // }
 
 // monomer &polymer::getBySeqID(int seqID)
@@ -907,23 +863,6 @@ sugar::sugar(branch &branch, const std::string &compoundID,
 	: residue(branch.get_structure(), compoundID, asym_id, 0, asym_id, std::to_string(authSeqID), "")
 	, m_branch(&branch)
 {
-}
-
-sugar::sugar(sugar &&rhs)
-	: residue(std::forward<residue>(rhs))
-	, m_branch(rhs.m_branch)
-{
-}
-
-sugar &sugar::operator=(sugar &&rhs)
-{
-	if (this != &rhs)
-	{
-		residue::operator=(std::forward<residue>(rhs));
-		m_branch = rhs.m_branch;
-	}
-
-	return *this;
 }
 
 // bool sugar::hasLinkedSugarAtLeavingO(int leavingO) const
@@ -981,27 +920,28 @@ cif::mm::atom sugar::add_atom(row_initializer atom_info)
 	atom_info.set_value({ "label_entity_id", m_branch->get_entity_id() });
 	atom_info.set_value({ "label_asym_id", m_branch->get_asym_id() });
 	atom_info.set_value({ "label_comp_id", m_compound_id });
-	atom_info.set_value({ "label_seq_id", "." });
-	atom_info.set_value({ "label_alt_id", "." });
+	atom_info.set_value({ "label_seq_id", nullptr });
+	atom_info.set_value({ "label_alt_id", nullptr });
 	atom_info.set_value({ "auth_asym_id", m_branch->get_asym_id() });
 	atom_info.set_value({ "auth_comp_id", m_compound_id });
 	atom_info.set_value({ "auth_seq_id", m_pdb_seq_num });
-	atom_info.set_value({ "occupancy", 1.0, 2 });
-	atom_info.set_value({ "B_iso_or_equiv", 30.0, 2 });
+	atom_info.set_value({ "occupancy", { 1.0, 2 } });
+	atom_info.set_value({ "B_iso_or_equiv", { 30.0, 2 } });
 	atom_info.set_value({ "pdbx_PDB_model_num", 1 });
 
 	auto row = atom_site.emplace(std::move(atom_info));
-	auto result = m_structure->emplace_atom(db, row);
+	const_row_handle rh = *row;
+	auto result = m_structure->emplace_atom(db, rh);
 
 	residue::add_atom(result);
 
 	return result;
 }
 
-branch::branch(structure &structure, const std::string &asym_id, const std::string &entity_id)
+branch::branch(structure &structure, std::string asym_id, std::string entity_id)
 	: m_structure(&structure)
-	, m_asym_id(asym_id)
-	, m_entity_id(entity_id)
+	, m_asym_id(std::move(asym_id))
+	, m_entity_id(std::move(entity_id))
 {
 	using namespace literals;
 
@@ -1010,12 +950,12 @@ branch::branch(structure &structure, const std::string &asym_id, const std::stri
 	auto &branch_scheme = db["pdbx_branch_scheme"];
 	auto &branch_link = db["pdbx_entity_branch_link"];
 
-	for (const auto &asym_entity_id : struct_asym.find<std::string>("id"_key == asym_id, "entity_id"))
+	for (const auto &asym_entity_id : struct_asym.find<std::string>("id"_key == m_asym_id, "entity_id"))
 	{
 		for (const auto &[comp_id, num] : branch_scheme.find<std::string, int>(
-				 "asym_id"_key == asym_id, "mon_id", "pdb_seq_num"))
+				 "asym_id"_key == m_asym_id, "mon_id", "pdb_seq_num"))
 		{
-			emplace_back(*this, comp_id, asym_id, num);
+			emplace_back(*this, comp_id, m_asym_id, num);
 		}
 
 		for (const auto &[num1, num2, atom1, atom2] : branch_link.find<std::size_t, std::size_t, std::string, std::string>(
@@ -1061,7 +1001,7 @@ void branch::link_atoms()
 
 sugar &branch::get_sugar_by_num(int nr)
 {
-	auto i = find_if(begin(), end(), [nr](const sugar &s)
+	auto i = std::ranges::find_if(*this, [nr](const sugar &s)
 		{ return s.num() == nr; });
 	if (i == end())
 		throw std::out_of_range("Sugar with num " + std::to_string(nr) + " not found in branch " + m_asym_id);
@@ -1089,7 +1029,7 @@ sugar &branch::construct_sugar(const std::string &compound_id)
 		chemComp.emplace({ { "id", compound_id },
 			{ "name", compound->name() },
 			{ "formula", compound->formula() },
-			{ "formula_weight", compound->formula_weight() },
+			{ "formula_weight", { compound->formula_weight(), 3 } },
 			{ "type", compound->type() } });
 	}
 
@@ -1126,17 +1066,18 @@ sugar &branch::construct_sugar(const std::string &compound_id, const std::string
 	auto &pdbx_entity_branch_link = db["pdbx_entity_branch_link"];
 	auto linkID = pdbx_entity_branch_link.get_unique_id("");
 
-	db["pdbx_entity_branch_link"].emplace({ { "link_id", linkID },
-		{ "entity_id", get_entity_id() },
-		{ "entity_branch_list_num_1", result.num() },
-		{ "comp_id_1", compound_id },
-		{ "atom_id_1", atom_id },
-		{ "leaving_atom_id_1", "O1" }, /// TODO: Need to fix this!
-		{ "entity_branch_list_num_2", linked.num() },
-		{ "comp_id_2", linked.get_compound_id() },
-		{ "atom_id_2", linked_atom_id },
-		{ "leaving_atom_id_2", "." },
-		{ "value_order", "sing" } });
+	db["pdbx_entity_branch_link"].emplace( //
+		{ { "link_id", std::stoi(linkID) },
+			{ "entity_id", get_entity_id() },
+			{ "entity_branch_list_num_1", result.num() },
+			{ "comp_id_1", compound_id },
+			{ "atom_id_1", atom_id },
+			{ "leaving_atom_id_1", "O1" }, /// TODO: Need to fix this!
+			{ "entity_branch_list_num_2", linked.num() },
+			{ "comp_id_2", linked.get_compound_id() },
+			{ "atom_id_2", linked_atom_id },
+			{ "leaving_atom_id_2", nullptr },
+			{ "value_order", "sing" } });
 
 	return result;
 }
@@ -1193,10 +1134,10 @@ structure::structure(datablock &db, std::size_t modelNr, structure_open_options 
 	load_atoms_for_model(options);
 
 	// Check to see if we should actually load another model?
-	if (m_atoms.empty() and m_model_nr == 1)
+	if (m_atoms.empty() and m_model_nr == 1 and not atom_site.empty())
 	{
-		std::optional<std::size_t> model_nr;
-		cif::tie(model_nr) = atom_site.front().get("pdbx_PDB_model_num");
+		auto model_nr =
+			atom_site.front().get<std::optional<std::size_t>>("pdbx_PDB_model_num");
 		if (model_nr and *model_nr != m_model_nr)
 		{
 			if (VERBOSE > 0)
@@ -1261,7 +1202,7 @@ void structure::load_atoms_for_model(structure_open_options options)
 		for (auto id : atom_site.find<std::string>(std::move(c), "id"))
 		{
 			auto a = std::make_shared<atom::atom_impl>(m_db, id);
-			if (a->get_property_float("occupancy") > 0)
+			if (a->get_property("occupancy").get<float>() > 0)
 				continue;
 			emplace_atom(a);
 		}
@@ -1359,31 +1300,31 @@ void structure::load_data()
 
 	// place atoms in residues
 
-	using key_type = std::tuple<std::string, int, std::string>;
+	using key_type = std::tuple<std::string, int, std::string, std::string>;
 	std::map<key_type, residue *> resMap;
 
 	for (auto &poly : m_polymers)
 	{
 		for (auto &res : poly)
-			resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num() }] = &res;
+			resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num(), res.get_compound_id() }] = &res;
 	}
 
 	for (auto &res : m_non_polymers)
-		resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num() }] = &res;
+		resMap[{ res.get_asym_id(), res.get_seq_id(), res.get_pdb_seq_num(), res.get_compound_id() }] = &res;
 
 	std::set<std::string> sugars;
 	for (auto &branch : m_branches)
 	{
 		for (auto &sugar : branch)
 		{
-			resMap[{ sugar.get_asym_id(), sugar.get_seq_id(), sugar.get_pdb_seq_num() }] = &sugar;
+			resMap[{ sugar.get_asym_id(), sugar.get_seq_id(), sugar.get_pdb_seq_num(), sugar.get_compound_id() }] = &sugar;
 			sugars.insert(sugar.get_compound_id());
 		}
 	}
 
 	for (auto &atom : m_atoms)
 	{
-		key_type k(atom.get_label_asym_id(), atom.get_label_seq_id(), atom.get_auth_seq_id());
+		key_type k(atom.get_label_asym_id(), atom.get_label_seq_id(), atom.get_auth_seq_id(), atom.get_label_comp_id());
 		auto ri = resMap.find(k);
 
 		if (ri == resMap.end())
@@ -1408,9 +1349,8 @@ void structure::load_data()
 	}
 
 	// what the ...
-	m_branches.erase(std::remove_if(m_branches.begin(), m_branches.end(), [](const branch &b)
-						 { return b.empty(); }),
-		m_branches.end());
+	std::erase_if(m_branches, [](const branch &b)
+		{ return b.empty(); });
 
 	for (auto &branch : m_branches)
 		branch.link_atoms();
@@ -1711,7 +1651,7 @@ std::string structure::insert_compound(const std::string &compoundID, bool is_en
 		chemComp.emplace({ { "id", compoundID },
 			{ "name", compound->name() },
 			{ "formula", compound->formula() },
-			{ "formula_weight", compound->formula_weight() },
+			{ "formula_weight", { compound->formula_weight(), 3 } },
 			{ "type", compound->type() } });
 	}
 
@@ -1731,7 +1671,7 @@ std::string structure::insert_compound(const std::string &compoundID, bool is_en
 			entity.emplace({ { "id", entity_id },
 				{ "type", "non-polymer" },
 				{ "pdbx_description", compound->name() },
-				{ "formula_weight", compound->formula_weight() } });
+				{ "formula_weight", { compound->formula_weight(), 3 } } });
 
 			pdbxEntityNonpoly.emplace({ { "entity_id", entity_id },
 				{ "name", compound->name() },
@@ -1744,7 +1684,7 @@ std::string structure::insert_compound(const std::string &compoundID, bool is_en
 
 // --------------------------------------------------------------------
 
-atom &structure::emplace_atom(atom &&atom)
+atom &structure::emplace_atom(atom atom)
 {
 	int L = 0, R = static_cast<int>(m_atom_index.size() - 1);
 	while (L <= R)
@@ -1786,22 +1726,12 @@ void structure::remove_atom(atom &a, bool removeFromResidue)
 
 	auto &atomSite = m_db["atom_site"];
 
-	if (a.is_water())
-	{
-		auto ra = atomSite.find1("id"_key == a.id());
-		if (ra)
-		{
-			auto &nps = m_db["pdbx_nonpoly_scheme"];
-			for (auto rnp : atomSite.get_children(ra, nps))
-				nps.erase(rnp);
-		}
-	}
-	else if (removeFromResidue)
+	if (removeFromResidue)
 	{
 		try
 		{
 			auto &res = get_residue(a);
-			res.m_atoms.erase(std::remove(res.m_atoms.begin(), res.m_atoms.end(), a), res.m_atoms.end());
+			std::erase(res.m_atoms, a);
 		}
 		catch (const std::exception &ex)
 		{
@@ -1812,6 +1742,13 @@ void structure::remove_atom(atom &a, bool removeFromResidue)
 
 	for (auto ri : atomSite.find("id"_key == a.id()))
 	{
+		if (a.is_water())
+		{
+			auto &nps = m_db["pdbx_nonpoly_scheme"];
+			for (auto rnp : atomSite.get_children(ri, nps))
+				nps.erase(rnp);
+		}
+
 		// also remove struct_conn records for this atom
 		auto &structConn = m_db["struct_conn"];
 
@@ -1891,11 +1828,7 @@ void structure::swap_atoms(atom a1, atom a2)
 		auto r2 = atomSites.find1(key("id") == a2.id());
 
 		for (std::string fld : std::initializer_list<std::string>{ "label_atom_id", "auth_atom_id", "type_symbol" })
-		{
-			auto l1 = r1[fld];
-			auto l2 = r2[fld];
-			l1.swap(l2);
-		}
+			swap(r1[fld].value(), r2[fld].value());
 	}
 	catch (const std::exception &ex)
 	{
@@ -1936,7 +1869,7 @@ void structure::change_residue(residue &res, const std::string &newCompound,
 			entity.emplace({ { "id", entityID },
 				{ "type", "non-polymer" },
 				{ "pdbx_description", compound->name() },
-				{ "formula_weight", compound->formula_weight() } });
+				{ "formula_weight", { compound->formula_weight(), 3 } } });
 
 			auto &pdbxEntityNonpoly = m_db["pdbx_entity_nonpoly"];
 			pdbxEntityNonpoly.emplace({ { "entity_id", entityID },
@@ -1960,7 +1893,7 @@ void structure::change_residue(residue &res, const std::string &newCompound,
 			chemComp.emplace({ { "id", newCompound },
 				{ "name", compound->name() },
 				{ "formula", compound->formula() },
-				{ "formula_weight", compound->formula_weight() },
+				{ "formula_weight", { compound->formula_weight(), 3 } },
 				{ "type", compound->type() } });
 		}
 
@@ -1977,7 +1910,7 @@ void structure::change_residue(residue &res, const std::string &newCompound,
 
 	for (const auto &[a1, a2] : remappedAtoms)
 	{
-		auto i = find_if(atoms.begin(), atoms.end(), [id = a1](const atom &a)
+		auto i = std::ranges::find_if(atoms, [id = a1](const atom &a)
 			{ return a.get_label_atom_id() == id; });
 		if (i == atoms.end())
 		{
@@ -1991,7 +1924,7 @@ void structure::change_residue(residue &res, const std::string &newCompound,
 		if (r.size() != 1)
 			continue;
 
-		if (a2.empty() or a2 == ".")
+		if (a2.empty())
 		{
 			i->set_property("label_comp_id", newCompound);
 			remove_atom(*i);
@@ -2074,19 +2007,19 @@ void structure::remove_residue(residue &res)
 				"seq_id"_key == res.get_seq_id());
 
 			for (auto &poly : m_polymers)
-				poly.erase(std::remove(poly.begin(), poly.end(), m), poly.end());
+				std::erase(poly, m);
 			break;
 		}
 
 		case EntityType::NonPolymer:
 			m_db["pdbx_nonpoly_scheme"].erase("asym_id"_key == res.get_asym_id());
 			m_db["struct_asym"].erase("id"_key == res.get_asym_id());
-			m_non_polymers.erase(std::remove(m_non_polymers.begin(), m_non_polymers.end(), res), m_non_polymers.end());
+			std::erase(m_non_polymers, res);
 			break;
 
 		case EntityType::Water:
 			m_db["pdbx_nonpoly_scheme"].erase("asym_id"_key == res.get_asym_id());
-			m_non_polymers.erase(std::remove(m_non_polymers.begin(), m_non_polymers.end(), res), m_non_polymers.end());
+			std::erase(m_non_polymers, res);
 			break;
 
 		case EntityType::Branched:
@@ -2114,7 +2047,7 @@ void structure::remove_sugar(sugar &s)
 
 	std::string asym_id = s.get_asym_id();
 	branch &branch = get_branch_by_asym_id(asym_id);
-	auto si = std::find(branch.begin(), branch.end(), s);
+	auto si = std::ranges::find(branch, s);
 	if (si == branch.end())
 		throw std::runtime_error("sugar not part of branch");
 	std::size_t six = si - branch.begin();
@@ -2126,6 +2059,7 @@ void structure::remove_sugar(sugar &s)
 		std::set<std::size_t> dix;
 		std::stack<std::size_t> test;
 		test.push(s.num());
+		std::vector<atom> da;
 
 		while (not test.empty())
 		{
@@ -2144,12 +2078,14 @@ void structure::remove_sugar(sugar &s)
 			}
 
 			for (auto atom : branch[tix - 1].atoms())
-				remove_atom(atom, false);
+				da.emplace_back(atom);
 		}
 
-		branch.erase(remove_if(branch.begin(), branch.end(), [dix](const sugar &s)
-						 { return dix.count(s.num()); }),
-			branch.end());
+		std::erase_if(branch, [dix](const sugar &s)
+			{ return dix.count(s.num()); });
+
+		for (auto atom : da)
+			remove_atom(atom, false);
 
 		auto entity_id = create_entity_for_branch(branch);
 
@@ -2175,7 +2111,7 @@ void structure::remove_sugar(sugar &s)
 				{ "mon_id", sugar.get_compound_id() },
 
 				{ "pdb_asym_id", asym_id },
-				{ "pdb_seq_num", sugar.num() },
+				{ "pdb_seq_num", std::to_string(sugar.num()) },
 				{ "pdb_mon_id", sugar.get_compound_id() },
 
 				// TODO: need fix, collect from nag_atoms?
@@ -2203,7 +2139,7 @@ void structure::remove_branch(branch &branch)
 	m_db["struct_asym"].erase("id"_key == branch.get_asym_id());
 	m_db["struct_conn"].erase("ptnr1_label_asym_id"_key == branch.get_asym_id() or "ptnr2_label_asym_id"_key == branch.get_asym_id());
 
-	m_branches.erase(remove(m_branches.begin(), m_branches.end(), branch), m_branches.end());
+	std::erase(m_branches, branch);
 }
 
 std::string structure::create_non_poly_entity(const std::string &comp_id)
@@ -2224,7 +2160,7 @@ std::string structure::create_non_poly(const std::string &entity_id, const std::
 		{ "entity_id", entity_id },
 		{ "details", "?" } });
 
-	std::string comp_id = m_db["pdbx_entity_nonpoly"].find1<std::string>("entity_id"_key == entity_id, "comp_id");
+	auto comp_id = m_db["pdbx_entity_nonpoly"].find1<std::string>("entity_id"_key == entity_id, "comp_id");
 
 	auto &atom_site = m_db["atom_site"];
 
@@ -2236,24 +2172,24 @@ std::string structure::create_non_poly(const std::string &entity_id, const std::
 
 		auto row = atom_site.emplace({ { "group_PDB", atom.get_property("group_PDB") },
 			{ "id", atom_id },
-			{ "type_symbol", atom.get_property("type_symbol") },
-			{ "label_atom_id", atom.get_property("label_atom_id") },
-			{ "label_alt_id", atom.get_property("label_alt_id") },
+			{ "type_symbol", atom.get_property_value("type_symbol") },
+			{ "label_atom_id", atom.get_property_value("label_atom_id") },
+			{ "label_alt_id", atom.get_property_value("label_alt_id") },
 			{ "label_comp_id", comp_id },
 			{ "label_asym_id", asym_id },
 			{ "label_entity_id", entity_id },
-			{ "label_seq_id", "." },
+			{ "label_seq_id", nullptr },
 			{ "pdbx_PDB_ins_code", "" },
-			{ "Cartn_x", atom.get_property("Cartn_x") },
-			{ "Cartn_y", atom.get_property("Cartn_y") },
-			{ "Cartn_z", atom.get_property("Cartn_z") },
-			{ "occupancy", atom.get_property("occupancy") },
-			{ "B_iso_or_equiv", atom.get_property("B_iso_or_equiv") },
-			{ "pdbx_formal_charge", atom.get_property("pdbx_formal_charge") },
-			{ "auth_seq_id", 1 },
+			{ "Cartn_x", atom.get_property_value("Cartn_x") },
+			{ "Cartn_y", atom.get_property_value("Cartn_y") },
+			{ "Cartn_z", atom.get_property_value("Cartn_z") },
+			{ "occupancy", atom.get_property_value("occupancy") },
+			{ "B_iso_or_equiv", atom.get_property_value("B_iso_or_equiv") },
+			{ "pdbx_formal_charge", atom.get_property_value("pdbx_formal_charge") },
+			{ "auth_seq_id", "1" },
 			{ "auth_comp_id", comp_id },
 			{ "auth_asym_id", asym_id },
-			{ "auth_atom_id", atom.get_property("label_atom_id") },
+			{ "auth_atom_id", atom.get_property_value("label_atom_id") },
 			{ "pdbx_PDB_model_num", 1 } });
 
 		auto &newAtom = emplace_atom(std::make_shared<atom::atom_impl>(m_db, atom_id));
@@ -2266,13 +2202,13 @@ std::string structure::create_non_poly(const std::string &entity_id, const std::
 		{ "asym_id", asym_id },
 		{ "entity_id", entity_id },
 		{ "mon_id", comp_id },
-		{ "ndb_seq_num", ndb_nr },
+		{ "ndb_seq_num", std::to_string(ndb_nr) },
 		{ "pdb_seq_num", res.get_pdb_seq_num() },
 		{ "auth_seq_num", res.get_pdb_seq_num() },
 		{ "pdb_mon_id", comp_id },
 		{ "auth_mon_id", comp_id },
 		{ "pdb_strand_id", asym_id },
-		{ "pdb_ins_code", "." },
+		{ "pdb_ins_code", nullptr },
 	});
 
 	return asym_id;
@@ -2291,7 +2227,7 @@ std::string structure::create_non_poly(const std::string &entity_id, std::vector
 		{ "entity_id", entity_id },
 		{ "details", "?" } });
 
-	std::string comp_id = m_db["pdbx_entity_nonpoly"].find1<std::string>("entity_id"_key == entity_id, "comp_id");
+	auto comp_id = m_db["pdbx_entity_nonpoly"].find1<std::string>("entity_id"_key == entity_id, "comp_id");
 
 	auto &atom_site = m_db["atom_site"];
 
@@ -2308,12 +2244,12 @@ std::string structure::create_non_poly(const std::string &entity_id, std::vector
 
 		atom.set_value_if_empty({ "group_PDB", "HETATM" });
 		atom.set_value_if_empty({ "label_comp_id", comp_id });
-		atom.set_value_if_empty({ "label_seq_id", "." });
+		atom.set_value_if_empty({ "label_seq_id", nullptr });
 		atom.set_value_if_empty({ "auth_comp_id", comp_id });
-		atom.set_value_if_empty({ "auth_seq_id", 1 });
+		atom.set_value_if_empty({ "auth_seq_id", "1" });
 		atom.set_value_if_empty({ "pdbx_PDB_model_num", 1 });
 		atom.set_value_if_empty({ "label_alt_id", "" });
-		atom.set_value_if_empty({ "occupancy", 1.0, 2 });
+		atom.set_value_if_empty({ "occupancy", { 1.0, 2 } });
 
 		auto row = atom_site.emplace(atom.begin(), atom.end());
 
@@ -2327,13 +2263,13 @@ std::string structure::create_non_poly(const std::string &entity_id, std::vector
 		{ "asym_id", asym_id },
 		{ "entity_id", entity_id },
 		{ "mon_id", comp_id },
-		{ "ndb_seq_num", ndb_nr },
+		{ "ndb_seq_num", std::to_string(ndb_nr) },
 		{ "pdb_seq_num", res.get_pdb_seq_num() },
 		{ "auth_seq_num", res.get_pdb_seq_num() },
 		{ "pdb_mon_id", comp_id },
 		{ "auth_mon_id", comp_id },
 		{ "pdb_strand_id", asym_id },
-		{ "pdb_ins_code", "." },
+		{ "pdb_ins_code", nullptr },
 	});
 
 	return asym_id;
@@ -2344,7 +2280,7 @@ std::string structure::create_non_poly(const std::string &compound_id, bool skip
 	auto compound = cif::compound_factory::instance().create(compound_id);
 	if (compound == nullptr)
 		throw std::runtime_error(std::format("{} is not a known compound", compound_id));
-	
+
 	std::vector<cif::row_initializer> atoms;
 	for (auto a : compound->atoms())
 	{
@@ -2373,15 +2309,18 @@ void structure::create_water(row_initializer atom)
 {
 	using namespace literals;
 
-	auto entity_id = insert_compound("HOH", true);
+	std::string entity_id;
+	if (auto id = m_db["entity"].find_first<std::optional<std::string>>("type"_key == "water", "id"))
+		entity_id = *id;
+	else
+		entity_id = insert_compound("HOH", true);
 
 	auto &struct_asym = m_db["struct_asym"];
 	std::string asym_id;
-	try
-	{
-		asym_id = struct_asym.find1<std::string>("entity_id"_key == entity_id, "id");
-	}
-	catch (const std::exception &)
+
+	if (auto known_asym_id = struct_asym.find1<std::optional<std::string>>("entity_id"_key == entity_id, "id"); known_asym_id.has_value())
+		asym_id = *known_asym_id;
+	else
 	{
 		asym_id = struct_asym.get_unique_id();
 
@@ -2393,7 +2332,8 @@ void structure::create_water(row_initializer atom)
 	}
 
 	auto &atom_site = m_db["atom_site"];
-	auto auth_seq_id = atom_site.find_max<int>("auth_seq_id", "label_entity_id"_key == entity_id) + 1;
+
+	int auth_seq_id = atom_site.find_max<int>("auth_seq_id", "label_entity_id"_key == entity_id) + 1;
 	if (auth_seq_id < 0)
 		auth_seq_id = 1;
 
@@ -2401,17 +2341,18 @@ void structure::create_water(row_initializer atom)
 
 	atom.set_value("id", atom_id);
 	atom.set_value("label_asym_id", asym_id);
-	atom.set_value("auth_asym_id", asym_id);
 	atom.set_value("label_entity_id", entity_id);
+
+	atom.set_value_if_empty("auth_asym_id", asym_id);
 	atom.set_value("auth_seq_id", std::to_string(auth_seq_id));
 
 	atom.set_value_if_empty({ "group_PDB", "HETATM" });
 	atom.set_value_if_empty({ "label_comp_id", "HOH" });
-	atom.set_value_if_empty({ "label_seq_id", "." });
+	atom.set_value_if_empty({ "label_seq_id", nullptr });
 	atom.set_value_if_empty({ "auth_comp_id", "HOH" });
 	atom.set_value_if_empty({ "pdbx_PDB_model_num", 1 });
 	atom.set_value_if_empty({ "label_alt_id", "" });
-	atom.set_value_if_empty({ "occupancy", 1.0, 2 });
+	atom.set_value_if_empty({ "occupancy", { 1.0, 2 } });
 
 	auto row = atom_site.emplace(atom.begin(), atom.end());
 
@@ -2423,13 +2364,13 @@ void structure::create_water(row_initializer atom)
 		{ "asym_id", asym_id },
 		{ "entity_id", entity_id },
 		{ "mon_id", "HOH" },
-		{ "ndb_seq_num", ndb_nr },
-		{ "pdb_seq_num", auth_seq_id },
-		{ "auth_seq_num", auth_seq_id },
+		{ "ndb_seq_num", std::to_string(ndb_nr) },
+		{ "pdb_seq_num", std::to_string(auth_seq_id) },
+		{ "auth_seq_num", std::to_string(auth_seq_id) },
 		{ "pdb_mon_id", "HOH" },
 		{ "auth_mon_id", "HOH" },
 		{ "pdb_strand_id", asym_id },
-		{ "pdb_ins_code", "." },
+		{ "pdb_ins_code", nullptr },
 	});
 }
 
@@ -2482,7 +2423,7 @@ std::string structure::create_link(atom a1, atom a2, const std::string &link_typ
 			{ "ptnr2_auth_seq_id", a2.get_auth_seq_id() },
 			{ "ptnr2_symmetry", a2.symmetry() },
 
-			{ "pdbx_dist_value", distance(a1.get_location(), a2.get_location()), 3 },
+			{ "pdbx_dist_value", { distance(a1.get_location(), a2.get_location()), 3 } },
 			{ "pdbx_role", role } });
 
 	return link_id;
@@ -2542,7 +2483,7 @@ branch &structure::create_branch()
 
 // // 		atom.set_value_if_empty({"group_PDB", "HETATM"});
 // // 		atom.set_value_if_empty({"label_comp_id", "NAG"});
-// // 		atom.set_value_if_empty({"label_seq_id", "."});
+// // 		atom.set_value_if_empty({"label_seq_id", nullptr});
 // // 		atom.set_value_if_empty({"auth_comp_id", "NAG"});
 // // 		atom.set_value_if_empty({"pdbx_PDB_model_num", 1});
 // // 		atom.set_value_if_empty({"label_alt_id", ""});
@@ -2691,7 +2632,7 @@ std::string structure::create_entity_for_branch(branch &branch)
 
 	auto &entity = m_db["entity"];
 
-	std::string entityID = entity.find_first<std::string>("type"_key == "branched" and "pdbx_description"_key == entityName, "id");
+	auto entityID = entity.find_first<std::string>("type"_key == "branched" and "pdbx_description"_key == entityName, "id");
 
 	if (entityID.empty())
 	{
@@ -2704,7 +2645,7 @@ std::string structure::create_entity_for_branch(branch &branch)
 			{ "type", "branched" },
 			{ "src_method", "man" },
 			{ "pdbx_description", entityName },
-			{ "formula_weight", branch.weight() } });
+			{ "formula_weight", { branch.weight(), 3 } } });
 
 		auto &pdbx_entity_branch_list = m_db["pdbx_entity_branch_list"];
 		for (auto &sugar : branch)
@@ -2726,13 +2667,14 @@ std::string structure::create_entity_for_branch(branch &branch)
 			auto &s2 = branch.at(stoi(l2.get_auth_seq_id()) - 1);
 			auto l1 = s2.get_atom_by_atom_id("C1");
 
-			pdbx_entity_branch_link.emplace({ { "link_id", pdbx_entity_branch_link.get_unique_id("") },
+			pdbx_entity_branch_link.emplace({ //
+				{ "link_id", std::stoi(pdbx_entity_branch_link.get_unique_id("")) },
 				{ "entity_id", entityID },
-				{ "entity_branch_list_num_1", s1.get_pdb_seq_num() },
+				{ "entity_branch_list_num_1", std::stoi(s1.get_pdb_seq_num()) },
 				{ "comp_id_1", s1.get_compound_id() },
 				{ "atom_id_1", l1.get_label_atom_id() },
 				{ "leaving_atom_id_1", "O1" },
-				{ "entity_branch_list_num_2", s2.get_pdb_seq_num() },
+				{ "entity_branch_list_num_2", std::stoi(s2.get_pdb_seq_num()) },
 				{ "comp_id_2", s2.get_compound_id() },
 				{ "atom_id_2", l2.get_label_atom_id() },
 				{ "leaving_atom_id_2", "H" + l2.get_label_atom_id() },
@@ -2758,7 +2700,7 @@ void structure::cleanup_empty_categories()
 
 	for (auto chemComp : chem_comp)
 	{
-		std::string compID = chemComp["id"].as<std::string>();
+		auto compID = chemComp["id"].get<std::string>();
 		if (atomSite.contains("label_comp_id"_key == compID or "auth_comp_id"_key == compID) or
 			pdbxPolySeqScheme.contains("mon_id"_key == compID or "auth_mon_id"_key == compID or "pdb_mon_id"_key == compID) or
 			entityPolySeq.contains("mon_id"_key == compID))
@@ -2779,7 +2721,7 @@ void structure::cleanup_empty_categories()
 
 	for (auto entity : entities)
 	{
-		std::string entityID = entity["id"].as<std::string>();
+		auto entityID = entity["id"].get<std::string>();
 		if (atomSite.contains("label_entity_id"_key == entityID))
 			continue;
 
@@ -2790,7 +2732,7 @@ void structure::cleanup_empty_categories()
 
 	for (auto entity : obsoleteEntities)
 	{
-		std::string entityID = entity["id"].as<std::string>();
+		auto entityID = entity["id"].get<std::string>();
 		if (validator)
 		{
 			for (auto linked : validator->get_links_for_parent("entity"))
@@ -2877,19 +2819,12 @@ void structure::validate_atoms() const
 
 	std::vector<atom> atoms = m_atoms;
 
-	auto removeAtomFromList = [&atoms](const atom &a)
-	{
-		auto i = std::find(atoms.begin(), atoms.end(), a);
-		assert(i != atoms.end());
-		atoms.erase(i);
-	};
-
 	for (auto &poly : m_polymers)
 	{
 		for (auto &monomer : poly)
 		{
 			for (auto &atom : monomer.atoms())
-				removeAtomFromList(atom);
+				std::erase(atoms, atom);
 		}
 	}
 
@@ -2898,14 +2833,14 @@ void structure::validate_atoms() const
 		for (auto &sugar : branch)
 		{
 			for (auto &atom : sugar.atoms())
-				removeAtomFromList(atom);
+				std::erase(atoms, atom);
 		}
 	}
 
 	for (auto &res : m_non_polymers)
 	{
 		for (auto &atom : res.atoms())
-			removeAtomFromList(atom);
+			std::erase(atoms, atom);
 	}
 
 	assert(atoms.empty());
@@ -2924,7 +2859,7 @@ static int compare_numbers(std::string_view a, std::string_view b)
 	ra = from_chars(a.data(), a.data() + a.length(), da);
 	rb = from_chars(b.data(), b.data() + b.length(), db);
 
-	if (not(bool) ra.ec and not(bool) rb.ec)
+	if (ra.ec == std::errc{} and rb.ec == std::errc{})
 	{
 		auto d = da - db;
 		if (std::abs(d) > std::numeric_limits<double>::epsilon())
@@ -2935,7 +2870,7 @@ static int compare_numbers(std::string_view a, std::string_view b)
 				result = -1;
 		}
 	}
-	else if ((bool)ra.ec)
+	else if (ra.ec != std::errc{})
 		result = 1;
 	else
 		result = -1;

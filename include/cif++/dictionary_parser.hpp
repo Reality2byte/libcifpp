@@ -27,6 +27,7 @@
 #pragma once
 
 #include "cif++/validate.hpp"
+#include <iosfwd>
 
 /**
  * @file validate.hpp
@@ -36,6 +37,8 @@
 
 namespace cif
 {
+
+class validator;
 
 /**
  * @brief Parse the contents of @a is and place content in validator @a v

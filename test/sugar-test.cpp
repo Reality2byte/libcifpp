@@ -28,7 +28,7 @@
 
 #include <stdexcept>
 
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 // --------------------------------------------------------------------
 
@@ -183,4 +183,6 @@ TEST_CASE("delete_sugar_1")
 	// file.save(gTestDir / "test-create_sugar_3.cif");
 
 	cif::mm::structure s2(file);
+
+	file.save("/tmp/min-s.cif");
 }

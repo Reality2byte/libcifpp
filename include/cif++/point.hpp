@@ -30,17 +30,26 @@
 #include <cmath>
 #include <complex>
 #include <cstdint>
+#include <cstdlib>
 #include <format>
 #include <functional>
+#include <limits>
+#include <numbers>
 #include <optional>
+#include <ostream>
+#include <tuple>
+#include <type_traits>
+#include <utility>
 #include <valarray>
+#include <vector>
 
 #if __has_include(<clipper/core/coords.h>)
-#define HAVE_LIBCLIPPER 1
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wignored-qualifiers"
-#include <clipper/core/coords.h>
-#pragma GCC diagnostic pop
+# define HAVE_LIBCLIPPER 1
+# pragma GCC diagnostic push
+# pragma GCC diagnostic ignored "-Wignored-qualifiers"
+# include <clipper/core/clipper_types.h>
+# include <clipper/core/coords.h>
+# pragma GCC diagnostic pop
 #endif
 
 /** \file point.hpp
@@ -51,12 +60,6 @@
 
 namespace cif
 {
-
-// --------------------------------------------------------------------
-
-/// \brief Our value for Pi
-const double
-	kPI = 3.141592653589793238462643383279502884;
 
 // --------------------------------------------------------------------
 /**
@@ -119,13 +122,13 @@ class quaternion_type
 	// accessors
 
 	/// \brief See class description, return the *real* part of the quaternion
-	constexpr value_type real() const
+	[[nodiscard]] constexpr value_type real() const
 	{
 		return a;
 	}
 
 	/// \brief See class description, return the *unreal* part of the quaternion
-	constexpr quaternion_type unreal() const
+	[[nodiscard]] constexpr quaternion_type unreal() const
 	{
 		return { 0, b, c, d };
 	}
@@ -154,15 +157,7 @@ class quaternion_type
 	}
 
 	/// \brief Assignment operator
-	constexpr quaternion_type &operator=(quaternion_type const &rhs)
-	{
-		a = rhs.a;
-		b = rhs.b;
-		c = rhs.c;
-		d = rhs.d;
-
-		return *this;
-	}
+	constexpr quaternion_type &operator=(quaternion_type const &rhs) = default;
 
 	/// \brief Assignment operator that sets the *real* part to @a rhs and the *unreal* parts to zero
 	constexpr quaternion_type &operator=(value_type const &rhs)
@@ -275,10 +270,10 @@ class quaternion_type
 	template <typename X>
 	constexpr quaternion_type &operator*=(quaternion_type<X> const &rhs)
 	{
-		value_type ar = static_cast<value_type>(rhs.a);
-		value_type br = static_cast<value_type>(rhs.b);
-		value_type cr = static_cast<value_type>(rhs.c);
-		value_type dr = static_cast<value_type>(rhs.d);
+		auto ar = static_cast<value_type>(rhs.a);
+		auto br = static_cast<value_type>(rhs.b);
+		auto cr = static_cast<value_type>(rhs.c);
+		auto dr = static_cast<value_type>(rhs.d);
 
 		quaternion_type result(a * ar - b * br - c * cr - d * dr, a * br + b * ar + c * dr - d * cr, a * cr - b * dr + c * ar + d * br, a * dr + b * cr - c * br + d * ar);
 		swap(result);
@@ -310,10 +305,10 @@ class quaternion_type
 	template <typename X>
 	constexpr quaternion_type &operator/=(quaternion_type<X> const &rhs)
 	{
-		value_type ar = static_cast<value_type>(rhs.a);
-		value_type br = static_cast<value_type>(rhs.b);
-		value_type cr = static_cast<value_type>(rhs.c);
-		value_type dr = static_cast<value_type>(rhs.d);
+		auto ar = static_cast<value_type>(rhs.a);
+		auto br = static_cast<value_type>(rhs.b);
+		auto cr = static_cast<value_type>(rhs.c);
+		auto dr = static_cast<value_type>(rhs.d);
 
 		value_type denominator = ar * ar + br * br + cr * cr + dr * dr;
 		quaternion_type result((+a * ar + b * br + c * cr + d * dr) / denominator, (-a * br + b * ar - c * dr + d * cr) / denominator, (-a * cr + b * dr + c * ar - d * br) / denominator, (-a * dr - b * cr + c * br + d * ar) / denominator);
@@ -349,10 +344,10 @@ class quaternion_type
 		return quaternion_type{ +q.a, -q.b, -q.c, -q.d };
 	}
 
-	constexpr value_type get_a() const { return a; } ///< Return part a
-	constexpr value_type get_b() const { return b; } ///< Return part b
-	constexpr value_type get_c() const { return c; } ///< Return part c
-	constexpr value_type get_d() const { return d; } ///< Return part d
+	[[nodiscard]] constexpr value_type get_a() const { return a; } ///< Return part a
+	[[nodiscard]] constexpr value_type get_b() const { return b; } ///< Return part b
+	[[nodiscard]] constexpr value_type get_c() const { return c; } ///< Return part c
+	[[nodiscard]] constexpr value_type get_d() const { return d; } ///< Return part d
 
 	/// \brief compare with @a rhs
 	constexpr bool operator==(const quaternion_type &rhs) const
@@ -500,17 +495,17 @@ struct point_type
 		return *this;
 	}
 
-	constexpr value_type &get_x() { return m_x; }      ///< Get a reference to x
-	constexpr value_type get_x() const { return m_x; } ///< Get the value of x
-	constexpr void set_x(value_type x) { m_x = x; }    ///< Set the value of x to @a x
+	[[nodiscard]] constexpr value_type &get_x() { return m_x; }      ///< Get a reference to x
+	[[nodiscard]] constexpr value_type get_x() const { return m_x; } ///< Get the value of x
+	constexpr void set_x(value_type x) { m_x = x; }                  ///< Set the value of x to @a x
 
-	constexpr value_type &get_y() { return m_y; }      ///< Get a reference to y
-	constexpr value_type get_y() const { return m_y; } ///< Get the value of y
-	constexpr void set_y(value_type y) { m_y = y; }    ///< Set the value of y to @a y
+	[[nodiscard]] constexpr value_type &get_y() { return m_y; }      ///< Get a reference to y
+	[[nodiscard]] constexpr value_type get_y() const { return m_y; } ///< Get the value of y
+	constexpr void set_y(value_type y) { m_y = y; }                  ///< Set the value of y to @a y
 
-	constexpr value_type &get_z() { return m_z; }      ///< Get a reference to z
-	constexpr value_type get_z() const { return m_z; } ///< Get the value of z
-	constexpr void set_z(value_type z) { m_z = z; }    ///< Set the value of z to @a z
+	[[nodiscard]] constexpr value_type &get_z() { return m_z; }      ///< Get a reference to z
+	[[nodiscard]] constexpr value_type get_z() const { return m_z; } ///< Get the value of z
+	constexpr void set_z(value_type z) { m_z = z; }                  ///< Set the value of z to @a z
 
 	/// \brief add @a rhs
 	constexpr point_type &operator+=(const point_type &rhs)
@@ -691,13 +686,13 @@ struct point_type
 	// consider point as a vector... perhaps I should rename point?
 
 	/// \brief looking at the point as if it is a vector, return the squared length
-	constexpr value_type length_sq() const
+	[[nodiscard]] constexpr value_type length_sq() const
 	{
 		return m_x * m_x + m_y * m_y + m_z * m_z;
 	}
 
 	/// \brief looking at the point as if it is a vector, return the length
-	constexpr value_type length() const
+	[[nodiscard]] constexpr value_type length() const
 	{
 		return std::sqrt(length_sq());
 	}
@@ -774,11 +769,11 @@ std::optional<cif::point> line_line_intersection(const point_type<F> &p1,
 	auto p13 = p1 - p3;
 	auto p43 = p4 - p3;
 	if (std::abs(p43.m_x) < std::numeric_limits<F>::epsilon() and std::abs(p43.m_y) < std::numeric_limits<F>::epsilon() and std::abs(p43.m_z) < std::numeric_limits<F>::epsilon())
-		return {};
+		return std::nullopt;
 
 	auto p21 = p2 - p1;
 	if (std::abs(p21.m_x) < std::numeric_limits<F>::epsilon() and std::abs(p21.m_y) < std::numeric_limits<F>::epsilon() and std::abs(p21.m_z) < std::numeric_limits<F>::epsilon())
-		return {};
+		return std::nullopt;
 
 	auto d1343 = cif::dot_product(p43, p13);
 	auto d4321 = cif::dot_product(p43, p21);
@@ -788,7 +783,7 @@ std::optional<cif::point> line_line_intersection(const point_type<F> &p1,
 
 	auto denom = d2121 * d4343 - d4321 * d4321;
 	if (std::abs(denom) < std::numeric_limits<F>::epsilon())
-		return {};
+		return std::nullopt;
 
 	auto numer = d1343 * d4321 - d1321 * d4343;
 
@@ -808,7 +803,7 @@ constexpr auto angle(const point_type<F> &p1, const point_type<F> &p2, const poi
 	point_type<F> v1 = p1 - p2;
 	point_type<F> v2 = p3 - p2;
 
-	return std::acos(dot_product(v1, v2) / (v1.length() * v2.length())) * 180 / kPI;
+	return std::acos(dot_product(v1, v2) / (v1.length() * v2.length())) * 180 / std::numbers::pi_v<F>;
 }
 
 /// \brief return the dihedral angle in degrees for the four points @a p1, @a p2, @a p3 and @a p4
@@ -835,7 +830,7 @@ constexpr auto dihedral_angle(const point_type<F> &p1, const point_type<F> &p2, 
 		u = dot_product(p, x) / std::sqrt(u);
 		v = dot_product(p, y) / std::sqrt(v);
 		if (u != 0 or v != 0)
-			result = std::atan2(v, u) * static_cast<F>(180 / kPI);
+			result = std::atan2(v, u) * static_cast<F>(180 / std::numbers::pi_v<F>);
 	}
 
 	return result;
@@ -881,7 +876,7 @@ point nudge(point p, float offset);
 quaternion construct_from_angle_axis(float angle, point axis);
 
 /// \brief Return a tuple of an angle and an axis for quaternion @a q
-std::tuple<double, point> quaternion_to_angle_axis(quaternion q);
+std::tuple<float, point> quaternion_to_angle_axis(quaternion q);
 
 /// @brief Given four points and an angle, return the quaternion required to rotate
 /// point p4 along the p2-p3 axis and around point p3 to obtain the required within
@@ -923,7 +918,7 @@ class spherical_dots
 	constexpr static int P = 2 * N * 1;
 
 	/// \brief the *weight* of the fibonacci sphere
-	constexpr static double W = (4 * kPI) / P;
+	constexpr static double W = (4 * std::numbers::pi) / P;
 
 	/// \brief the internal storage type
 	using array_type = typename std::array<point, P>;
@@ -939,31 +934,31 @@ class spherical_dots
 	}
 
 	/// \brief The number of points
-	std::size_t size() const { return P; }
+	[[nodiscard]] std::size_t size() const { return P; }
 
 	/// \brief Access a point by index
 	const point operator[](uint32_t inIx) const { return m_points[inIx]; }
 
 	/// \brief iterator pointing to the first point
-	iterator begin() const { return m_points.begin(); }
+	[[nodiscard]] iterator begin() const { return m_points.begin(); }
 
 	/// \brief iterator pointing past the last point
-	iterator end() const { return m_points.end(); }
+	[[nodiscard]] iterator end() const { return m_points.end(); }
 
 	/// \brief return the *weight*,
-	double weight() const { return W; }
+	[[nodiscard]] double weight() const { return W; }
 
 	spherical_dots()
 	{
 		const double
-			kGoldenRatio = (1 + std::sqrt(5.0)) / 2;
+			kGoldenRatio = std::numbers::phi;
 
 		auto p = m_points.begin();
 
 		for (int32_t i = -N; i <= N; ++i)
 		{
 			double lat = std::asin((2.0 * i) / P);
-			double lon = std::fmod(i, kGoldenRatio) * 2 * kPI / kGoldenRatio;
+			double lon = std::fmod(i, kGoldenRatio) * 2 * std::numbers::pi / kGoldenRatio;
 
 			p->m_x = std::sin(lon) * std::cos(lat);
 			p->m_y = std::cos(lon) * std::cos(lat);

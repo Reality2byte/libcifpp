@@ -7,7 +7,7 @@ Reading a file is as simple as:
 
 .. code-block:: cpp
 
-    #include <cif++.hpp>
+    #include <cif++/cif++.hpp>
 
     cif::file f("/path/to/file.cif");
 
@@ -76,7 +76,7 @@ Categories contain rows of data and each row has fields or items. Referencing a 
     auto rh = atom_site.front();
 
     // Get the label_atom_id value from this row handle as a std::string
-    std::string atom_id = rh["label_atom_id"].as<std::string>();
+    std::string atom_id = rh["label_atom_id"].get<std::string>();
 
     // Get the x, y and z coordinates using structered binding
     const auto &[x, y, z] = rh.get<float,float,float>("Cartn_x", "Cartn_y", "Cartn_z");
@@ -214,7 +214,7 @@ A simple case:
 
 .. code-block:: cpp
 
-    #include <cif++.hpp>
+    #include <cif++/cif++.hpp>
 
     cif::file f("1cbs.cif.gz");
     f.load_dictionary("mmcif_pdbx.dic");

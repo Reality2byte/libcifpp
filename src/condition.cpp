@@ -24,9 +24,17 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/condition.hpp"
-#include "cif++/category.hpp"
-#include "cif++/validate.hpp"
+#include "cif++/cif++.hpp"
+
+#include <algorithm>
+#include <cstddef>
+#include <cstdint>
+#include <optional>
+#include <set>
+#include <string>
+#include <string_view>
+#include <typeinfo>
+#include <vector>
 
 namespace cif
 {
@@ -36,9 +44,13 @@ iset get_category_items(const category &cat)
 	return cat.key_items();
 }
 
-uint16_t get_item_ix(const category &cat, std::string_view col)
+std::optional<uint16_t> get_item_ix(const category &cat, std::string_view col)
 {
-	return cat.get_item_ix(col);
+	auto ix = cat.get_item_ix(col);
+	std::optional<uint16_t> result;
+	if (ix < cat.get_item_count())
+		result = ix;
+	return result;
 }
 
 bool is_item_type_uchar(const category &cat, std::string_view col)
@@ -75,7 +87,7 @@ namespace detail
 	// 			return this;
 	// 		}
 	//
-	// 		bool test(row_handle r) const override
+	// 		bool test(const_row_handle r) const override
 	// 		{
 	// 			return m_single_hit == r;
 	// 		}
@@ -110,32 +122,24 @@ namespace detail
 
 	condition_impl *key_equals_condition_impl::prepare(const category &c)
 	{
-		m_item_ix = c.get_item_ix(m_item_name);
-		m_icase = is_item_type_uchar(c, m_item_name);
+		condition_impl *result = nullptr;
 
-		if (c.get_cat_validator() != nullptr and
-			c.key_item_indices().contains(m_item_ix) and
-			c.key_item_indices().size() == 1)
+		if (auto ix = get_item_ix(c, m_item_name); ix.has_value())
 		{
-			m_single_hit = c[{ { m_item_name, m_value } }];
+			m_item_ix = *ix;
+			m_icase = is_item_type_uchar(c, m_item_name);
+
+			if (c.get_cat_validator() != nullptr and
+				c.key_item_indices().contains(m_item_ix) and
+				c.key_item_indices().size() == 1)
+			{
+				m_single_hit = c[{ { m_item_name, m_value } }];
+			}
+
+			result = this;
 		}
 
-		return this;
-	}
-
-	condition_impl *key_equals_number_condition_impl::prepare(const category &c)
-	{
-		m_item_ix = c.get_item_ix(m_item_name);
-
-		if (c.get_cat_validator() != nullptr and
-			c.key_item_indices().contains(m_item_ix) and
-			c.key_item_indices().size() == 1)
-		{
-			item v(m_item_name, m_value);
-			m_single_hit = c[{ { m_item_name, std::string{ v.value() }, false } }];
-		}
-
-		return this;
+		return result;
 	}
 
 	bool found_in_range(condition_impl *c, std::vector<and_condition_impl *>::iterator b, std::vector<and_condition_impl *>::iterator e)
@@ -146,7 +150,7 @@ namespace detail
 		{
 			auto &cs = (*s)->m_sub;
 
-			if (find_if(cs.begin(), cs.end(), [c](const condition_impl *i)
+			if (std::ranges::find_if(cs, [c](const condition_impl *i)
 					{ return i->equals(c); }) == cs.end())
 			{
 				result = false;
@@ -177,7 +181,7 @@ namespace detail
 				and_result = new and_condition_impl();
 
 			and_result->m_sub.push_back(c);
-			fc.erase(fc.begin() + fc_i);
+			fc.erase(fc.begin() + static_cast<std::string::difference_type>(fc_i));
 
 			for (auto sub : subs)
 			{
@@ -192,7 +196,7 @@ namespace detail
 						continue;
 					}
 
-					ssub.erase(ssub.begin() + ssub_i);
+					ssub.erase(ssub.begin() + static_cast<std::string::difference_type>(ssub_i));
 					delete sc;
 					break;
 				}
@@ -211,7 +215,10 @@ namespace detail
 	condition_impl *and_condition_impl::prepare(const category &c)
 	{
 		for (auto &sub : m_sub)
-			sub = sub->prepare(c);
+		{
+			if (sub->prepare(c) == nullptr)
+				return nullptr;
+		}
 
 		if (auto cv = c.get_cat_validator(); cv != nullptr)
 		{
@@ -234,17 +241,6 @@ namespace detail
 					continue;
 				}
 
-				if (auto s = dynamic_cast<const key_equals_number_condition_impl *>(sub); s != nullptr)
-				{
-					if (keys.contains(s->m_item_name))
-					{
-						item v{ s->m_item_name, s->m_value };
-						lookup.emplace_back(s->m_item_name, std::string{ v.value() } );
-						subs.emplace_back(sub);
-					}
-					continue;
-				}
-
 				if (auto s = dynamic_cast<const key_equals_or_empty_condition_impl *>(sub); s != nullptr)
 				{
 					if (keys.contains(s->m_item_name))
@@ -255,17 +251,6 @@ namespace detail
 					}
 					continue;
 				}
-
-				if (auto s = dynamic_cast<const key_equals_number_or_empty_condition_impl *>(sub); s != nullptr)
-				{
-					if (keys.contains(s->m_item_name))
-					{
-						item v{ s->m_item_name, s->m_value };
-						lookup.emplace_back(s->m_item_name, std::string{ v.value() }, true );
-						subs.emplace_back(sub);
-					}
-					continue;
-				}
 			}
 
 			if (lookup.size() == keys.size())
@@ -273,14 +258,14 @@ namespace detail
 				m_single = c[lookup];
 
 				for (auto s : subs)
-					m_sub.erase(std::remove(m_sub.begin(), m_sub.end(), s), m_sub.end());
+					std::erase(m_sub, s);
 			}
 		}
 
 		return this;
 	}
 
-	bool and_condition_impl::test(row_handle r) const
+	bool and_condition_impl::test(const_row_handle r) const
 	{
 		bool result = true;
 
@@ -307,25 +292,30 @@ namespace detail
 
 		for (auto &sub : m_sub)
 		{
-			sub = sub->prepare(c);
+			if (sub->prepare(c) == nullptr)
+			{
+				delete sub;
+				sub = nullptr;
+				continue;
+			}
+
 			if (typeid(*sub) == typeid(and_condition_impl))
 				and_conditions.push_back(static_cast<and_condition_impl *>(sub));
 		}
 
-		if (and_conditions.size() == m_sub.size())
+		std::erase(m_sub, nullptr);
+
+		if (not m_sub.empty() and and_conditions.size() == m_sub.size())
 			return and_condition_impl::combine_equal(and_conditions, this);
 
-		return this;
+		return m_sub.empty() ? nullptr : this;
 	}
 
 } // namespace detail
 
-void condition::prepare(const category &c)
+bool condition::prepare(const category &c)
 {
-	if (m_impl)
-		m_impl = m_impl->prepare(c);
-
-	m_prepared = true;
+	return m_impl and m_impl->prepare(c) != nullptr;
 }
 
 } // namespace cif

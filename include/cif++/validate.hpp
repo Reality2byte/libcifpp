@@ -27,15 +27,22 @@
 #pragma once
 
 #include "cif++/category.hpp"
+#include "cif++/item.hpp"
 #include "cif++/text.hpp"
 
 #include <cassert>
-#include <filesystem>
+#include <iosfwd>
 #include <list>
+#include <memory>
 #include <mutex>
 #include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <string_view>
 #include <system_error>
 #include <utility>
+#include <vector>
 
 /**
  * @file validate.hpp
@@ -65,6 +72,8 @@ enum class validation_error
 {
 	value_does_not_match_rx = 1,      /**< The value of an item does not conform to the regular expression specified for it */
 	value_is_not_in_enumeration_list, /**< The value of an item is not in the list of values allowed */
+	value_is_not_a_number,            /**< The value is not a number */
+	value_is_not_a_char_string,       /**< The value is not a character string */
 	not_a_known_primitive_type,       /**< The type is not a known primitive type */
 	undefined_category,               /**< Category has no definition in the dictionary */
 	unknown_item,                     /**< The item is not defined to be part of the category */
@@ -90,7 +99,7 @@ class validation_category_impl : public std::error_category
 	 * @return const char*
 	 */
 
-	const char *name() const noexcept override
+	[[nodiscard]] const char *name() const noexcept override
 	{
 		return "cif::validation";
 	}
@@ -102,35 +111,41 @@ class validation_category_impl : public std::error_category
 	 * @return std::string
 	 */
 
-	std::string message(int ev) const override
+	[[nodiscard]] std::string message(int ev) const override
 	{
 		switch (static_cast<validation_error>(ev))
 		{
-			case validation_error::value_does_not_match_rx:
+			using enum validation_error;
+
+			case value_does_not_match_rx:
 				return "Value in item does not match regular expression";
-			case validation_error::value_is_not_in_enumeration_list:
+			case value_is_not_in_enumeration_list:
 				return "Value is not in the enumerated list of valid values";
-			case validation_error::not_a_known_primitive_type:
+			case value_is_not_a_number:
+				return "Value is not a number";
+			case value_is_not_a_char_string:
+				return "Value is not a character string";
+			case not_a_known_primitive_type:
 				return "The type is not a known primitive type";
-			case validation_error::undefined_category:
+			case undefined_category:
 				return "Category has no definition in the dictionary";
-			case validation_error::unknown_item:
+			case unknown_item:
 				return "Item is not defined to be part of the category";
-			case validation_error::incorrect_item_validator:
+			case incorrect_item_validator:
 				return "Incorrectly specified validator for item";
-			case validation_error::missing_mandatory_items:
+			case missing_mandatory_items:
 				return "Missing mandatory items";
-			case validation_error::missing_key_items:
+			case missing_key_items:
 				return "An index could not be constructed due to missing key items";
-			case validation_error::item_not_allowed_in_category:
+			case item_not_allowed_in_category:
 				return "Requested item not allowed in category according to dictionary";
-			case validation_error::empty_file:
+			case empty_file:
 				return "The file contains no datablocks";
-			case validation_error::empty_datablock:
+			case empty_datablock:
 				return "The datablock contains no categories";
-			case validation_error::empty_category:
+			case empty_category:
 				return "The category is empty";
-			case validation_error::not_valid_pdbx:
+			case not_valid_pdbx:
 				return "The file is not a valid PDBx file";
 
 			default:
@@ -144,7 +159,7 @@ class validation_category_impl : public std::error_category
 	 *
 	 */
 
-	bool equivalent(const std::error_code & /*code*/, int /*condition*/) const noexcept override
+	[[nodiscard]] bool equivalent(const std::error_code & /*code*/, int /*condition*/) const noexcept override
 	{
 		return false;
 	}
@@ -161,21 +176,27 @@ inline std::error_category &validation_category()
 	return instance;
 }
 
+/// Return a std::error_code for a validation error
 inline std::error_code make_error_code(validation_error e)
 {
-	return std::error_code(static_cast<int>(e), validation_category());
+	return { static_cast<int>(e), validation_category() };
 }
 
+/// Return a std::error_condition for a validation error
 inline std::error_condition make_error_condition(validation_error e)
 {
-	return std::error_condition(static_cast<int>(e), validation_category());
+	return { static_cast<int>(e), validation_category() };
 }
 
 // --------------------------------------------------------------------
 
+/// Exception class for validation errors
 class validation_exception : public std::runtime_error
 {
   public:
+	// Constructors
+	/// @cond
+	
 	validation_exception(validation_error err)
 		: validation_exception(make_error_code(err))
 	{
@@ -196,6 +217,7 @@ class validation_exception : public std::runtime_error
 	validation_exception(std::error_code ec, std::string_view category);
 
 	validation_exception(std::error_code ec, std::string_view category, std::string_view item);
+	/// @endcond
 };
 
 // --------------------------------------------------------------------
@@ -238,7 +260,7 @@ struct type_validator
 	type_validator(std::string_view name, DDL_PrimitiveType type, std::string_view rx);
 
 	/// @brief Copy constructor
-	type_validator(const type_validator &tv);
+	type_validator(const type_validator &tv) = default;
 
 	/// @brief Move constructor
 	type_validator(type_validator &&rhs)
@@ -254,8 +276,9 @@ struct type_validator
 	}
 
 	/// @brief Destructor
-	~type_validator();
+	~type_validator() = default;
 
+	/// Swap two type validators
 	friend void swap(type_validator &a, type_validator &b)
 	{
 		std::swap(a.m_name, b.m_name);
@@ -273,7 +296,7 @@ struct type_validator
 	/// primitive type of this type. A value of zero indicates the
 	/// values are equal. Less than zero means @a a sorts before @a b
 	/// and a value larger than zero likewise means the opposite
-	int compare(std::string_view a, std::string_view b) const;
+	[[nodiscard]] int compare(const item_value &a, const item_value &b) const;
 };
 
 /** @brief Item alias, items can be renamed over time
@@ -281,14 +304,18 @@ struct type_validator
 
 struct item_alias
 {
-	item_alias(const std::string &alias_name, const std::string &dictionary, const std::string &version)
-		: m_name(alias_name)
-		, m_dict(dictionary)
-		, m_vers(version)
+	/// constructor
+	item_alias(std::string alias_name, std::string dictionary, std::string version)
+		: m_name(std::move(alias_name))
+		, m_dict(std::move(dictionary))
+		, m_vers(std::move(version))
 	{
 	}
 
+	/// default copy constructor
 	item_alias(const item_alias &) = default;
+
+	/// default copy assignment
 	item_alias &operator=(const item_alias &) = default;
 
 	std::string m_name; ///< The alias_name
@@ -327,11 +354,13 @@ struct item_validator
 		return iequals(m_item_name, rhs.m_item_name);
 	}
 
-	/// @brief Validate the value in @a value for this item
-	/// Will throw a std::system_error exception if it fails
-	void operator()(std::string_view value) const;
+	/// @brief Validate value @a value, throws if invalid
+	void validate_value(const item_value &value) const;
 
-	/// @brief A more gentle version of value validation
+	/// @brief Validate value @a value and return potential error in @a ec
+	bool validate_value(const item_value &value, std::error_code &ec) const noexcept;
+
+	/// @brief Validate value @a value and return potential error in @a ec
 	bool validate_value(std::string_view value, std::error_code &ec) const noexcept;
 };
 
@@ -343,11 +372,11 @@ struct item_validator
  */
 struct category_validator
 {
-	std::string m_name;                         ///< The name of the category
-	std::vector<std::string> m_keys;            ///< The list of items that make up the key
-	cif::iset m_groups;                         ///< The category groups this category belongs to
-	cif::iset m_mandatory_items;                ///< The mandatory items for this category
-	std::set<item_validator> m_item_validators; ///< The item validators for the items in this category
+	std::string m_name;                            ///< The name of the category
+	std::vector<std::string> m_keys;               ///< The list of items that make up the key
+	cif::iset m_groups;                            ///< The category groups this category belongs to
+	cif::iset m_mandatory_items;                   ///< The mandatory items for this category
+	std::vector<item_validator> m_item_validators; ///< The item validators for the items in this category
 
 	/// @brief return true if this category sorts before @a rhs
 	bool operator<(const category_validator &rhs) const
@@ -359,10 +388,10 @@ struct category_validator
 	void add_item_validator(item_validator &&v);
 
 	/// @brief Return the item_validator for item @a item_name, may return nullptr
-	const item_validator *get_validator_for_item(std::string_view item_name) const;
+	[[nodiscard]] const item_validator *get_validator_for_item(std::string_view item_name) const;
 
 	/// @brief Return the item_validator for an item that has as alias name @a item_name, may return nullptr
-	const item_validator *get_validator_for_aliased_item(std::string_view item_name) const;
+	[[nodiscard]] const item_validator *get_validator_for_aliased_item(std::string_view item_name) const;
 };
 
 /**
@@ -397,8 +426,6 @@ class validator
   public:
 	/**
 	 * @brief Construct a new validator object
-	 *
-	 * @param name The name of the underlying dictionary
 	 */
 	validator()
 		: m_audit_conform("audit_conform")
@@ -408,7 +435,6 @@ class validator
 	/**
 	 * @brief Construct a new validator object
 	 *
-	 * @param name The name of the underlying dictionary
 	 * @param is The data to parse
 	 */
 	validator(std::istream &is)
@@ -420,7 +446,8 @@ class validator
 	/// @brief destructor
 	~validator() = default;
 
-	validator(const validator &rhs);
+	/// default copy constructor
+	validator(const validator &rhs) = default;
 
 	/// @brief move constructor
 	validator(validator &&rhs)
@@ -428,12 +455,14 @@ class validator
 		swap(*this, rhs);
 	}
 
+	/// default copy assignment
 	validator &operator=(validator rhs)
 	{
 		swap(*this, rhs);
 		return *this;
 	}
 
+	/// swap the two validators
 	friend void swap(validator &a, validator &b) noexcept;
 
 	friend class dictionary_parser;
@@ -447,22 +476,22 @@ class validator
 	void add_type_validator(type_validator &&v);
 
 	/// @brief Return the type validator for @a type_code, may return nullptr
-	const type_validator *get_validator_for_type(std::string_view type_code) const;
+	[[nodiscard]] const type_validator *get_validator_for_type(std::string_view type_code) const;
 
 	/// @brief Add category_validator @a v to the list of category validators
 	void add_category_validator(category_validator &&v);
 
 	/// @brief Return the category validator for @a category, may return nullptr
-	const category_validator *get_validator_for_category(std::string_view category) const;
+	[[nodiscard]] const category_validator *get_validator_for_category(std::string_view category) const;
 
 	/// @brief Add link_validator @a v to the list of link validators
 	void add_link_validator(link_validator &&v);
 
 	/// @brief Return the list of link validators for which the parent is @a category
-	std::vector<const link_validator *> get_links_for_parent(std::string_view category) const;
+	[[nodiscard]] std::vector<const link_validator *> get_links_for_parent(std::string_view category) const;
 
 	/// @brief Return the list of link validators for which the child is @a category
-	std::vector<const link_validator *> get_links_for_child(std::string_view category) const;
+	[[nodiscard]] std::vector<const link_validator *> get_links_for_child(std::string_view category) const;
 
 	/// @brief Bottleneck function to report an error in validation
 	void report_error(validation_error err, bool fatal = true) const
@@ -489,14 +518,14 @@ class validator
 	void fill_audit_conform(category &audit_conform) const;
 
 	/// @brief Return true if this validator matches @a audit_conform
-	bool matches_audit_conform(const category &audit_conform) const;
+	[[nodiscard]] bool matches_audit_conform(const category &audit_conform) const;
 
 	/// @brief Add info
 	void append_audit_conform(const std::string &name, const std::optional<std::string> &version);
 
   private:
 	// name is fully qualified here:
-	item_validator *get_validator_for_item(std::string_view name) const;
+	[[nodiscard]] item_validator *get_validator_for_item(std::string_view name) const;
 
 	category m_audit_conform;
 
@@ -520,10 +549,18 @@ class validator_factory
 	static validator_factory &instance();
 
 	/// @brief Return validator with info recorded in @a audit_conform
-	const validator &get(const category &audit_conform);
+	const validator *get(const category &audit_conform);
 
 	/// @brief Return the single-file validator with name @a dictionary_name
-	const validator &get(std::string_view dictionary_name);
+	/// and the dictionary name may be a set of dictionaries separated by comma
+	const validator *get(std::string_view dictionary_name);
+
+	/// @brief Return validator with info recorded in @a audit_conform
+	const validator &operator[](const category &audit_conform);
+
+	/// @brief Return the single-file validator with name @a dictionary_name
+	/// and the dictionary name may be a set of dictionaries separated by comma
+	const validator &operator[](std::string_view dictionary_name);
 
 	/// @brief Return true if the version @a found is equal or higher than @a expected for dictionary @a name
 	static bool check_version(std::string_view name, std::string_view expected, std::string_view found);
@@ -534,6 +571,21 @@ class validator_factory
 		std::unique_lock lock(m_mutex);
 		return m_validators.emplace_back(std::move(v));
 	}
+
+	// #if __cplusplus >= 202302L
+	// 	/// @brief Return validator with info recorded in @a audit_conform
+	// 	static validator &operator[](const category &audit_conform)
+	// 	{
+	// 		return instance()[audit_conform];
+	// 	}
+
+	// 	/// @brief Return the single-file validator with name @a dictionary_name
+	// 	/// and the dictionary name may be a set of dictionaries separated by comma
+	// 	static validator &operator[](std::string_view dict)
+	// 	{
+	// 		return instance()[dict];
+	// 	}
+	// #endif
 
   private:
 	validator_factory() = default;

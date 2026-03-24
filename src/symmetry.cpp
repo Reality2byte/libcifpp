@@ -24,17 +24,25 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/symmetry.hpp"
-#include "cif++/datablock.hpp"
-#include "cif++/point.hpp"
-
-#include <stdexcept>
-
+#include "cif++/cif++.hpp"
 #include "symop_table_data.hpp"
 
+#include <array>
+#include <charconv>
+#include <cmath>
+#include <cstddef>
+#include <cstdint>
+#include <limits>
+#include <stdexcept>
+#include <string>
+#include <string_view>
+#include <system_error>
+#include <tuple>
+#include <vector>
+
 #if defined(_MSC_VER)
-#pragma warning (disable : 5054)	// warning C5054: operator '&': deprecated between enumerations of different types
-#pragma warning (disable : 4127)	// conditional expression is constant
+# pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types
+# pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
 #include <Eigen/Eigen>
@@ -67,29 +75,29 @@ cell::cell(const datablock &db)
 
 void cell::init()
 {
-	auto alpha = (m_alpha * kPI) / 180;
-	auto beta = (m_beta * kPI) / 180;
-	auto gamma = (m_gamma * kPI) / 180;
+	auto alpha = (m_alpha * std::numbers::pi_v<float>) / 180;
+	auto beta = (m_beta * std::numbers::pi_v<float>) / 180;
+	auto gamma = (m_gamma * std::numbers::pi_v<float>) / 180;
 
 	auto alpha_star = std::acos((std::cos(gamma) * std::cos(beta) - std::cos(alpha)) / (std::sin(beta) * std::sin(gamma)));
 
 	m_orthogonal = identity_matrix(3);
 
-	m_orthogonal(0, 0) = static_cast<float>(m_a);
-	m_orthogonal(0, 1) = static_cast<float>(m_b * std::cos(gamma));
-	m_orthogonal(0, 2) = static_cast<float>(m_c * std::cos(beta));
-	m_orthogonal(1, 1) = static_cast<float>(m_b * std::sin(gamma));
-	m_orthogonal(1, 2) = static_cast<float>(-m_c * std::sin(beta) * std::cos(alpha_star));
-	m_orthogonal(2, 2) = static_cast<float>(m_c * std::sin(beta) * std::sin(alpha_star));
+	m_orthogonal(0, 0) = m_a;
+	m_orthogonal(0, 1) = m_b * std::cos(gamma);
+	m_orthogonal(0, 2) = m_c * std::cos(beta);
+	m_orthogonal(1, 1) = m_b * std::sin(gamma);
+	m_orthogonal(1, 2) = m_c * std::sin(beta) * std::cos(alpha_star);
+	m_orthogonal(2, 2) = m_c * std::sin(beta) * std::sin(alpha_star);
 
 	m_fractional = inverse(m_orthogonal);
 }
 
 float cell::get_volume() const
 {
-	auto alpha = (m_alpha * kPI) / 180;
-	auto beta = (m_beta * kPI) / 180;
-	auto gamma = (m_gamma * kPI) / 180;
+	auto alpha = (m_alpha * std::numbers::pi_v<float>) / 180;
+	auto beta = (m_beta * std::numbers::pi_v<float>) / 180;
+	auto gamma = (m_gamma * std::numbers::pi_v<float>) / 180;
 
 	auto cos_alpha = std::cos(alpha);
 	auto cos_beta = std::cos(beta);
@@ -116,7 +124,7 @@ sym_op::sym_op(std::string_view s)
 	m_tb = r.ptr[2] - '0';
 	m_tc = r.ptr[3] - '0';
 
-	if ((bool)r.ec or rnri > 192 or r.ptr[0] != '_' or m_ta > 9 or m_tb > 9 or m_tc > 9)
+	if (r.ec != std::errc{} or rnri > 192 or r.ptr[0] != '_' or m_ta > 9 or m_tb > 9 or m_tc > 9)
 		throw std::invalid_argument("Could not convert string into sym_op");
 }
 
@@ -124,13 +132,13 @@ std::string sym_op::string() const
 {
 	char b[9];
 	auto r = std::to_chars(b, b + sizeof(b), m_nr);
-	if ((bool)r.ec or r.ptr > b + 4)
+	if (r.ec != std::errc{} or r.ptr > b + 4)
 		throw std::runtime_error("Could not write out symmetry operation to string");
 
 	*r.ptr++ = '_';
-	*r.ptr++ = '0' + m_ta;
-	*r.ptr++ = '0' + m_tb;
-	*r.ptr++ = '0' + m_tc;
+	*r.ptr++ = static_cast<char>('0' + m_ta);
+	*r.ptr++ = static_cast<char>('0' + m_tb);
+	*r.ptr++ = static_cast<char>('0' + m_tc);
 	*r.ptr = 0;
 
 	return { b, static_cast<std::size_t>(r.ptr - b) };
@@ -187,7 +195,7 @@ transformation operator*(const transformation &lhs, const transformation &rhs)
 	auto t = lhs.m_rotation * rhs.m_translation;
 	t = t + lhs.m_translation;
 
-	return transformation(r, t);
+	return { r, t };
 }
 
 transformation inverse(const transformation &t)
@@ -345,9 +353,8 @@ int get_space_group_number(std::string_view spacegroup)
 	// not found, see if we can find a match based on xHM name
 	if (result == 0)
 	{
-		for (std::size_t i = 0; i < kNrOfSpaceGroups; ++i)
+		for (const auto &sp : kSpaceGroups)
 		{
-			auto &sp = kSpaceGroups[i];
 			if (sp.xHM == spacegroup)
 			{
 				result = sp.nr;

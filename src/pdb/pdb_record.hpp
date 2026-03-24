@@ -26,7 +26,10 @@
 
 #pragma once
 
-#include "cif++/file.hpp"
+#include <cstdint>
+#include <limits>
+#include <optional>
+#include <string>
 
 /// \file pdb_record.hpp
 
@@ -37,14 +40,14 @@ namespace cif::pdb
 
 struct PDBRecord
 {
-	PDBRecord *mNext;
+	PDBRecord *mNext = nullptr;
 	uint32_t mLineNr;
 	char mName[11];
 	std::size_t mVlen;
 	char mValue[1];
 
 	PDBRecord(uint32_t lineNr, const std::string &name, const std::string &value);
-	~PDBRecord();
+	~PDBRecord() = default;
 
 	void *operator new(std::size_t);
 	void *operator new(std::size_t size, std::size_t vLen);
@@ -57,7 +60,7 @@ struct PDBRecord
 	char vC(std::size_t column);
 	std::string vS(std::size_t columnFirst, std::size_t columnLast = std::numeric_limits<std::size_t>::max());
 	int vI(int columnFirst, int columnLast);
-	std::string vF(std::size_t columnFirst, std::size_t columnLast);
+	std::optional<float> vF(std::size_t columnFirst, std::size_t columnLast);
 };
 
-} // namespace pdbx
+} // namespace cif::pdb

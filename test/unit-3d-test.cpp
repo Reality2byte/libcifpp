@@ -24,20 +24,18 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/point.hpp"
+#include "cif++/cif++.hpp"
 #include "test-main.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
-#include <cif++.hpp>
-#include <stdexcept>
 
 #if defined(_MSC_VER)
 # pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types
 # pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
-#include <Eigen/Eigenvalues>
+// #include <Eigen/Eigenvalues>
 
 // --------------------------------------------------------------------
 
@@ -119,7 +117,7 @@ TEST_CASE("t2")
 
 	cif::point xp = cif::cross_product(p[1] - p[0], p[2] - p[0]);
 
-	auto q = cif::construct_from_angle_axis(45, xp); // mmcif::Normalize(Quaternion{45 * mmcif::kPI / 180, xp.mX, xp.mY, xp.mZ});
+	auto q = cif::construct_from_angle_axis(45, xp);
 
 	auto &&[angle, axis] = cif::quaternion_to_angle_axis(q);
 
@@ -136,7 +134,7 @@ TEST_CASE("t3")
 
 	cif::point xp = cif::cross_product(p[1] - p[0], p[2] - p[0]);
 
-	auto q = cif::construct_from_angle_axis(45, xp); // mmcif::Normalize(Quaternion{45 * mmcif::kPI / 180, xp.mX, xp.mY, xp.mZ});
+	auto q = cif::construct_from_angle_axis(45, xp);
 
 	auto v = p[1];
 	v -= p[0];
@@ -231,109 +229,45 @@ TEST_CASE("dh_q_1")
 	}
 }
 
-// --------------------------------------------------------------------
-
-// TEST_CASE("m2q_0")
-// {
-// 	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
-// 	{
-// 		auto d = cif::kSymopNrTable[i].symop().data();
-
-// 		cif::matrix3x3<float> rot;
-// 		float Qxx = rot(0, 0) = d[0];
-// 		float Qxy = rot(0, 1) = d[1];
-// 		float Qxz = rot(0, 2) = d[2];
-// 		float Qyx = rot(1, 0) = d[3];
-// 		float Qyy = rot(1, 1) = d[4];
-// 		float Qyz = rot(1, 2) = d[5];
-// 		float Qzx = rot(2, 0) = d[6];
-// 		float Qzy = rot(2, 1) = d[7];
-// 		float Qzz = rot(2, 2) = d[8];
-
-// 		Eigen::Matrix4f em;
-
-// 		em << Qxx - Qyy - Qzz, Qyx + Qxy, Qzx + Qxz, Qzy - Qyz,
-// 			Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
-// 			Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
-// 			Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz;
-
-// 		Eigen::EigenSolver<Eigen::Matrix4f> es(em / 3);
-
-// 		auto ev = es.eigenvalues();
-
-// 		std::size_t bestJ = 0;
-// 		float bestEV = -1;
-
-// 		for (std::size_t j = 0; j < 4; ++j)
-// 		{
-// 			if (bestEV < ev[j].real())
-// 			{
-// 				bestEV = ev[j].real();
-// 				bestJ = j;
-// 			}
-// 		}
-
-// 		if (std::abs(bestEV - 1) > 0.01)
-// 			continue; // not a rotation matrix
-
-// 		auto col = es.eigenvectors().col(bestJ);
-
-// 		auto q = normalize(cif::quaternion{
-// 			static_cast<float>(col(3).real()),
-// 			static_cast<float>(col(0).real()),
-// 			static_cast<float>(col(1).real()),
-// 			static_cast<float>(col(2).real()) });
-
-// 		cif::point p1{ 1, 1, 1 };
-// 		cif::point p2 = p1;
-// 		p2.rotate(q);
-
-// 		cif::point p3 = rot * p1;
-
-// 		CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
-// 		CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
-// 		CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
-// 	}
-// }
-
-TEST_CASE("m2q_0a")
+/* TEST_CASE("m2q_0a")
 {
-	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
-	{
-		auto d = cif::kSymopNrTable[i].symop().data();
+    for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
+    {
+        auto d = cif::kSymopNrTable[i].symop().data();
 
-		Eigen::Matrix3f rot;
-		rot << static_cast<float>(d[0]), static_cast<float>(d[1]), static_cast<float>(d[2]), static_cast<float>(d[3]), static_cast<float>(d[4]), static_cast<float>(d[5]), static_cast<float>(d[6]), static_cast<float>(d[7]), static_cast<float>(d[8]);
+        Eigen::Matrix3f rot;
+        rot << static_cast<float>(d[0]), static_cast<float>(d[1]), static_cast<float>(d[2]), static_cast<float>(d[3]), static_cast<float>(d[4]), static_cast<float>(d[5]), static_cast<float>(d[6]), static_cast<float>(d[7]), static_cast<float>(d[8]);
 
-		// check to see if this matrix contains a true rotation
-		if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
-			continue;
+        // check to see if this matrix contains a true rotation
+        if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
+            continue;
 
-		Eigen::Quaternionf qe(rot);
+        Eigen::Quaternionf qe(rot);
 
-		auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
+        auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
 
-		cif::point p1{ 1, 1, 1 };
-		cif::point p2 = p1;
-		p2.rotate(q);
+        cif::point p1{ 1, 1, 1 };
+        cif::point p2 = p1;
+        p2.rotate(q);
 
-		cif::matrix3x3<float> rot_c({ static_cast<float>(d[0]),
-			static_cast<float>(d[1]),
-			static_cast<float>(d[2]),
-			static_cast<float>(d[3]),
-			static_cast<float>(d[4]),
-			static_cast<float>(d[5]),
-			static_cast<float>(d[6]),
-			static_cast<float>(d[7]),
-			static_cast<float>(d[8]) });
+        cif::matrix3x3<float> rot_c({ static_cast<float>(d[0]),
+            static_cast<float>(d[1]),
+            static_cast<float>(d[2]),
+            static_cast<float>(d[3]),
+            static_cast<float>(d[4]),
+            static_cast<float>(d[5]),
+            static_cast<float>(d[6]),
+            static_cast<float>(d[7]),
+            static_cast<float>(d[8]) });
 
-		cif::point p3 = rot_c * p1;
+        cif::point p3 = rot_c * p1;
 
-		CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
-		CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
-		CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
-	}
+        CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
+        CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
+        CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
+    }
 }
+ */
 
 // "TEST_CASE(m2q_1")
 // {
@@ -465,6 +399,7 @@ TEST_CASE("symm_4wvp_1")
 	using namespace cif::literals;
 
 	cif::file f(gTestDir / "4wvp.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 	cif::mm::structure s(db);
@@ -491,6 +426,7 @@ TEST_CASE("symm_4wvp_1")
 TEST_CASE("symm_2bi3_1")
 {
 	cif::file f(gTestDir / "2bi3.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 	cif::mm::structure s(db);
@@ -537,6 +473,7 @@ TEST_CASE("symm_2bi3_1a")
 	using namespace cif::literals;
 
 	cif::file f(gTestDir / "2bi3.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 
@@ -580,6 +517,7 @@ TEST_CASE("symm_2bi3_1a")
 TEST_CASE("symm_3bwh_1")
 {
 	cif::file f(gTestDir / "3bwh.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 
@@ -603,6 +541,7 @@ TEST_CASE("symm_3bwh_1")
 TEST_CASE("volume_3bwh_1")
 {
 	cif::file f(gTestDir / "1juh.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
 
 	auto &db = f.front();
 

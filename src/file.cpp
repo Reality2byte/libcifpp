@@ -24,9 +24,16 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/file.hpp"
-#include "cif++/condition.hpp"
-#include "cif++/gzio.hpp"
+#include "cif++/cif++.hpp"
+
+#include <cassert>
+#include <exception>
+#include <filesystem>
+#include <istream>
+#include <list>
+#include <stdexcept>
+#include <string_view>
+#include <tuple>
 
 namespace cif
 {
@@ -76,13 +83,13 @@ bool file::validate_links() const
 
 bool file::contains(std::string_view name) const
 {
-	return std::find_if(begin(), end(), [name](const datablock &db)
+	return std::ranges::find_if(*this, [name](const datablock &db)
 			   { return iequals(db.name(), name); }) != end();
 }
 
 datablock &file::operator[](std::string_view name)
 {
-	auto i = std::find_if(begin(), end(), [name](const datablock &c)
+	auto i = std::ranges::find_if(*this, [name](const datablock &c)
 		{ return iequals(c.name(), name); });
 
 	if (i != end())
@@ -95,7 +102,7 @@ datablock &file::operator[](std::string_view name)
 const datablock &file::operator[](std::string_view name) const
 {
 	static const datablock s_empty;
-	auto i = std::find_if(begin(), end(), [name](const datablock &c)
+	auto i = std::ranges::find_if(*this, [name](const datablock &c)
 		{ return iequals(c.name(), name); });
 	return i == end() ? s_empty : *i;
 }
@@ -137,30 +144,6 @@ void file::load(const std::filesystem::path &p)
 	{
 		throw_with_nested(std::runtime_error("Error reading file '" + p.string() + '\''));
 	}
-}
-
-void file::load(const std::filesystem::path &p, const validator &v)
-{
-	gzio::ifstream in(p);
-	if (not in.is_open())
-		throw std::runtime_error("Could not open file '" + p.string() + '\'');
-
-	try
-	{
-		load(in, v);
-	}
-	catch (const std::exception &)
-	{
-		throw_with_nested(std::runtime_error("Error reading file '" + p.string() + '\''));
-	}
-}
-
-void file::load(std::istream &is, const validator &v)
-{
-	parser p(is, *this);
-	p.parse_file();
-	for (auto &db : *this)
-		db.set_validator(&v);
 }
 
 void file::load(std::istream &is)

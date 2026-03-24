@@ -24,13 +24,23 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++/condition.hpp"
-#include "cif++/dictionary_parser.hpp"
-#include "cif++/file.hpp"
-#include "cif++/parser.hpp"
+#include "cif++/cif++.hpp"
+
+#include <cstddef>
 #include <exception>
-#include <iomanip>
+#include <format>
+#include <iostream>
+#include <map>
+#include <memory>
+#include <optional>
+#include <ranges>
+#include <set>
 #include <stdexcept>
+#include <string>
+#include <string_view>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace cif
 {
@@ -63,7 +73,7 @@ class dictionary_parser : public parser
 
 					default:
 					{
-						dict.reset(new datablock(m_token_value)); // dummy datablock, for constructing the validator only
+						dict = std::make_unique<datablock>(m_token_value); // dummy datablock, for constructing the validator only
 						m_datablock = dict.get();
 
 						match(CIFToken::DATA);
@@ -104,7 +114,7 @@ class dictionary_parser : public parser
 		// store meta information
 		if (auto dictionary = m_datablock->get("dictionary"); dictionary != nullptr and not dictionary->empty())
 		{
-			const auto &[name, version] = dictionary->front().get<std::string,std::optional<std::string>>("title", "version");
+			const auto &[name, version] = dictionary->front().get<std::string, std::optional<std::string>>("title", "version");
 			m_validator.append_audit_conform(name, version);
 		}
 
@@ -119,7 +129,7 @@ class dictionary_parser : public parser
 		if (not m_collected_item_types)
 			m_collected_item_types = collect_item_types();
 
-		std::string saveFrameName { m_token_value };
+		std::string saveFrameName{ m_token_value };
 
 		if (saveFrameName.empty())
 			error("Invalid save frame, should contain more than just 'save_' here");
@@ -127,7 +137,7 @@ class dictionary_parser : public parser
 		bool isCategorySaveFrame = m_token_value[0] != '_';
 
 		datablock dict(m_token_value);
-		datablock::iterator cat = dict.end();
+		auto cat = dict.end();
 
 		match(CIFToken::SAVE_NAME);
 		while (m_lookahead == CIFToken::LOOP or m_lookahead == CIFToken::ITEM_NAME)
@@ -153,15 +163,41 @@ class dictionary_parser : public parser
 					match(CIFToken::ITEM_NAME);
 				}
 
-				while (m_lookahead == CIFToken::VALUE)
+				while (m_lookahead >= CIFToken::VALUE_INAPPLICABLE)
 				{
 					cat->emplace({});
 					auto row = cat->back();
 
 					for (auto item_name : item_names)
 					{
-						row[item_name] = m_token_value;
-						match(CIFToken::VALUE);
+						switch (m_lookahead)
+						{
+							using enum CIFToken;
+
+							case VALUE_INAPPLICABLE:
+								row[item_name] = nullptr;
+								match(VALUE_INAPPLICABLE);
+								break;
+							case VALUE_UNKNOWN:
+								row[item_name] = item_value{ std::optional<std::string>{} };
+								match(VALUE_UNKNOWN);
+								break;
+							case VALUE_NUMERIC_INTEGER:
+								row[item_name] = m_token_value_int;
+								match(VALUE_NUMERIC_INTEGER);
+								break;
+							case VALUE_NUMERIC_FLOAT:
+								row[item_name] = m_token_value_float;
+								match(VALUE_NUMERIC_FLOAT);
+								break;
+							case VALUE_CHARSTRING:
+							case VALUE_TEXTFIELD:
+								row[item_name] = m_token_value;
+								match(m_lookahead);
+								break;
+							default:
+								match(VALUE_CHARSTRING);
+						}
 					}
 				}
 
@@ -179,9 +215,35 @@ class dictionary_parser : public parser
 
 				if (cat->empty())
 					cat->emplace({});
-				cat->back()[item_name] = m_token_value;
 
-				match(CIFToken::VALUE);
+				switch (m_lookahead)
+				{
+					using enum CIFToken;
+
+					case VALUE_INAPPLICABLE:
+						cat->back()[item_name] = nullptr;
+						match(VALUE_INAPPLICABLE);
+						break;
+					case VALUE_UNKNOWN:
+						cat->back()[item_name] = item_value{ std::optional<std::string>{} };
+						match(VALUE_UNKNOWN);
+						break;
+					case VALUE_NUMERIC_INTEGER:
+						cat->back()[item_name] = m_token_value_int;
+						match(VALUE_NUMERIC_INTEGER);
+						break;
+					case VALUE_NUMERIC_FLOAT:
+						cat->back()[item_name] = m_token_value_float;
+						match(VALUE_NUMERIC_FLOAT);
+						break;
+					case VALUE_CHARSTRING:
+					case VALUE_TEXTFIELD:
+						cat->back()[item_name] = m_token_value;
+						match(m_lookahead);
+						break;
+					default:
+						match(VALUE_CHARSTRING);
+				}
 			}
 		}
 
@@ -189,32 +251,37 @@ class dictionary_parser : public parser
 
 		if (isCategorySaveFrame)
 		{
-			std::string category = dict["category"].front().get<std::string>("id");
+			auto category = dict["category"].front().get<std::string>("id");
 
 			std::vector<std::string> keys;
 			for (auto k : dict["category_key"])
-				keys.push_back(std::get<1>(split_item_name(k["name"].as<std::string>())));
+				keys.push_back(std::get<1>(split_item_name(k["name"].get<std::string>())));
 
 			iset groups;
 			for (auto g : dict["category_group"])
-				groups.insert(g["id"].as<std::string>());
+				groups.insert(g["id"].get<std::string>());
 
 			mCategoryValidators.push_back(category_validator{ category, keys, groups });
 		}
 		else
 		{
 			// if the type code is missing, this must be a pointer, just skip it
-			std::string typeCode = dict["item_type"].front().get<std::string>("code");
+			std::optional<std::string> typeCode;
+
+			if (not dict["item_type"].empty())
+				typeCode = dict["item_type"].front().get<std::optional<std::string>>("code");
 
 			const type_validator *tv = nullptr;
-			if (not(typeCode.empty() or typeCode == "?"))
-				tv = m_validator.get_validator_for_type(typeCode);
+			if (typeCode.has_value())
+				tv = m_validator.get_validator_for_type(*typeCode);
 
 			iset ess;
 			for (auto e : dict["item_enumeration"])
-				ess.insert(e["value"].as<std::string>());
+				ess.insert(e["value"].get<std::string>());
 
-			std::string defaultValue = dict["item_default"].front().get<std::string>("value");
+			std::string defaultValue;
+			if (auto &cat = dict["item_default"]; not cat.empty())
+				defaultValue = cat.front().get<std::string>("value");
 			// bool defaultIsNull = false;
 			// if (defaultValue.empty())
 			// {
@@ -228,7 +295,7 @@ class dictionary_parser : public parser
 
 			std::vector<item_alias> aliases;
 			for (const auto &[alias_name, dictionary, version] :
-				dict["item_aliases"].rows<std::string,std::string,std::string>("alias_name", "dictionary", "version"))
+				dict["item_aliases"].rows<std::string, std::string, std::string>("alias_name", "dictionary", "version"))
 			{
 				aliases.emplace_back(alias_name, dictionary, version);
 			}
@@ -236,8 +303,7 @@ class dictionary_parser : public parser
 			// collect the dict from our dataBlock and construct validators
 			for (auto i : dict["item"])
 			{
-				std::string item, category, mandatory;
-				cif::tie(item, category, mandatory) = i.get("name", "category_id", "mandatory_code");
+				auto &&[item, category, mandatory] = i.get<std::string, std::string, std::string>("name", "category_id", "mandatory_code");
 
 				std::string cat_name, item_name;
 				std::tie(cat_name, item_name) = split_item_name(item);
@@ -252,9 +318,9 @@ class dictionary_parser : public parser
 
 				auto &ivs = mItemValidators[category];
 
-				auto vi = find(ivs.begin(), ivs.end(), item_validator{ item_name });
+				auto vi = std::ranges::find(ivs, item_validator{ item_name });
 				if (vi == ivs.end())
-					ivs.push_back(item_validator{ item_name, iequals(mandatory, "yes"), tv, ess, defaultValue, cat_name, std::move(aliases) });
+					ivs.push_back(item_validator{ item_name, iequals(mandatory, "yes"), tv, ess, defaultValue, cat_name, aliases });
 				else
 				{
 					// need to update the itemValidator?
@@ -293,9 +359,7 @@ class dictionary_parser : public parser
 
 			// collect the dict from our dataBlock and construct validators
 			for (auto i : dict["item_linked"])
-			{
-				mLinkedItems.emplace(i.get<std::string,std::string>("child_name", "parent_name"));
-			}
+				mLinkedItems.emplace(i.get<std::string, std::string>("child_name", "parent_name"));
 		}
 	}
 
@@ -340,9 +404,7 @@ class dictionary_parser : public parser
 
 		for (auto gl : linkedGroupList)
 		{
-			std::string child, parent;
-			int link_group_id;
-			cif::tie(child, parent, link_group_id) = gl.get("child_name", "parent_name", "link_group_id");
+			auto &&[child, parent, link_group_id] = gl.get<std::string, std::string, int>("child_name", "parent_name", "link_group_id");
 
 			auto civ = m_validator.get_validator_for_item(child);
 			if (civ == nullptr)
@@ -356,7 +418,7 @@ class dictionary_parser : public parser
 			if (not linkIndex.count(key))
 			{
 				linkIndex[key] = linkKeys.size();
-				linkKeys.push_back({});
+				linkKeys.emplace_back();
 			}
 
 			std::size_t ix = linkIndex.at(key);
@@ -384,7 +446,7 @@ class dictionary_parser : public parser
 				if (not linkIndex.count(key))
 				{
 					linkIndex[key] = linkKeys.size();
-					linkKeys.push_back({});
+					linkKeys.emplace_back();
 				}
 
 				std::size_t ix = linkIndex.at(key);
@@ -405,8 +467,37 @@ class dictionary_parser : public parser
 			// look up the label
 			for (auto r : linkedGroup.find("category_id"_key == link.m_child_category and "link_group_id"_key == link.m_link_group_id))
 			{
-				link.m_link_group_label = r["label"].as<std::string>();
+				link.m_link_group_label = r["label"].get<std::string>();
 				break;
+			}
+
+			// A last validation, link ends should both point to the same time
+
+			auto childCatValidator = m_validator.get_validator_for_category(link.m_child_category);
+			auto parentCatValidator = m_validator.get_validator_for_category(link.m_parent_category);
+
+			if (childCatValidator == nullptr)
+				throw std::runtime_error(std::format("Invalid dictionary, undefined category {} in link {}", link.m_child_category, link.m_link_group_id));
+			if (parentCatValidator == nullptr)
+				throw std::runtime_error(std::format("Invalid dictionary, undefined category {} in link {}", link.m_parent_category, link.m_link_group_id));
+
+			for (size_t ix = 0; ix < link.m_child_keys.size(); ++ix)
+			{
+				auto childItemValidator = childCatValidator->get_validator_for_item(link.m_child_keys[ix]);
+				auto parentItemValidator = parentCatValidator->get_validator_for_item(link.m_parent_keys[ix]);
+
+				if (childItemValidator == nullptr)
+					throw std::runtime_error(std::format("Invalid dictionary, in link group {} the item {} is not know in category {}",
+						link.m_link_group_id, link.m_child_keys[ix], link.m_child_category));
+				if (parentItemValidator == nullptr)
+					throw std::runtime_error(std::format("Invalid dictionary, in link group {} the item {} is not know in category {}",
+						link.m_link_group_id, link.m_parent_keys[ix], link.m_parent_category));
+
+				if (childItemValidator->m_type == nullptr)
+					const_cast<item_validator *>(childItemValidator)->m_type = parentItemValidator->m_type;
+				else if (childItemValidator->m_type != parentItemValidator->m_type)
+					throw std::runtime_error(std::format("Invalid dictionary, in link group {} the items _{}.{}/_{}.{} do not have the same type",
+						link.m_link_group_id, link.m_parent_category, link.m_parent_keys[ix], link.m_child_category, link.m_child_keys[ix]));
 			}
 
 			m_validator.add_link_validator(std::move(link));
@@ -418,7 +509,7 @@ class dictionary_parser : public parser
 		{
 			for (auto &iv : cv.m_item_validators)
 			{
-				if (iv.m_type == nullptr and cif::VERBOSE >= 0)
+				if (iv.m_type == nullptr and VERBOSE >= 0)
 					std::cerr << "Missing item_type for " << iv.m_item_name << '\n';
 			}
 		}

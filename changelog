@@ -1,5 +1,20 @@
+Version 10.0.1
+- Fixed some regressions, like assigning to items.
+- At emplace time (in category) values that are
+  in the wrong type according to a dictionary
+  will be converted/casted. May fail of course.
+
+Version 10.0.0
+- Major rewrite of the internal storage of values.
+  Used to be strings only, now there are several
+  basic types.
+- Modernised code and cleaned up warnings using lint
+  tools
+
 Version 9.0.6
 - Various small fixes
+Version 10.0.0
+- Added a SQLite interface.
 
 Version 9.0.5
 - Added exists to compound_factory

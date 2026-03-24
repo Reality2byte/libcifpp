@@ -24,12 +24,27 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#include "cif++.hpp"
+#include "cif++/cif++.hpp"
+
+#include <algorithm>
+#include <cctype>
+#include <cstddef>
+#include <exception>
+#include <iostream>
+#include <map>
+#include <optional>
+#include <set>
+#include <stdexcept>
+#include <string>
+#include <system_error>
+#include <tuple>
+#include <utility>
+#include <vector>
 
 namespace cif::pdb
 {
 
-condition get_parents_condition(const validator &validator, row_handle rh, const category &parentCat)
+condition get_parents_condition(const validator &validator, const_row_handle rh, const category &parentCat)
 {
 	condition result;
 
@@ -38,9 +53,8 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 	auto parentName = parentCat.name();
 
 	auto links = validator.get_links_for_child(childName);
-	links.erase(remove_if(links.begin(), links.end(), [n = parentName](auto &l)
-					{ return l->m_parent_category != n; }),
-		links.end());
+	std::erase_if(links, [n = parentName](auto &l)
+		{ return l->m_parent_category != n; });
 
 	if (not links.empty())
 	{
@@ -50,12 +64,10 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 
 			for (std::size_t ix = 0; ix < link->m_child_keys.size(); ++ix)
 			{
-				auto childValue = rh[link->m_child_keys[ix]];
-
-				if (childValue.empty())
+				if (rh[link->m_child_keys[ix]].empty())
 					continue;
 
-				cond = std::move(cond) and key(link->m_parent_keys[ix]) == childValue.text();
+				cond = std::move(cond) and key(link->m_parent_keys[ix]) == rh[link->m_child_keys[ix]].value();
 			}
 
 			result = std::move(result) or std::move(cond);
@@ -65,11 +77,18 @@ condition get_parents_condition(const validator &validator, row_handle rh, const
 	return result;
 }
 
+bool is_valid_pdbx_file(const file &file)
+{
+	std::error_code ec;
+	bool result = is_valid_pdbx_file(file, validator_factory::instance()["mmcif_pdbx.dic"], ec);
+	return result and ec == std::errc{};
+}
+
 bool is_valid_pdbx_file(const file &file, const validator &v)
 {
 	std::error_code ec;
 	bool result = is_valid_pdbx_file(file, v, ec);
-	return result and not(bool) ec;
+	return result and ec == std::errc{};
 }
 
 bool is_valid_pdbx_file(const file &file, std::error_code &ec)
@@ -79,9 +98,9 @@ bool is_valid_pdbx_file(const file &file, std::error_code &ec)
 	if (file.empty())
 		ec = make_error_code(validation_error::empty_file);
 	else if (auto ac = file.front().get("audit_conform"); ac != nullptr)
-		result = is_valid_pdbx_file(file, validator_factory::instance().get(*ac), ec);
+		result = is_valid_pdbx_file(file, validator_factory::instance()[*ac], ec);
 	else
-		result = is_valid_pdbx_file(file, validator_factory::instance().get("mmcif_pdbx.dic"), ec);
+		result = is_valid_pdbx_file(file, validator_factory::instance()["mmcif_pdbx.dic"], ec);
 
 	return result;
 }
@@ -110,7 +129,6 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 
 		auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
 
-		std::string last_asym_id;
 		int last_seq_id = -1;
 		for (auto r : atom_site)
 		{
@@ -139,7 +157,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			if (p.size() != 1)
 			{
 				if (VERBOSE > 0)
-					std::clog << "In atom_site record: " << r["id"].text() << '\n';
+					std::clog << "In atom_site record: " << r["id"].str() << '\n';
 				throw std::runtime_error("For each monomer in atom_site there should be exactly one pdbx_poly_seq_scheme record");
 			}
 		}
@@ -165,11 +183,11 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 			if (entity_poly.count("entity_id"_key == entity_id) != 1)
 				throw std::runtime_error("There should be exactly one entity_poly record per polymer entity");
 
-			const auto entity_poly_type = entity_poly.find1<std::string>("entity_id"_key == entity_id, "type");
+			// const auto entity_poly_type = entity_poly.find1<std::string>("entity_id"_key == entity_id, "type");
 
 			std::map<int, std::set<std::string>> mon_per_seq_id;
 
-			for (const auto &[num, mon_id, hetero] : entity_poly_seq.find<int, std::string, bool>("entity_id"_key == entity_id, "num", "mon_id", "hetero"))
+			for (const auto &[num, mon_id, hetero] : entity_poly_seq.find<int, std::string, std::string>("entity_id"_key == entity_id, "num", "mon_id", "hetero"))
 			{
 				mon_per_seq_id[num].emplace(mon_id);
 
@@ -187,7 +205,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 				}
 			}
 
-			for (const auto &[seq_id, mon_id, hetero] : pdbx_poly_seq_scheme.find<int, std::string, bool>("entity_id"_key == entity_id, "seq_id", "mon_id", "hetero"))
+			for (const auto &[seq_id, mon_id, hetero] : pdbx_poly_seq_scheme.find<int, std::string, std::string>("entity_id"_key == entity_id, "seq_id", "mon_id", "hetero"))
 			{
 				if (entity_poly_seq.count(
 						"entity_id"_key == entity_id and
@@ -198,7 +216,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 					throw std::runtime_error("For each pdbx_poly_seq/struct_asym record there should be exactly one entity_poly_seq record");
 				}
 
-				if ((mon_per_seq_id[seq_id].size() > 1) != hetero)
+				if ((mon_per_seq_id[seq_id].size() > 1) != iequals(hetero, "Y"))
 					throw std::runtime_error("Mismatch between the hetero flag in the poly seq schemes and the number residues per seq_id");
 			}
 
@@ -270,10 +288,10 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 								letter = '(' + comp_id + ')';
 						}
 
-						if (iequals(std::string{ si, si + letter.length() }, letter))
+						if (iequals(std::string{ si, si + static_cast<int>(letter.length()) }, letter))
 						{
 							match = true;
-							si += letter.length();
+							si += static_cast<int>(letter.length());
 							break;
 						}
 						else
@@ -328,7 +346,7 @@ bool is_valid_pdbx_file(const file &file, const validator &validator, std::error
 		ec = make_error_code(validation_error::not_valid_pdbx);
 	}
 
-	if (not result and (bool) ec)
+	if (not result and ec == std::errc{})
 		ec = make_error_code(validation_error::not_valid_pdbx);
 
 	return result;

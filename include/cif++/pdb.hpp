@@ -161,12 +161,28 @@ bool reconstruct_pdbx(file &pdbx_file, const validator &v);
  * This function throws a std::system_error in case of an error
  *
  * \param pdbx_file The input file
+ * \result Returns true if the file was valid and consistent
+ */
+
+bool is_valid_pdbx_file(const file &pdbx_file);
+
+/** \brief This is an extension to cif::validator, use the logic in common
+ * PDBx files to see if the file is internally consistent.
+ *
+ * This function for now checks if the following categories are consistent:
+ *
+ * atom_site -> pdbx_poly_seq_scheme -> entity_poly_seq -> entity_poly -> entity
+ *
+ * Use the common \ref cif::VERBOSE flag to turn on diagnostic messages.
+ * 
+ * This function throws a std::system_error in case of an error
+ *
+ * \param pdbx_file The input file
  * \param v The validator to use
  * \result Returns true if the file was valid and consistent
  */
 
-bool is_valid_pdbx_file(const file &pdbx_file,
-	const validator &v = validator_factory::instance().get("mmcif_pdbx.dic"));
+bool is_valid_pdbx_file(const file &pdbx_file, const validator &v);
 
 /** \brief This is an extension to cif::validator, use the logic in common
  * PDBx files to see if the file is internally consistent.
@@ -180,7 +196,8 @@ bool is_valid_pdbx_file(const file &pdbx_file,
  * The dictionary is assumed to be specified in the file or to be the
  * default mmcif_pdbx.dic dictionary.
  *
- * \param file The input file
+ * \param pdbx_file The input file
+ * \param ec In case of error, this will contain what went wrong
  * \result Returns true if the file was valid and consistent
  */
 
@@ -195,7 +212,7 @@ bool is_valid_pdbx_file(const file &pdbx_file, std::error_code &ec);
  *
  * Use the common \ref cif::VERBOSE flag to turn on diagnostic messages.
  * 
- * \param file The input file
+ * \param pdbx_file The input file
  * \param v The validator to use
  * \param ec The error_code in case something was wrong
  * \result Returns true if the file was valid and consistent

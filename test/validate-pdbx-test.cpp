@@ -26,7 +26,7 @@
 
 #include "test-main.hpp"
 
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 #include <stdexcept>
 
@@ -217,7 +217,7 @@ A 1 5   GLY 5   5   5   GLY GLY A . n
 			{ "entity_id", "1" },
 			{ "seq_id", "1" },
 			{ "mon_id", "ALA" },
-			{ "ndb_seq_num", "1" },
+			{ "ndb_seq_num", 1 },
 			{ "pdb_seq_num", "1" },
 			{ "auth_seq_num", "1" },
 			{ "pdb_mon_id", "ALA" },

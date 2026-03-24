@@ -24,9 +24,10 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/utilities.hpp"
 #include "test-main.hpp"
 
-#include <cif++.hpp>
+#include <cif++/cif++.hpp>
 
 #include <filesystem>
 #include <iostream>
@@ -34,6 +35,8 @@
 
 TEST_CASE("reconstruct")
 {
+	cif::VERBOSE = 1;
+
 	cif::compound_factory::instance().push_dictionary(gTestDir / "REA.cif");
 
 	for (std::filesystem::directory_iterator i(gTestDir / "reconstruct"); i != std::filesystem::directory_iterator{}; ++i)
@@ -55,9 +58,18 @@ TEST_CASE("reconstruct")
 
 			std::error_code ec;
 			CHECK_FALSE(cif::pdb::is_valid_pdbx_file(f, ec));
-			CHECK((bool)ec);
+			CHECK(ec != std::errc{});
 
-			CHECK(cif::pdb::reconstruct_pdbx(f));
+			auto valid = cif::pdb::reconstruct_pdbx(f);
+
+			CHECK(valid);
+
+			if (not valid)
+			{
+				std::ofstream of(std::filesystem::temp_directory_path() / i->path().filename());
+				of << f;
+				of.close();
+			}
 		}
 	}
 }

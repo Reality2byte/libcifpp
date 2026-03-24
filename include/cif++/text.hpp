@@ -29,22 +29,27 @@
 #include "cif++/exports.hpp"
 
 #include <charconv>
-#include <cmath>
+#include <cstddef>
 #include <cstdint>
-#include <limits>
+#include <iterator>
 #include <set>
 #include <sstream>
+#include <string>
+#include <string_view>
 #include <tuple>
+#include <type_traits>
+#include <utility>
 #include <vector>
 
 #if __has_include(<experimental/type_traits>)
 
-#include <experimental/type_traits>
+# include <experimental/type_traits>
 namespace std_experimental = std::experimental;
 
 #else
 
 // A quick hack to work around the missing is_detected in MSVC
+/// @cond
 namespace std_experimental
 {
 
@@ -69,6 +74,7 @@ using is_detected = typename detail::detector<void, Op, Args...>::value_t;
 template <template <class...> class Op, class... Args>
 const auto is_detected_v = is_detected<Op, Args...>::value;
 
+/// @endcond
 } // namespace std_experimental
 
 #endif
@@ -88,16 +94,16 @@ namespace cif
 // our own case conversion routines.
 
 /// \brief return whether string @a is equal to string @a b ignoring changes in character case
-bool iequals(std::string_view a, std::string_view b);
+bool iequals(std::string_view a, std::string_view b) noexcept;
 
 /// \brief compare string @a is to string @a b ignoring changes in character case
-int icompare(std::string_view a, std::string_view b);
+int icompare(std::string_view a, std::string_view b) noexcept;
 
 /// \brief return whether string @a is equal to string @a b ignoring changes in character case
-bool iequals(const char *a, const char *b);
+bool iequals(const char *a, const char *b) noexcept;
 
 /// \brief compare string @a is to string @a b ignoring changes in character case
-int icompare(const char *a, const char *b);
+int icompare(const char *a, const char *b) noexcept;
 
 /// \brief convert the string @a s to lower case in situ
 void to_lower(std::string &s);
@@ -328,7 +334,6 @@ inline char tolower(int ch)
 [[deprecated("use split_item_name instead")]]
 std::tuple<std::string, std::string> split_tag_name(std::string_view item_name);
 
-
 /** \brief return a tuple consisting of the category and item name for @a item_name
  *
  * The category name is stripped of its leading underscore character.
@@ -355,6 +360,9 @@ std::string cif_id_for_number(int number);
 std::vector<std::string> word_wrap(const std::string &text, std::size_t width);
 
 // --------------------------------------------------------------------
+
+/// @cond
+// Code to select a version of from_chars that is implemented...
 
 template <typename T>
 using from_chars_function = decltype(std::from_chars(std::declval<const char *>(), std::declval<const char *>(), std::declval<T &>()));
@@ -385,5 +393,7 @@ constexpr auto from_chars(const char *s, const char *e, T &v)
 {
 	return charconv<T>::from_chars(s, e, v);
 }
+
+/// @endcond
 
 } // namespace cif

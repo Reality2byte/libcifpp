@@ -764,9 +764,9 @@ void checkStructAsym(datablock &db)
 
 	cql::connection conn(db);
 	cql::transaction tx(conn);
-	
+
 	for (const auto [asym_id, entity_id] : tx.stream<std::optional<std::string>, std::string>(
-		"select distinct label_asym_id, label_entity_id from atom_site"))
+			 "select distinct label_asym_id, label_entity_id from atom_site"))
 	{
 		if (not asym_id)
 			throw std::runtime_error("File contains atom_site records without a label_asym_id");
@@ -783,8 +783,7 @@ void checkStructAsym(datablock &db)
 		{
 			struct_asym.emplace({ //
 				{ "id", asym_id },
-				{ "entity_id", entity_id }
-			});
+				{ "entity_id", entity_id } });
 		}
 	}
 }
@@ -1102,19 +1101,12 @@ void createPdbxPolySeqScheme(datablock &db)
 
 	auto &atom_site = db["atom_site"];
 	auto &entity_poly = db["entity_poly"];
-	// auto &entity_poly_seq = db["entity_poly_seq"];
+	auto &entity_poly_seq = db["entity_poly_seq"];
 	auto &struct_asym = db["struct_asym"];
 	auto &pdbx_poly_seq_scheme = db["pdbx_poly_seq_scheme"];
 
 	cql::connection conn(db);
 	cql::transaction tx(conn);
-
-	if (not pdbx_poly_seq_scheme.empty() and tx.exec(R"(
-		select b.entity_id, b.num, b.mon_id from entity_poly_seq b where b.entity_id in  (select id from entity where type = 'polymer')
-		except
-		select a.entity_id, a.seq_id, a.mon_id from pdbx_poly_seq_scheme a where a.entity_id in (select id from entity where type = 'polymer');
-		)").empty())
-		return;
 
 	using namespace literals;
 
@@ -1133,30 +1125,42 @@ void createPdbxPolySeqScheme(datablock &db)
 		}
 	}
 
-	std::string last_entity_id, last_asym_id;
-	std::optional<int> last_seq_id;
-
-	for (auto col : { "label_asym_id", "label_entity_id", "label_seq_id", "label_comp_id", "auth_seq_id", "auth_comp_id", "pdbx_PDB_ins_code"})
+	for (auto col : { "label_asym_id", "label_entity_id", "label_seq_id", "label_comp_id", "auth_seq_id", "auth_comp_id", "pdbx_PDB_ins_code" })
 		atom_site.add_item(col);
+
+	// entity_id, mon_id, num, asym_id
+	using key = std::tuple<std::string, std::string, int, std::string>;
+
+	// auth_seq_num, auth_mon_id, ins_code
+	using value = std::tuple<std::string, std::string, std::optional<std::string>>;
+
+	std::map<key, value> data;
+
+	for (const auto [entity_id, mon_id, num, asym_id, auth_seq_num, auth_mon_id, ins_code] :
+		tx.stream<std::string, std::string, int, std::string, std::string, std::string, std::optional<std::string>>(
+			R"(select distinct label_entity_id, label_comp_id, label_seq_id, label_asym_id, auth_seq_id, auth_comp_id, pdbx_PDB_ins_code from atom_site)"))
+	{
+		assert(not data.contains(key{ entity_id, mon_id, num, asym_id }));
+		data.emplace(key{ entity_id, mon_id, num, asym_id }, value{ auth_seq_num, auth_mon_id, ins_code });
+	}
+
+	std::string last_asym_id;
+	int last_seq_id = -1;
 
 	for (auto entity_id : entity_poly.rows<std::string>("entity_id"))
 	{
 		for (auto asym_id : struct_asym.find<std::string>("entity_id"_key == entity_id, "id"))
 		{
-			for (auto &&[seq_id, comp_id, label_asym_id, auth_seq_id, auth_comp_id, pdb_ins_code] :
-					tx.stream<std::optional<int>, std::string, std::optional<std::string>, std::string, std::string, std::optional<std::string>>(
-				R"(select distinct b.num, b.mon_id, label_asym_id, auth_seq_id, auth_comp_id, pdbx_PDB_ins_code
-				       from entity_poly_seq b left join atom_site a on a.label_entity_id = b.entity_id and a.label_seq_id = b.num and a.label_comp_id = b.mon_id
-					   where b.entity_id=')" + entity_id + R"(' order by b.num;)"))
+			for (const auto [mon_id, seq_id] : entity_poly_seq.find<std::string, int>("entity_id"_key == entity_id, "mon_id", "num"))
 			{
-				// Should be fixed in the SQL statement
-				if (label_asym_id.has_value() and *label_asym_id != asym_id)
-					continue;
+				std::optional<std::string> auth_seq_num, auth_mon_id, ins_code;
 
-				if (seq_id.has_value() and *seq_id == 0)
-					seq_id.reset();
+				if (auto i = data.find(key{ entity_id, mon_id, seq_id, asym_id }); i != data.end())
+				{
+					std::tie(auth_seq_num, auth_mon_id, ins_code) = i->second;
+				}
 
-				std::string hetero = (entity_id == last_entity_id and asym_id == last_asym_id and seq_id == last_seq_id) ? "y" : "n";
+				std::string hetero = (asym_id == last_asym_id and seq_id == last_seq_id) ? "y" : "n";
 
 				if (hetero == "y")
 					pdbx_poly_seq_scheme.back().assign("hetero", "y", false);
@@ -1165,20 +1169,40 @@ void createPdbxPolySeqScheme(datablock &db)
 					{ "asym_id", asym_id },
 					{ "entity_id", entity_id },
 					{ "seq_id", seq_id },
-					{ "mon_id", comp_id },
-					{ "ndb_seq_num", seq_id.value_or(0) },
-					{ "pdb_seq_num", auth_seq_id },
-					{ "auth_seq_num", auth_seq_id },
-					{ "pdb_mon_id", auth_comp_id },
-					{ "auth_mon_id", auth_comp_id },
+					{ "mon_id", mon_id },
+					{ "ndb_seq_num", seq_id },
+					{ "pdb_seq_num", auth_seq_num },
+					{ "auth_seq_num", auth_seq_num },
+					{ "pdb_mon_id", auth_mon_id },
+					{ "auth_mon_id", auth_mon_id },
 					{ "pdb_strand_id", asym_id_to_pdb_strand_map[asym_id] },
-					{ "pdb_ins_code", pdb_ins_code },
+					{ "pdb_ins_code", ins_code },
 					{ "hetero", hetero } });
 
-				last_entity_id = entity_id;
 				last_asym_id = asym_id;
 				last_seq_id = seq_id;
 			}
+				// std::string hetero = (asym_id == last_asym_id and seq_id == last_seq_id) ? "y" : "n";
+
+				// if (hetero == "y")
+				// 	pdbx_poly_seq_scheme.back().assign("hetero", "y", false);
+
+				// pdbx_poly_seq_scheme.emplace({ //
+				// 	{ "asym_id", asym_id },
+				// 	{ "entity_id", entity_id },
+				// 	{ "seq_id", seq_id },
+				// 	{ "mon_id", comp_id },
+				// 	{ "ndb_seq_num", seq_id },
+				// 	{ "pdb_seq_num", auth_seq_id },
+				// 	{ "auth_seq_num", auth_seq_id },
+				// 	{ "pdb_mon_id", auth_comp_id },
+				// 	{ "auth_mon_id", auth_comp_id },
+				// 	{ "pdb_strand_id", asym_id_to_pdb_strand_map[asym_id] },
+				// 	{ "pdb_ins_code", pdb_ins_code },
+				// 	{ "hetero", hetero } });
+
+				// last_asym_id = asym_id;
+				// last_seq_id = seq_id;
 		}
 	}
 }
@@ -1229,7 +1253,7 @@ void comparePolySeqSchemes(datablock &db)
 			auto pdbx_range = pdbx_poly_seq_scheme.find(key("asym_id") == asym_id);
 
 			for (auto ndb_i = ndb_range.begin(), pdbx_i = pdbx_range.begin();
-				 ndb_i != ndb_range.end() or pdbx_i != pdbx_range.end(); ++ndb_i, ++pdbx_i)
+				ndb_i != ndb_range.end() or pdbx_i != pdbx_range.end(); ++ndb_i, ++pdbx_i)
 			{
 				if (ndb_i == ndb_range.end() or pdbx_i == pdbx_range.end())
 				{
@@ -1285,8 +1309,7 @@ void createPdbxEntityNonpoly(datablock &db)
 				pdbx_entity_nonpoly.emplace({ //
 					{ "entity_id", entity_id },
 					{ "name", "water" },
-					{ "comp_id", comp_id }
-				});
+					{ "comp_id", comp_id } });
 			else
 			{
 				auto c = cif::compound_factory::instance().create(comp_id);
@@ -1298,8 +1321,7 @@ void createPdbxEntityNonpoly(datablock &db)
 				pdbx_entity_nonpoly.emplace({ //
 					{ "entity_id", entity_id },
 					{ "name", name },
-					{ "comp_id", comp_id }
-				});
+					{ "comp_id", comp_id } });
 			}
 		}
 	}
@@ -1315,7 +1337,7 @@ void createPdbxNonpolyScheme(datablock &db)
 	auto &pdbx_nonpoly_scheme = db["pdbx_nonpoly_scheme"];
 	auto &atom_site = db["atom_site"];
 
-	for (const auto &[entity_id, comp_id] : pdbx_entity_nonpoly.rows<std::string,std::string>("entity_id", "comp_id"))
+	for (const auto &[entity_id, comp_id] : pdbx_entity_nonpoly.rows<std::string, std::string>("entity_id", "comp_id"))
 	{
 		for (int ndb_nr = 1; auto row : atom_site.find("label_entity_id"_key == entity_id and "label_comp_id"_key == comp_id))
 		{
@@ -1326,7 +1348,7 @@ void createPdbxNonpolyScheme(datablock &db)
 
 			int num = row.get<int>("auth_seq_id");
 
-			pdbx_nonpoly_scheme.emplace({//
+			pdbx_nonpoly_scheme.emplace({ //
 
 				{ "asym_id", row.get<std::string>("label_asym_id") },
 				{ "entity_id", entity_id },
@@ -1335,7 +1357,7 @@ void createPdbxNonpolyScheme(datablock &db)
 				{ "pdb_seq_num", std::to_string(num) },
 				{ "auth_seq_num", std::to_string(num) },
 				{ "pdb_mon_id", row.get<std::string>("auth_comp_id") },
-				{ "auth_mon_id",  row.get<std::string>("auth_comp_id") },
+				{ "auth_mon_id", row.get<std::string>("auth_comp_id") },
 				{ "pdb_strand_id", row.get<std::string>("auth_asym_id") },
 				{ "pdb_ins_code", row.get<std::string>("pdbx_PDB_ins_code") }
 

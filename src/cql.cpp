@@ -28,14 +28,12 @@
 #include "cif++/item.hpp"
 
 #include <algorithm>
-#include <charconv>
 #include <cstdint>
 #include <cstring>
 #include <exception>
 #include <format>
 #include <iomanip>
 #include <iostream>
-#include <list>
 #include <memory>
 #include <ranges>
 #include <regex>

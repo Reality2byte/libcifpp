@@ -762,48 +762,29 @@ void checkStructAsym(datablock &db)
 	auto &atom_site = db["atom_site"];
 	auto &struct_asym = db["struct_asym"];
 
-	if (struct_asym.empty())
+	cql::connection conn(db);
+	cql::transaction tx(conn);
+	
+	for (const auto [asym_id, entity_id] : tx.stream<std::optional<std::string>, std::string>(
+		"select distinct label_asym_id, label_entity_id from atom_site"))
 	{
-		for (const auto &[label_asym_id, entity_id] : atom_site.rows<std::string, std::string>("label_asym_id", "label_entity_id"))
+		if (not asym_id)
+			throw std::runtime_error("File contains atom_site records without a label_asym_id");
+
+		auto sa = struct_asym.find_first(key("id") == asym_id);
+		if (sa)
 		{
-			if (label_asym_id.empty())
-				throw std::runtime_error("File contains atom_site records without a label_asym_id");
-			if (struct_asym.count(key("id") == label_asym_id) == 0)
-			{
-				struct_asym.emplace({
-					// clang-format off
-					{ "id", label_asym_id },
-					{ "entity_id", entity_id }
-					//clang-format on
-				});
-			}
+			if (sa["entity_id"].empty())
+				sa.assign("entity_id", entity_id, false, true);
+			else if (sa.get<std::string>("entity_id") != entity_id)
+				throw std::runtime_error("Inconsistent entity ID's in struct_asym");
 		}
-	}
-	else
-	{
-		for (const auto &[label_asym_id, entity_id] :
-			atom_site.rows<std::string, std::string>("label_asym_id", "label_entity_id"))
+		else
 		{
-			if (label_asym_id.empty())
-				throw std::runtime_error("File contains atom_site records without a label_asym_id");
-			
-			auto sa = struct_asym.find_first(key("id") == label_asym_id);
-			if (sa)
-			{
-				if (sa["entity_id"].empty())
-					sa.assign("entity_id", entity_id, false, true);
-				else if (sa.get<std::string>("entity_id") != entity_id)
-					throw std::runtime_error("Inconsistent entity ID's in struct_asym");
-			}
-			else
-			{
-				struct_asym.emplace({
-					// clang-format off
-					{ "id", label_asym_id },
-					{ "entity_id", entity_id }
-					//clang-format on
-				});
-			}
+			struct_asym.emplace({ //
+				{ "id", asym_id },
+				{ "entity_id", entity_id }
+			});
 		}
 	}
 }
@@ -1129,9 +1110,9 @@ void createPdbxPolySeqScheme(datablock &db)
 	cql::transaction tx(conn);
 
 	if (not pdbx_poly_seq_scheme.empty() and tx.exec(R"(
-		select a.label_entity_id, a.label_seq_id, a.label_comp_id from pdbx_poly_seq_scheme a where a.label_entity_id in (select id from entity where type = 'polymer')
+		select b.entity_id, b.num, b.mon_id from entity_poly_seq b where b.entity_id in  (select id from entity where type = 'polymer')
 		except
-		select b.entity_id, b.num, b.mon_id from entity_poly_seq b where b.entity_id in  (select id from entity where type = 'polymer');
+		select a.entity_id, a.seq_id, a.mon_id from pdbx_poly_seq_scheme a where a.entity_id in (select id from entity where type = 'polymer');
 		)").empty())
 		return;
 

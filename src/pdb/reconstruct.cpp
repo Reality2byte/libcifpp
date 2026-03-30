@@ -759,7 +759,7 @@ void checkAtomAnisotropRecords(datablock &db)
 
 void checkStructAsym(datablock &db)
 {
-	auto &atom_site = db["atom_site"];
+	// auto &atom_site = db["atom_site"];
 	auto &struct_asym = db["struct_asym"];
 
 	cql::connection conn(db);
@@ -1138,7 +1138,10 @@ void createPdbxPolySeqScheme(datablock &db)
 
 	for (const auto [entity_id, mon_id, num, asym_id, auth_seq_num, auth_mon_id, ins_code] :
 		tx.stream<std::string, std::string, int, std::string, std::string, std::string, std::optional<std::string>>(
-			R"(select distinct label_entity_id, label_comp_id, label_seq_id, label_asym_id, auth_seq_id, auth_comp_id, pdbx_PDB_ins_code from atom_site)"))
+			R"(
+select distinct label_entity_id, label_comp_id, label_seq_id, label_asym_id, auth_seq_id, auth_comp_id, pdbx_PDB_ins_code from atom_site
+where label_entity_id in (select id from entity where type = 'polymer')
+)"))
 	{
 		assert(not data.contains(key{ entity_id, mon_id, num, asym_id }));
 		data.emplace(key{ entity_id, mon_id, num, asym_id }, value{ auth_seq_num, auth_mon_id, ins_code });

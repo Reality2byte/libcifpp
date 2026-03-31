@@ -2178,8 +2178,8 @@ std::string structure::create_non_poly(const std::string &entity_id, const std::
 			{ "label_comp_id", comp_id },
 			{ "label_asym_id", asym_id },
 			{ "label_entity_id", entity_id },
-			{ "label_seq_id", nullptr },
-			{ "pdbx_PDB_ins_code", "" },
+			{ "label_seq_id", cif::item_value_type::INAPPLICABLE },
+			{ "pdbx_PDB_ins_code", cif::item_value_type::MISSING },
 			{ "Cartn_x", atom.get_property_value("Cartn_x") },
 			{ "Cartn_y", atom.get_property_value("Cartn_y") },
 			{ "Cartn_z", atom.get_property_value("Cartn_z") },
@@ -2190,7 +2190,7 @@ std::string structure::create_non_poly(const std::string &entity_id, const std::
 			{ "auth_comp_id", comp_id },
 			{ "auth_asym_id", asym_id },
 			{ "auth_atom_id", atom.get_property_value("label_atom_id") },
-			{ "pdbx_PDB_model_num", 1 } });
+			{ "pdbx_PDB_model_num", m_model_nr } });
 
 		auto &newAtom = emplace_atom(std::make_shared<atom::atom_impl>(m_db, atom_id));
 		res.add_atom(newAtom);
@@ -2208,7 +2208,7 @@ std::string structure::create_non_poly(const std::string &entity_id, const std::
 		{ "pdb_mon_id", comp_id },
 		{ "auth_mon_id", comp_id },
 		{ "pdb_strand_id", asym_id },
-		{ "pdb_ins_code", nullptr },
+		{ "pdb_ins_code", cif::item_value_type::MISSING },
 	});
 
 	return asym_id;
@@ -2244,12 +2244,14 @@ std::string structure::create_non_poly(const std::string &entity_id, std::vector
 
 		atom.set_value_if_empty({ "group_PDB", "HETATM" });
 		atom.set_value_if_empty({ "label_comp_id", comp_id });
-		atom.set_value_if_empty({ "label_seq_id", nullptr });
+		atom.set_value_if_empty({ "label_seq_id", cif::item_value_type::INAPPLICABLE });
 		atom.set_value_if_empty({ "auth_comp_id", comp_id });
 		atom.set_value_if_empty({ "auth_seq_id", "1" });
-		atom.set_value_if_empty({ "pdbx_PDB_model_num", 1 });
-		atom.set_value_if_empty({ "label_alt_id", "" });
+		atom.set_value_if_empty({ "pdbx_PDB_model_num", m_model_nr });
+		atom.set_value_if_empty({ "label_alt_id", cif::item_value_type::INAPPLICABLE });
 		atom.set_value_if_empty({ "occupancy", { 1.0, 2 } });
+		atom.set_value_if_empty({ "pdbx_formal_charge", cif::item_value_type::MISSING });
+		atom.set_value_if_empty({ "pdbx_tls_group_id", cif::item_value_type::MISSING });
 
 		auto row = atom_site.emplace(atom.begin(), atom.end());
 
@@ -2299,7 +2301,7 @@ std::string structure::create_non_poly(const std::string &compound_id, bool skip
 			{ "Cartn_x", ax },
 			{ "Cartn_y", ay },
 			{ "Cartn_z", az },
-			{ "B_iso_or_equiv", 30.00 } });
+			{ "B_iso_or_equiv", { 30.00, 2 } } });
 	}
 
 	return create_non_poly(create_non_poly_entity(compound_id), atoms);

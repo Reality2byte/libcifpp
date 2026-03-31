@@ -24,6 +24,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "cif++/symmetry.hpp"
 #include "cif++/cif++.hpp"
 #include "symop_table_data.hpp"
 
@@ -292,12 +293,7 @@ point spacegroup::operator()(const point &pt, const cell &c, sym_op symop) const
 	t.m_translation.m_y += symop.m_tb - 5;
 	t.m_translation.m_z += symop.m_tc - 5;
 
-	auto fpt = fractional(pt, c);
-	auto o = offsetToOriginFractional(fpt);
-
-	auto spt = t(fpt + o) - o;
-
-	return orthogonal(spt, c);
+	return orthogonal(t(fractional(pt, c)), c);
 }
 
 point spacegroup::inverse(const point &pt, const cell &c, sym_op symop) const
@@ -311,13 +307,8 @@ point spacegroup::inverse(const point &pt, const cell &c, sym_op symop) const
 	t.m_translation.m_y += symop.m_tb - 5;
 	t.m_translation.m_z += symop.m_tc - 5;
 
-	auto fpt = fractional(pt, c);
-	auto o = offsetToOriginFractional(fpt);
-
 	auto it = cif::inverse(t);
-	auto spt = it(fpt + o) - o;
-
-	return orthogonal(spt, c);
+	return orthogonal(it(fractional(pt, c)), c);
 }
 
 // --------------------------------------------------------------------
@@ -462,9 +453,9 @@ std::tuple<float, point, sym_op> crystal::closest_symmetry_copy(point a, point b
 
 	a = orthogonal(fa, m_cell);
 
-	for (std::size_t i = 0; i < m_spacegroup.size(); ++i)
+	for (uint8_t i = 0; std::cmp_less(i, m_spacegroup.size()); ++i)
 	{
-		sym_op s(static_cast<uint8_t>(i + 1));
+		sym_op s(i + 1);
 		auto &t = m_spacegroup[i];
 
 		auto fsb = t(fb);

@@ -25,17 +25,20 @@
  */
 
 #include "cif++/cif++.hpp"
+#include "cif++/symmetry.hpp"
 #include "test-main.hpp"
 
 #include <catch2/catch_test_macros.hpp>
 #include <catch2/matchers/catch_matchers_floating_point.hpp>
+#include <clipper/core/coords.h>
+#include <clipper/core/spacegroup.h>
 
 #if defined(_MSC_VER)
 # pragma warning(disable : 5054) // warning C5054: operator '&': deprecated between enumerations of different types
 # pragma warning(disable : 4127) // conditional expression is constant
 #endif
 
-// #include <Eigen/Eigenvalues>
+#include <Eigen/Eigen>
 
 // --------------------------------------------------------------------
 
@@ -229,102 +232,31 @@ TEST_CASE("dh_q_1")
 	}
 }
 
-/* TEST_CASE("m2q_0a")
-{
-    for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
-    {
-        auto d = cif::kSymopNrTable[i].symop().data();
-
-        Eigen::Matrix3f rot;
-        rot << static_cast<float>(d[0]), static_cast<float>(d[1]), static_cast<float>(d[2]), static_cast<float>(d[3]), static_cast<float>(d[4]), static_cast<float>(d[5]), static_cast<float>(d[6]), static_cast<float>(d[7]), static_cast<float>(d[8]);
-
-        // check to see if this matrix contains a true rotation
-        if (rot * rot.transpose() != Eigen::Matrix3f::Identity() or rot.determinant() != 1)
-            continue;
-
-        Eigen::Quaternionf qe(rot);
-
-        auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
-
-        cif::point p1{ 1, 1, 1 };
-        cif::point p2 = p1;
-        p2.rotate(q);
-
-        cif::matrix3x3<float> rot_c({ static_cast<float>(d[0]),
-            static_cast<float>(d[1]),
-            static_cast<float>(d[2]),
-            static_cast<float>(d[3]),
-            static_cast<float>(d[4]),
-            static_cast<float>(d[5]),
-            static_cast<float>(d[6]),
-            static_cast<float>(d[7]),
-            static_cast<float>(d[8]) });
-
-        cif::point p3 = rot_c * p1;
-
-        CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3.m_x, 0.01f));
-        CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3.m_y, 0.01f));
-        CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3.m_z, 0.01f));
-    }
-}
- */
-
-// "TEST_CASE(m2q_1")
+// TEST_CASE("m2q_1")
 // {
 // 	for (std::size_t i = 0; i < cif::kSymopNrTableSize; ++i)
 // 	{
 // 		auto d = cif::kSymopNrTable[i].symop().data();
 
-// 		cif::matrix3x3<float> rot;
-// 		float Qxx = rot(0, 0) = d[0];
-// 		float Qxy = rot(0, 1) = d[1];
-// 		float Qxz = rot(0, 2) = d[2];
-// 		float Qyx = rot(1, 0) = d[3];
-// 		float Qyy = rot(1, 1) = d[4];
-// 		float Qyz = rot(1, 2) = d[5];
-// 		float Qzx = rot(2, 0) = d[6];
-// 		float Qzy = rot(2, 1) = d[7];
-// 		float Qzz = rot(2, 2) = d[8];
+// 		Eigen::Matrix3f rot;
 
-// 		cif::matrix4x4<float> m({
-// 			Qxx - Qyy - Qzz, Qyx + Qxy, Qzx + Qxz, Qzy - Qyz,
-// 			Qyx + Qxy, Qyy - Qxx - Qzz, Qzy + Qyz, Qxz - Qzx,
-// 			Qzx + Qxz, Qzy + Qyz, Qzz - Qxx - Qyy, Qyx - Qxy,
-// 			Qzy - Qyz, Qxz - Qzx, Qyx - Qxy, Qxx + Qyy + Qzz
-// 		});
+// 		rot << d[0], d[1], d[2], d[3], d[4], d[5], d[6], d[7], d[8];
 
-// 		auto &&[ev, em] = cif::eigen(m * (1/3.0f), false);
-
-// 		std::size_t bestJ = 0;
-// 		float bestEV = -1;
-
-// 		for (std::size_t j = 0; j < 4; ++j)
+// 		if (rot * rot.transpose() == Eigen::Matrix3f::Identity() and rot.determinant() == 1)
 // 		{
-// 			if (bestEV < ev[j])
-// 			{
-// 				bestEV = ev[j];
-// 				bestJ = j;
-// 			}
+// 			Eigen::Quaternionf qe(rot);
+// 			auto q = normalize(cif::quaternion{ qe.w(), qe.x(), qe.y(), qe.z() });
+
+// 			cif::point p1{ 1, 1, 1 };
+// 			cif::point p2 = p1;
+// 			p2.rotate(q);
+
+// 			auto p3 = rot * Eigen::Vector3f{ p1.m_x, p1.m_y, p1.m_z };
+
+// 			CHECK_THAT(p2.m_x, Catch::Matchers::WithinRel(p3[0], 0.01f));
+// 			CHECK_THAT(p2.m_y, Catch::Matchers::WithinRel(p3[1], 0.01f));
+// 			CHECK_THAT(p2.m_z, Catch::Matchers::WithinRel(p3[2], 0.01f));
 // 		}
-
-// 		if (std::abs(bestEV - 1) > 0.01)
-// 			continue; // not a rotation matrix
-
-// 		auto q = normalize(cif::quaternion{
-// 			static_cast<float>(em(bestJ, 3)),
-// 			static_cast<float>(em(bestJ, 0)),
-// 			static_cast<float>(em(bestJ, 1)),
-// 			static_cast<float>(em(bestJ, 2)) });
-
-// 		cif::point p1{ 1, 1, 1 };
-// 		cif::point p2 = p1;
-// 		p2.rotate(q);
-
-// 		cif::point p3 = rot * p1;
-
-// 		REQUIRE(p2.m_x == p3.m_x);
-// 		REQUIRE(p2.m_y == p3.m_y);
-// 		REQUIRE(p2.m_z == p3.m_z);
 // 	}
 // }
 
@@ -393,35 +325,6 @@ TEST_CASE("symm_4")
 }
 
 // --------------------------------------------------------------------
-
-TEST_CASE("symm_4wvp_1")
-{
-	using namespace cif::literals;
-
-	cif::file f(gTestDir / "4wvp.cif.gz");
-	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
-
-	auto &db = f.front();
-	cif::mm::structure s(db);
-
-	cif::crystal c(db);
-
-	cif::point p{ -78.722f, 98.528f, 11.994f };
-	auto a = s.get_residue("A", 10, "").get_atom_by_atom_id("O");
-
-	auto sp1 = c.symmetry_copy(a.get_location(), "2_565"_symop);
-	CHECK_THAT(sp1.m_x, Catch::Matchers::WithinAbs(p.m_x, 0.5f));
-	CHECK_THAT(sp1.m_y, Catch::Matchers::WithinAbs(p.m_y, 0.5f));
-	CHECK_THAT(sp1.m_z, Catch::Matchers::WithinAbs(p.m_z, 0.5f));
-
-	const auto &[d, sp2, so] = c.closest_symmetry_copy(p, a.get_location());
-
-	REQUIRE(d < 1);
-
-	CHECK_THAT(sp2.m_x, Catch::Matchers::WithinAbs(p.m_x, 0.5f));
-	CHECK_THAT(sp2.m_y, Catch::Matchers::WithinAbs(p.m_y, 0.5f));
-	CHECK_THAT(sp2.m_z, Catch::Matchers::WithinAbs(p.m_z, 0.5f));
-}
 
 TEST_CASE("symm_2bi3_1")
 {
@@ -536,6 +439,96 @@ TEST_CASE("symm_3bwh_1")
 			CHECK_THAT(d, Catch::Matchers::WithinAbs(distance(a1.get_location(), p), 0.5f));
 		}
 	}
+}
+
+TEST_CASE("symm_476d")
+{
+	cif::file f(gTestDir / "476d.cif.gz");
+	f.front().set_validator(cif::validator_factory::instance().get("mmcif_pdbx.dic"));
+
+	auto &db = f.front();
+	cif::mm::structure s(db);
+
+	cif::crystal c(db);
+
+	auto struct_conn = db["struct_conn"];
+	for (const auto &[asym1, seqid1, authseqid1, atomid1, symm1,
+			 asym2, seqid2, authseqid2, atomid2, symm2,
+			 dist] : struct_conn.find<std::string, int, std::string, std::string, std::string,
+			 std::string, int, std::string, std::string, std::string,
+			 float>(
+			 cif::key("ptnr1_symmetry") != "1_555" or cif::key("ptnr2_symmetry") != "1_555",
+			 "ptnr1_label_asym_id", "ptnr1_label_seq_id", "ptnr1_auth_seq_id", "ptnr1_label_atom_id", "ptnr1_symmetry",
+			 "ptnr2_label_asym_id", "ptnr2_label_seq_id", "ptnr2_auth_seq_id", "ptnr2_label_atom_id", "ptnr2_symmetry",
+			 "pdbx_dist_value"))
+	{
+		auto &r1 = s.get_residue(asym1, seqid1, authseqid1);
+		auto &r2 = s.get_residue(asym2, seqid2, authseqid2);
+
+		auto a1 = r1.get_atom_by_atom_id(atomid1);
+		auto a2 = r2.get_atom_by_atom_id(atomid2);
+
+		auto p1 = a1.get_location();
+		auto p2 = a2.get_location();
+
+		cif::sym_op so1(symm1);
+		cif::sym_op so2(symm2);
+
+		auto sa1 = c.symmetry_copy(p1, so1);
+		auto sa2 = c.symmetry_copy(p2, so2);
+
+		CHECK_THAT(cif::distance(sa1, sa2), Catch::Matchers::WithinAbs(dist, 0.01f));
+	}
+}
+
+TEST_CASE("symm-P_32_2_1_a")
+{
+	cif::cell c{ 80, 80, 120, 90, 90, 120 };
+	cif::spacegroup sg{ 154 };
+
+	cif::crystal crystal{ c, sg };
+
+	cif::point a{ 1, 90, 1 };
+	cif::point p1{ 2, 2, 2 };
+
+	auto d = distance(a, p1);
+
+	auto [d2, p, so] = crystal.closest_symmetry_copy(a, p1);
+
+	std::cout << "d: " << d2 << " p: " << p << " so: " << so.string() << '\n';
+
+	auto p2 = crystal.symmetry_copy(p1, so);
+	auto d3 = distance(p2, a);
+
+	CHECK_THAT(cif::distance(p2, p), Catch::Matchers::WithinAbs(0.f, 0.01f));
+	CHECK_THAT(d3, Catch::Matchers::WithinAbs(d2, 0.01f));
+
+	CHECK(d2 <= d);
+}
+
+TEST_CASE("symm-P_32_2_1")
+{
+	cif::cell c{ 82.162, 82.162, 135.202, 90, 90, 120 };
+	cif::spacegroup sg{ 154 };
+
+	cif::crystal crystal{ c, sg };
+
+	cif::point a{ 1.73727,89.1813,11.1388 };
+	cif::point p1{ -8.98574, 50.3861, -11.6447 };
+
+	auto d = distance(a, p1);
+
+	auto [d2, p, so] = crystal.closest_symmetry_copy(a, p1);
+
+	std::cout << "d: " << d2 << " p: " << p << " so: " << so.string() << '\n';
+
+	auto p2 = crystal.symmetry_copy(p1, so);
+	auto d3 = distance(p2, a);
+
+	CHECK_THAT(cif::distance(p2, p), Catch::Matchers::WithinAbs(0.f, 0.01f));
+	CHECK_THAT(d3, Catch::Matchers::WithinAbs(d2, 0.01f));
+
+	CHECK(d2 <= d);
 }
 
 TEST_CASE("volume_3bwh_1")

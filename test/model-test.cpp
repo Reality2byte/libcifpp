@@ -443,8 +443,6 @@ TEST_CASE("test_alternates_1")
 	const std::filesystem::path example(gTestDir / ".." / "examples" / "1cbs.cif.gz");
 	cif::file file(example.string());
 
-	auto &db = file.front();
-
 	cif::mm::structure s(file);
 
 	for (auto atom : s.atoms())

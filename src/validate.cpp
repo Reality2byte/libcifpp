@@ -27,6 +27,7 @@
 #include "cif++/validate.hpp"
 
 #include "cif++/cif++.hpp"
+#include "cif++/text.hpp"
 
 #include <cassert>
 #include <charconv>
@@ -245,8 +246,17 @@ bool item_validator::validate_value(const item_value &value, std::error_code &ec
 						ec = make_error_code(validation_error::value_does_not_match_rx);
 					}
 
-					if (ec == std::errc{} and not m_enums.empty() and m_enums.count(value.str()) == 0)
-						ec = make_error_code(validation_error::value_is_not_in_enumeration_list);
+					if (ec == std::errc{} and not m_enums.empty())
+					{
+						bool valid =
+							m_type->m_primitive_type == DDL_PrimitiveType::UChar ? //
+								m_enums.contains(cif::to_lower_copy(value.sv()))
+																				 : //
+								m_enums.contains(std::string{ value.sv() });
+
+						if (not valid)
+							ec = make_error_code(validation_error::value_is_not_in_enumeration_list);
+					}
 				}
 			}
 		}
@@ -436,8 +446,8 @@ void validator::report_error(std::error_code ec, bool fatal) const
 		std::cerr << ec.message() << '\n';
 }
 
-void validator::report_error(std::error_code ec, std::string_view category,
-	std::string_view item, bool fatal) const
+void validator::report_error(std::error_code ec, std::string value,
+	std::string_view category, std::string_view item, bool fatal) const
 {
 	if (m_strict or fatal)
 	{
@@ -448,10 +458,19 @@ void validator::report_error(std::error_code ec, std::string_view category,
 	}
 
 	if (VERBOSE > 0)
-		std::cerr << ec.message()
-				  << "; category: " << std::quoted(category)
-				  << " item: " << std::quoted(item)
-				  << '\n';
+	{
+		if (value.empty())
+			std::cerr << ec.message()
+					  << "; category: " << std::quoted(category)
+					  << " item: " << std::quoted(item)
+					  << '\n';
+		else
+			std::cerr << ec.message()
+					  << "; value: " << std::quoted(value)
+					  << "; category: " << std::quoted(category)
+					  << " item: " << std::quoted(item)
+					  << '\n';
+	}
 }
 
 void validator::fill_audit_conform(category &audit_conform) const

@@ -367,8 +367,9 @@ else()
 endif()
 
 if(NOT STD_CHARCONV_COMPILING)
-     target_include_directories(cifpp PRIVATE ${FastFloat_INCLUDE_DIRS})
-	 target_compile_definitions(cifpp PRIVATE USE_FAST_FLOAT)
+    get_target_property(FF_INC_DIR FastFloat::fast_float INTERFACE_INCLUDE_DIRECTORIES)
+    target_include_directories(cifpp PRIVATE ${FF_INC_DIR})
+	target_compile_definitions(cifpp PRIVATE USE_FAST_FLOAT)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")

@@ -2193,7 +2193,7 @@ void PDBFileParser::ParseRemarks()
 							if (std::regex_match(line, m, rx))
 							{
 								models[0] = std::stoi(m[1].str());
-								models[1] = stoi(m[2].str());
+								models[1] = std::stoi(m[2].str());
 							}
 							else
 								headerSeen = cif::contains(line, "RES C SSSEQI");

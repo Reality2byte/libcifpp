@@ -25,6 +25,8 @@
  */
 
 #include "cif++/cif++.hpp"
+#include "cif++/text.hpp"
+#include "cif++/validate.hpp"
 
 #include <cstddef>
 #include <exception>
@@ -103,7 +105,19 @@ class dictionary_parser : public parser
 				error("Undefined category '" + iv.first);
 
 			for (auto &v : iv.second)
+			{
+				// enums, make lower case if needed
+				auto tv = v.m_type;
+				if (tv and tv->m_primitive_type == DDL_PrimitiveType::UChar)
+				{
+					std::set<std::string> es;
+					for (auto &e : v.m_enums)
+						es.emplace(cif::to_lower_copy(e));
+					std::swap(es, v.m_enums);
+				}
+
 				const_cast<category_validator *>(cv)->add_item_validator(std::move(v));
+			}
 		}
 
 		// check all item validators for having a typeValidator
@@ -275,8 +289,10 @@ class dictionary_parser : public parser
 			if (typeCode.has_value())
 				tv = m_validator.get_validator_for_type(*typeCode);
 
-			iset ess;
+			std::set<std::string> ess;
 			for (auto e : dict["item_enumeration"])
+				ess.insert(e["value"].get<std::string>());
+			for (auto e : dict["pdbx_item_enumeration"])
 				ess.insert(e["value"].get<std::string>());
 
 			std::string defaultValue;

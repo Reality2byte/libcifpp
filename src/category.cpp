@@ -749,16 +749,38 @@ void category::set_validator(const validator *v, datablock &db)
 
 		bool number = type->m_primitive_type == DDL_PrimitiveType::Numb;
 		if (number)
-			continue;
-
-		for (auto row = m_head; row != nullptr; row = row->m_next)
 		{
-			if (cix >= row->size() or row->operator[](cix).empty())
-				continue;
+			for (auto row = m_head; row != nullptr; row = row->m_next)
+			{
+				if (cix >= row->size() or row->operator[](cix).empty())
+					continue;
 
-			item_value &v = row->operator[](cix);
-			if (v.is_number())
-				v = v.str();
+				item_value &v = row->operator[](cix);
+				if (not v.is_number())
+				{
+					// Try cast the value to a number and throw in case of failure
+					try
+					{
+						v.cast_to_int();
+					}
+					catch (...)
+					{
+						v.cast_to_float();
+					}
+				}
+			}
+		}
+		else
+		{
+			for (auto row = m_head; row != nullptr; row = row->m_next)
+			{
+				if (cix >= row->size() or row->operator[](cix).empty())
+					continue;
+
+				item_value &v = row->operator[](cix);
+				if (v.is_number())
+					v = v.str();
+			}
 		}
 	}
 
@@ -890,11 +912,13 @@ bool category::is_valid() const
 				seen = true;
 				std::error_code ec;
 
-				iv->validate_value(*ri->get(cix), ec);
+				auto &v = *ri->get(cix);
+
+				iv->validate_value(v, ec);
 
 				if (ec != std::errc{})
 				{
-					m_validator->report_error(ec, m_name, m_items[cix].m_name, false);
+					m_validator->report_error(ec, v.str(), m_name, m_items[cix].m_name, false);
 					continue;
 				}
 			}

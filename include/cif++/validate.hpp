@@ -196,7 +196,7 @@ class validation_exception : public std::runtime_error
   public:
 	// Constructors
 	/// @cond
-	
+
 	validation_exception(validation_error err)
 		: validation_exception(make_error_code(err))
 	{
@@ -337,7 +337,7 @@ struct item_validator
 	std::string m_item_name;           ///< The item name
 	bool m_mandatory;                  ///< Flag indicating this item is mandatory
 	const type_validator *m_type;      ///< The type for this item
-	cif::iset m_enums;                 ///< If filled, the set of allowed values
+	std::set<std::string> m_enums;     ///< If filled, the set of allowed values
 	std::string m_default;             ///< If filled, a default value for this item
 	std::string m_category;            ///< The category this item_validator belongs to
 	std::vector<item_alias> m_aliases; ///< The aliases for this item
@@ -503,14 +503,28 @@ class validator
 	void report_error(std::error_code ec, bool fatal = true) const;
 
 	/// @brief Bottleneck function to report an error in validation
+	void report_error(validation_error err, std::string value, std::string_view category,
+		std::string_view item, bool fatal = true) const
+	{
+		report_error(make_error_code(err), value, category, item, fatal);
+	}
+
+	/// @brief Bottleneck function to report an error in validation
 	void report_error(validation_error err, std::string_view category,
 		std::string_view item, bool fatal = true) const
 	{
-		report_error(make_error_code(err), category, item, fatal);
+		report_error(make_error_code(err), "", category, item, fatal);
 	}
 
 	/// @brief Bottleneck function to report an error in validation
 	void report_error(std::error_code ec, std::string_view category,
+		std::string_view item, bool fatal = true) const
+	{
+		report_error(ec, "", category, item, fatal);
+	}
+
+	/// @brief Bottleneck function to report an error in validation
+	void report_error(std::error_code ec, std::string value, std::string_view category,
 		std::string_view item, bool fatal = true) const;
 
 	/// @brief Write out the audit_conform data for this validator

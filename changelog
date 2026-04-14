@@ -1,6 +1,8 @@
 Version 10.0.2
 - Fixed regression in reconstruction introduced in 10.0.1
 - Fixed symmetry operations
+- Added validation for pdbx_item_enumeration as well as
+  case-sensitive checks for enumerations when needed.
 
 Version 10.0.1
 - Fixed some regressions, like assigning to items.

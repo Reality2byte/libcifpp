@@ -1474,7 +1474,12 @@ void category::update_value(const std::vector<row_handle> &rows, std::string_vie
 
 			std::error_code ec;
 			col.m_validator->validate_value(value, ec);
-			if (ec)
+			if (ec == cif::make_error_code(cif::validation_error::value_is_not_in_enumeration_list))
+			{
+				if (cif::VERBOSE >= 0)
+					m_validator->report_error(ec, m_name, item_name, false);
+			}
+			else if (ec)
 				throw validation_exception(ec, m_name, item_name);
 		}
 	}
@@ -1601,7 +1606,18 @@ void category::update_value(row *row, uint16_t item, item_value value, bool upda
 
 	// check the value
 	if (col.m_validator and validate)
-		col.m_validator->validate_value(value);
+	{
+		std::error_code ec;
+		col.m_validator->validate_value(value, ec);
+		if (ec == cif::make_error_code(cif::validation_error::value_is_not_in_enumeration_list))
+		{
+			if (cif::VERBOSE >= 0)
+				m_validator->report_error(ec, m_name, m_items[item].m_name, false);
+		}
+		else if (ec)
+			throw validation_exception(ec, m_name, m_items[item].m_name);
+
+	}
 
 	// If the item is part of the Key for this category, remove it from the index
 	// before updating
@@ -1813,6 +1829,12 @@ category::iterator category::insert_impl(const_iterator pos, row *n)
 						}
 						else if (ec == cif::make_error_code(cif::validation_error::value_is_not_a_char_string))
 							v->cast_to_string();
+						else if (ec == cif::make_error_code(cif::validation_error::value_is_not_in_enumeration_list))
+						{
+							if (cif::VERBOSE >= 0)
+								m_validator->report_error(ec, m_name, m_items[ix].m_name, false);
+							continue;
+						}
 						else
 							throw std::system_error(ec, "Attempt to insert invalid value");
 
@@ -2182,7 +2204,7 @@ void category::write_cif(std::ostream &os, const std::vector<uint16_t> &order, b
 					offset = 0;
 				}
 
-				offset = detail::write_value(os, s, offset, w, /* right_aligned[cix] */ iv->is_number());
+				offset = detail::write_value(os, s, offset, w, right_aligned[cix]/*  iv->is_number() */);
 
 				if (offset > 132)
 				{

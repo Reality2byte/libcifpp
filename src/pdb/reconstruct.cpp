@@ -1340,6 +1340,8 @@ void createPdbxNonpolyScheme(datablock &db)
 	auto &pdbx_nonpoly_scheme = db["pdbx_nonpoly_scheme"];
 	auto &atom_site = db["atom_site"];
 
+	pdbx_nonpoly_scheme.clear();
+
 	for (const auto &[entity_id, comp_id] : pdbx_entity_nonpoly.rows<std::string, std::string>("entity_id", "comp_id"))
 	{
 		for (int ndb_nr = 1; auto row : atom_site.find("label_entity_id"_key == entity_id and "label_comp_id"_key == comp_id))

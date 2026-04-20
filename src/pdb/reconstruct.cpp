@@ -1662,7 +1662,7 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 				if (not iv)
 				{
 					// Drop this item
-					cat.remove_item(item_name);
+					// cat.remove_item(item_name);
 					continue;
 				}
 

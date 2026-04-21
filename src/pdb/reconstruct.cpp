@@ -25,6 +25,7 @@
  */
 
 #include "cif++/cif++.hpp"
+#include "cif++/validate.hpp"
 
 #include <algorithm>
 #include <cstddef>
@@ -1689,6 +1690,13 @@ bool reconstruct_pdbx(file &file, const validator &validator)
 							row[ix] = item_value{ std::stoi(row[ix].value().get<std::string>()) };
 							if (iv->validate_value(row[ix].value(), ec))
 								continue;
+						}
+
+						if (ec == cif::make_error_code(cif::validation_error::value_is_not_in_enumeration_list))
+						{
+							if (VERBOSE > 0)
+								std::clog << "Value (" << std::quoted(row[ix].str()) << ") for item " << item_name << " in category " << cat.name() << " is not valid since it is not in the list of allowed values\n";
+							continue;
 						}
 
 						if (VERBOSE > 0)

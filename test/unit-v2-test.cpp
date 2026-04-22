@@ -3664,5 +3664,37 @@ HETATM 2 O O . HOH A 1 . ? 10.518 -1.781 0 1 37.22 ? O HOH 2 D 1
 )");
 }
 
+// --------------------------------------------------------------------
 
+TEST_CASE("number-test-1")
+{
+	auto data = R"(data_test
+_pdbx_contact_author.id      1
+_pdbx_contact_author.name_mi +98765432109
+)"_cf;
+
+	auto &db = data.front();
+	db.load_dictionary("mmcif_pdbx.dic");
+
+	auto r = db["pdbx_contact_author"].front();
+	CHECK(r["name_mi"].str() == "+98765432109");
+	CHECK(r["name_mi"].get<int64_t>() == 98765432109);
+	CHECK(r["name_mi"].get<double>() == 98765432109.0);
+}
+
+TEST_CASE("number-test-2")
+{
+	auto data = R"(data_test
+_pdbx_contact_author.id      1
+_pdbx_contact_author.name_mi '+98765432109'
+)"_cf;
+
+	auto &db = data.front();
+	db.load_dictionary("mmcif_pdbx.dic");
+
+	auto r = db["pdbx_contact_author"].front();
+	CHECK(r["name_mi"].str() == "+98765432109");
+	CHECK(r["name_mi"].get<int64_t>() == 98765432109);
+	CHECK(r["name_mi"].get<double>() == 98765432109.0);
+}
 

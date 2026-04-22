@@ -635,9 +635,18 @@ sac_parser::CIFToken sac_parser::get_next_token()
 
 	if (result == CIFToken::VALUE_NUMERIC_INTEGER)
 	{
-		auto [ptr, ec] = from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_int);
-		if (ec != std::errc{})
-			error("Invalid integer value: " + std::make_error_code(ec).message());
+		// Avoid interpreting phone numbers as integers, TODO: check if this is an issue
+		if (m_token_buffer.front() == '+')
+		{
+			result = CIFToken::VALUE_CHARSTRING;
+			m_token_value = std::string_view(m_token_buffer.data(), m_token_buffer.size());
+		}
+		else
+		{
+			auto [ptr, ec] = from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_int);
+			if (ec != std::errc{})
+				error("Invalid integer value: " + std::make_error_code(ec).message());
+		}
 	}
 	else if (result == CIFToken::VALUE_NUMERIC_FLOAT)
 	{

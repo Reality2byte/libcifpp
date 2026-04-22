@@ -331,8 +331,11 @@ class item_value
 			case TEXT:
 			{
 				auto sv = m_data.sv();
+				auto sp = sv.data();
+				if (*sp == '+')
+					++sp;
 				int64_t v;
-				auto &&[ptr, ec] = from_chars(sv.data(), sv.data() + sv.length(), v);
+				auto &&[ptr, ec] = from_chars(sp, sv.data() + sv.length(), v);
 				if (ec != std::errc{})
 					throw std::system_error(std::make_error_code(ec));
 				if (ptr != sv.data() + sv.length())
@@ -361,8 +364,11 @@ class item_value
 			case TEXT:
 			{
 				auto sv = m_data.sv();
+				auto sp = sv.data();
+				if (*sp == '+')
+					++sp;
 				double v;
-				auto &&[ptr, ec] = from_chars(sv.data(), sv.data() + sv.length(), v);
+				auto &&[ptr, ec] = from_chars(sp, sv.data() + sv.length(), v);
 				if (ec != std::errc{})
 					throw std::system_error(std::make_error_code(ec));
 				if (ptr != sv.data() + sv.length())

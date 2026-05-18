@@ -25,6 +25,7 @@
  */
 
 #include "cif++/cif++.hpp"
+#include "cif++/utilities.hpp"
 
 #include <cassert>
 #include <cctype>
@@ -635,15 +636,28 @@ sac_parser::CIFToken sac_parser::get_next_token()
 
 	if (result == CIFToken::VALUE_NUMERIC_INTEGER)
 	{
+		// Avoid interpreting phone numbers as integers, TODO: check if this is an issue
 		auto [ptr, ec] = from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_int);
 		if (ec != std::errc{})
-			error("Invalid integer value: " + std::make_error_code(ec).message());
+		{
+			if (cif::VERBOSE > 0)
+				std::clog << "Invalid integer value: " << std::make_error_code(ec).message() << '\n';
+
+			result = CIFToken::VALUE_CHARSTRING;
+			m_token_value = std::string_view(m_token_buffer.data(), m_token_buffer.size());
+		}
 	}
 	else if (result == CIFToken::VALUE_NUMERIC_FLOAT)
 	{
 		auto [ptr, ec] = from_chars(m_token_buffer.data(), m_token_buffer.data() + m_token_buffer.size(), m_token_value_float);
 		if (ec != std::errc{})
-			error("Invalid integer value: " + std::make_error_code(ec).message());
+		{
+			if (cif::VERBOSE > 0)
+				std::clog << "Invalid floating point value: " << std::make_error_code(ec).message() << '\n';
+
+			result = CIFToken::VALUE_CHARSTRING;
+			m_token_value = std::string_view(m_token_buffer.data(), m_token_buffer.size());
+		}
 	}
 
 	return result;

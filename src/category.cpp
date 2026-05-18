@@ -759,14 +759,10 @@ void category::set_validator(const validator *v, datablock &db)
 				if (not v.is_number())
 				{
 					// Try cast the value to a number and throw in case of failure
-					try
-					{
+					if (auto sv = v.sv(); sv.find_first_of(".eE") == std::string_view::npos)
 						v.cast_to_int();
-					}
-					catch (...)
-					{
+					else
 						v.cast_to_float();
-					}
 				}
 			}
 		}

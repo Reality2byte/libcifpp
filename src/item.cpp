@@ -239,7 +239,12 @@ void item_value::cast_to_int()
 		{
 			auto s = sv();
 			int64_t v;
-			auto [ptr, ec] = cif::from_chars(s.data(), s.data() + s.size(), v);
+
+			auto sp = s.data();
+			if (*sp == '+')
+				++sp;
+
+			auto [ptr, ec] = cif::from_chars(sp, s.data() + s.size(), v);
 			if (ec != std::errc{})
 				throw std::system_error(std::make_error_code(ec), "attempt to cast value to integer failed");
 			if (ptr != s.data() + s.size())

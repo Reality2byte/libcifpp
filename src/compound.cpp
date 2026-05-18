@@ -799,8 +799,8 @@ void compound_factory::report_missing_compound(std::string_view compound_id)
 		std::clog << "\n"
 				  << cif::coloured("Configuration error:", white, red) << "\n\n"
 				  << "The attempt to retrieve compound information for " << std::quoted(compound_id) << " failed.\n\n"
-				  << "This information is searched for in a CCD file called components.cif or\n"
-				  << "components.cif.gz which should be located in one of the following directories:\n\n";
+				  << "This information is searched for in a CCD file called components.cif\n"
+				  << "which should be located in one of the following directories:\n\n";
 
 		cif::list_data_directories(std::clog);
 

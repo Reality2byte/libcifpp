@@ -1811,13 +1811,10 @@ void WriteRemark3Phenix(std::ostream &pdbFile, const datablock &db)
 void WriteRemark3XPlor(std::ostream &pdbFile, const datablock &db)
 {
 	auto refine = db["refine"].front();
-	auto ls_shell = db["refine_ls_shell"].front();
 	auto hist = db["refine_hist"].front();
 	auto reflns = db["reflns"].front();
 	auto analyze = db["refine_analyze"].front();
 	auto &ls_restr = db["refine_ls_restr"];
-	auto ls_restr_ncs = db["refine_ls_restr_ncs"].front();
-	auto pdbx_xplor_file = db["pdbx_xplor_file"].front();
 
 	pdbFile << RM3("") << '\n'
 			<< RM3(" DATA USED IN REFINEMENT.") << '\n'
@@ -1837,7 +1834,11 @@ void WriteRemark3XPlor(std::ostream &pdbFile, const datablock &db)
 			<< RM3("  FREE R VALUE                     : ", 7, 3) << Ff(refine, "ls_R_factor_R_free") << '\n'
 			<< RM3("  FREE R VALUE TEST SET SIZE   (%) : ", 7, 3) << Ff(refine, "ls_percent_reflns_R_free") << '\n'
 			<< RM3("  FREE R VALUE TEST SET COUNT      : ", 12, 6) << Fi(refine, "ls_number_reflns_R_free") << '\n'
-			<< RM3("  ESTIMATED ERROR OF FREE R VALUE  : ", 7, 3) << Ff(refine, "ls_R_factor_R_free_error") << '\n'
+			<< RM3("  ESTIMATED ERROR OF FREE R VALUE  : ", 7, 3) << Ff(refine, "ls_R_factor_R_free_error") << '\n';
+	if (not db["refine_ls_shell"].empty())
+	{
+		auto ls_shell = db["refine_ls_shell"].front();
+		pdbFile
 
 			<< RM3("") << '\n'
 			<< RM3(" FIT IN THE HIGHEST RESOLUTION BIN.") << '\n'
@@ -1850,60 +1851,68 @@ void WriteRemark3XPlor(std::ostream &pdbFile, const datablock &db)
 			<< RM3("  BIN FREE R VALUE                    : ", 7, 3) << Ff(ls_shell, "R_factor_R_free") << '\n'
 			<< RM3("  BIN FREE R VALUE TEST SET SIZE  (%) : ", 5, 1) << Ff(ls_shell, "percent_reflns_R_free") << '\n'
 			<< RM3("  BIN FREE R VALUE TEST SET COUNT     : ", 12, 6) << Fi(ls_shell, "number_reflns_R_free") << '\n'
-			<< RM3("  ESTIMATED ERROR OF BIN FREE R VALUE : ", 7, 3) << Ff(ls_shell, "R_factor_R_free_error") << '\n'
+			<< RM3("  ESTIMATED ERROR OF BIN FREE R VALUE : ", 7, 3) << Ff(ls_shell, "R_factor_R_free_error") << '\n';
+	}
 
-			<< RM3("") << '\n'
-			<< RM3(" NUMBER OF NON-HYDROGEN ATOMS USED IN REFINEMENT.") << '\n'
-			<< RM3("  PROTEIN ATOMS            : ", 12, 6) << Fi(hist, "pdbx_number_atoms_protein") << '\n'
-			<< RM3("  NUCLEIC ACID ATOMS       : ", 12, 6) << Fi(hist, "pdbx_number_atoms_nucleic_acid") << '\n'
-			<< RM3("  HETEROGEN ATOMS          : ", 12, 6) << Fi(hist, "pdbx_number_atoms_ligand") << '\n'
-			<< RM3("  SOLVENT ATOMS            : ", 12, 6) << Fi(hist, "number_atoms_solvent") << '\n'
+	pdbFile
+		<< RM3("") << '\n'
+		<< RM3(" NUMBER OF NON-HYDROGEN ATOMS USED IN REFINEMENT.") << '\n'
+		<< RM3("  PROTEIN ATOMS            : ", 12, 6) << Fi(hist, "pdbx_number_atoms_protein") << '\n'
+		<< RM3("  NUCLEIC ACID ATOMS       : ", 12, 6) << Fi(hist, "pdbx_number_atoms_nucleic_acid") << '\n'
+		<< RM3("  HETEROGEN ATOMS          : ", 12, 6) << Fi(hist, "pdbx_number_atoms_ligand") << '\n'
+		<< RM3("  SOLVENT ATOMS            : ", 12, 6) << Fi(hist, "number_atoms_solvent") << '\n'
 
-			<< RM3("") << '\n'
-			<< RM3(" B VALUES.") << '\n'
-			<< RM3("  FROM WILSON PLOT           (A**2) : ", 7, 2) << Ff(reflns, "B_iso_Wilson_estimate") << '\n'
-			<< RM3("  MEAN B VALUE      (OVERALL, A**2) : ", 7, 2) << Ff(refine, "B_iso_mean") << '\n'
+		<< RM3("") << '\n'
+		<< RM3(" B VALUES.") << '\n'
+		<< RM3("  FROM WILSON PLOT           (A**2) : ", 7, 2) << Ff(reflns, "B_iso_Wilson_estimate") << '\n'
+		<< RM3("  MEAN B VALUE      (OVERALL, A**2) : ", 7, 2) << Ff(refine, "B_iso_mean") << '\n'
 
-			<< RM3("  OVERALL ANISOTROPIC B VALUE.") << '\n'
-			<< RM3("   B11 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[1][1]") << '\n'
-			<< RM3("   B22 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[2][2]") << '\n'
-			<< RM3("   B33 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[3][3]") << '\n'
-			<< RM3("   B12 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[1][2]") << '\n'
-			<< RM3("   B13 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[1][3]") << '\n'
-			<< RM3("   B23 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[2][3]") << '\n'
+		<< RM3("  OVERALL ANISOTROPIC B VALUE.") << '\n'
+		<< RM3("   B11 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[1][1]") << '\n'
+		<< RM3("   B22 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[2][2]") << '\n'
+		<< RM3("   B33 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[3][3]") << '\n'
+		<< RM3("   B12 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[1][2]") << '\n'
+		<< RM3("   B13 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[1][3]") << '\n'
+		<< RM3("   B23 (A**2) : ", -7, 2) << Ff(refine, "aniso_B[2][3]") << '\n'
 
-			<< RM3("") << '\n'
-			<< RM3(" ESTIMATED COORDINATE ERROR.") << '\n'
-			<< RM3("  ESD FROM LUZZATI PLOT        (A) : ", 7, 2) << Ff(analyze, "Luzzati_coordinate_error_obs") << '\n'
-			<< RM3("  ESD FROM SIGMAA              (A) : ", 7, 2) << Ff(analyze, "Luzzati_sigma_a_obs") << '\n'
-			<< RM3("  LOW RESOLUTION CUTOFF        (A) : ", 7, 2) << Ff(analyze, "Luzzati_d_res_low_obs") << '\n'
+		<< RM3("") << '\n'
+		<< RM3(" ESTIMATED COORDINATE ERROR.") << '\n'
+		<< RM3("  ESD FROM LUZZATI PLOT        (A) : ", 7, 2) << Ff(analyze, "Luzzati_coordinate_error_obs") << '\n'
+		<< RM3("  ESD FROM SIGMAA              (A) : ", 7, 2) << Ff(analyze, "Luzzati_sigma_a_obs") << '\n'
+		<< RM3("  LOW RESOLUTION CUTOFF        (A) : ", 7, 2) << Ff(analyze, "Luzzati_d_res_low_obs") << '\n'
 
-			<< RM3("") << '\n'
-			<< RM3(" CROSS-VALIDATED ESTIMATED COORDINATE ERROR.") << '\n'
-			<< RM3("  ESD FROM C-V LUZZATI PLOT    (A) : ", 7, 2) << Ff(analyze, "Luzzati_coordinate_error_free") << '\n'
-			<< RM3("  ESD FROM C-V SIGMAA          (A) : ", 7, 2) << Ff(analyze, "Luzzati_sigma_a_free") << '\n'
+		<< RM3("") << '\n'
+		<< RM3(" CROSS-VALIDATED ESTIMATED COORDINATE ERROR.") << '\n'
+		<< RM3("  ESD FROM C-V LUZZATI PLOT    (A) : ", 7, 2) << Ff(analyze, "Luzzati_coordinate_error_free") << '\n'
+		<< RM3("  ESD FROM C-V SIGMAA          (A) : ", 7, 2) << Ff(analyze, "Luzzati_sigma_a_free") << '\n'
 
-			<< RM3("") << '\n'
-			<< RM3(" RMS DEVIATIONS FROM IDEAL VALUES.") << '\n'
-			<< RM3("  BOND LENGTHS                 (A) : ", 7, 3) << Ff(ls_restr, key("type") == "x_bond_d", "dev_ideal") << '\n'
-			<< RM3("  BOND ANGLES            (DEGREES) : ", 7, 2) << Ff(ls_restr, key("type") == "x_angle_deg", "dev_ideal") << '\n'
-			<< RM3("  DIHEDRAL ANGLES        (DEGREES) : ", 7, 2) << Ff(ls_restr, key("type") == "x_dihedral_angle_d", "dev_ideal") << '\n'
-			<< RM3("  IMPROPER ANGLES        (DEGREES) : ", 7, 2) << Ff(ls_restr, key("type") == "x_improper_angle_d", "dev_ideal") << '\n'
+		<< RM3("") << '\n'
+		<< RM3(" RMS DEVIATIONS FROM IDEAL VALUES.") << '\n'
+		<< RM3("  BOND LENGTHS                 (A) : ", 7, 3) << Ff(ls_restr, key("type") == "x_bond_d", "dev_ideal") << '\n'
+		<< RM3("  BOND ANGLES            (DEGREES) : ", 7, 2) << Ff(ls_restr, key("type") == "x_angle_deg", "dev_ideal") << '\n'
+		<< RM3("  DIHEDRAL ANGLES        (DEGREES) : ", 7, 2) << Ff(ls_restr, key("type") == "x_dihedral_angle_d", "dev_ideal") << '\n'
+		<< RM3("  IMPROPER ANGLES        (DEGREES) : ", 7, 2) << Ff(ls_restr, key("type") == "x_improper_angle_d", "dev_ideal") << '\n'
 
-			<< RM3("") << '\n'
-			<< RM3(" ISOTROPIC THERMAL MODEL : ") << Fs(refine, "pdbx_isotropic_thermal_model") << '\n'
+		<< RM3("") << '\n'
+		<< RM3(" ISOTROPIC THERMAL MODEL : ") << Fs(refine, "pdbx_isotropic_thermal_model") << '\n'
 
-			<< RM3("") << '\n'
-			<< RM3(" ISOTROPIC THERMAL FACTOR RESTRAINTS.    RMS    SIGMA") << '\n'
-			<< RM3("  MAIN-CHAIN BOND              (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_mcbond_it", "dev_ideal") << SEP("; ", 6, 2)
-			<< Ff(ls_restr, key("type") == "x_mcbond_it", "dev_ideal_target") << '\n'
-			<< RM3("  MAIN-CHAIN ANGLE             (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_mcangle_it", "dev_ideal") << SEP("; ", 6, 2)
-			<< Ff(ls_restr, key("type") == "x_mcangle_it", "dev_ideal_target") << '\n'
-			<< RM3("  SIDE-CHAIN BOND              (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_scbond_it", "dev_ideal") << SEP("; ", 6, 2)
-			<< Ff(ls_restr, key("type") == "x_scbond_it", "dev_ideal_target") << '\n'
-			<< RM3("  SIDE-CHAIN ANGLE             (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_scangle_it", "dev_ideal") << SEP("; ", 6, 2)
-			<< Ff(ls_restr, key("type") == "x_scangle_it", "dev_ideal_target") << '\n'
-			<< RM3("") << '\n'
+		<< RM3("") << '\n'
+		<< RM3(" ISOTROPIC THERMAL FACTOR RESTRAINTS.    RMS    SIGMA") << '\n'
+		<< RM3("  MAIN-CHAIN BOND              (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_mcbond_it", "dev_ideal") << SEP("; ", 6, 2)
+		<< Ff(ls_restr, key("type") == "x_mcbond_it", "dev_ideal_target") << '\n'
+		<< RM3("  MAIN-CHAIN ANGLE             (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_mcangle_it", "dev_ideal") << SEP("; ", 6, 2)
+		<< Ff(ls_restr, key("type") == "x_mcangle_it", "dev_ideal_target") << '\n'
+		<< RM3("  SIDE-CHAIN BOND              (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_scbond_it", "dev_ideal") << SEP("; ", 6, 2)
+		<< Ff(ls_restr, key("type") == "x_scbond_it", "dev_ideal_target") << '\n'
+		<< RM3("  SIDE-CHAIN ANGLE             (A**2) : ", 6, 2) << Ff(ls_restr, key("type") == "x_scangle_it", "dev_ideal") << SEP("; ", 6, 2)
+		<< Ff(ls_restr, key("type") == "x_scangle_it", "dev_ideal_target") << '\n'
+		<< RM3("") << '\n';
+
+	if (not db["refine_ls_restr_ncs"].empty())
+	{
+		auto ls_restr_ncs = db["refine_ls_restr_ncs"].front();
+
+		pdbFile
 			<< RM3(" NCS MODEL : ") << Fs(ls_restr_ncs, "ncs_model_details") << '\n'
 
 			<< RM3("") << '\n'
@@ -1913,7 +1922,14 @@ void WriteRemark3XPlor(std::ostream &pdbFile, const datablock &db)
 			<< RM3("  GROUP  1  POSITIONAL            (A) : ", 4, 2) << Ff(ls_restr_ncs, "rms_dev_position") << SEP("; ", 6, 2)
 			<< Ff(ls_restr_ncs, "weight_position") << SEP("; ", 6, 2) << '\n'
 			<< RM3("  GROUP  1  B-FACTOR           (A**2) : ", 4, 2) << Ff(ls_restr_ncs, "rms_dev_B_iso") << SEP("; ", 6, 2)
-			<< Ff(ls_restr_ncs, "weight_B_iso") << SEP("; ", 6, 2) << '\n'
+			<< Ff(ls_restr_ncs, "weight_B_iso") << SEP("; ", 6, 2) << '\n';
+	}
+
+	if (not db["pdbx_xplor_file"].empty())
+	{
+		auto pdbx_xplor_file = db["pdbx_xplor_file"].front();
+
+		pdbFile
 
 			// TODO: using only files from serial_no 1 here
 			<< RM3("") << '\n'
@@ -1921,6 +1937,7 @@ void WriteRemark3XPlor(std::ostream &pdbFile, const datablock &db)
 			<< RM3(" TOPOLOGY FILE   1   : ") << Fs(pdbx_xplor_file, "topol_file") << '\n'
 
 			<< RM3("") << '\n';
+	}
 }
 
 void WriteRemark3NuclSQ(std::ostream &pdbFile, const datablock &db)
@@ -2258,25 +2275,28 @@ void WriteRemark200(std::ostream &pdbFile, const datablock &db)
 			std::string iis = cifSoftware(db, eDataReduction);
 			std::string dss = cifSoftware(db, eDataScaling);
 
-			auto source = diffrn_source["source"].get<std::string>();
-			std::string synchrotron, type;
-
-			if (source.empty())
-				synchrotron = "NULL";
-			else if (iequals(source, "SYNCHROTRON"))
+			std::string source, synchrotron, type;
+			if (not diffrn_source.empty())
 			{
-				synchrotron = "Y";
-				source = diffrn_source["pdbx_synchrotron_site"].get<std::string>();
+				source = diffrn_source["source"].get<std::string>();
+	
 				if (source.empty())
-					source = "NULL";
-				type = "NULL";
-			}
-			else
-			{
-				synchrotron = "N";
-				type = diffrn_source["type"].get<std::string>();
-				if (type.empty())
+					synchrotron = "NULL";
+				else if (iequals(source, "SYNCHROTRON"))
+				{
+					synchrotron = "Y";
+					source = diffrn_source["pdbx_synchrotron_site"].get<std::string>();
+					if (source.empty())
+						source = "NULL";
 					type = "NULL";
+				}
+				else
+				{
+					synchrotron = "N";
+					type = diffrn_source["type"].get<std::string>();
+					if (type.empty())
+						type = "NULL";
+				}
 			}
 
 			if (source.empty())
@@ -2343,7 +2363,7 @@ void WriteRemark200(std::ostream &pdbFile, const datablock &db)
 
 			for (auto &t : kTail)
 			{
-				auto s = t.r[t.field].get<std::string>();
+				auto s = t.r.empty() ? "" : t.r[t.field].get<std::string>();
 
 				if (s.empty())
 				{
@@ -2383,6 +2403,9 @@ void WriteRemark280(std::ostream &pdbFile, const datablock &db)
 				<< RM("SOLVENT CONTENT, VS   (%): ", 6, 2) << Ff(exptl_crystal, "density_percent_sol") << '\n'
 				<< RM("MATTHEWS COEFFICIENT, VM (ANGSTROMS**3/DA): ", 6, 2) << Ff(exptl_crystal, "density_Matthews") << '\n'
 				<< RM("") << '\n';
+
+			if (exptl_crystal_grow.empty())
+				continue;
 
 			std::vector<std::string> conditions;
 			auto add = [&conditions](const std::string c)
@@ -3341,9 +3364,9 @@ void WriteCrystallographic(std::ostream &pdbFile, const datablock &db)
 	if (r)
 	{
 		auto symmetry = r["space_group_name_H-M"].get<std::string>();
-	
+
 		r = db["cell"].find_first(key("entry_id") == db.name());
-	
+
 		pdbFile << std::format("CRYST1{:9.3f}{:9.3f}{:9.3f}{:7.2f}{:7.2f}{:7.2f} {:<11.11s}{:4}", r["length_a"].get<double>(), r["length_b"].get<double>(), r["length_c"].get<double>(), r["angle_alpha"].get<double>(), r["angle_beta"].get<double>(), r["angle_gamma"].get<double>(), symmetry, r["Z_PDB"].get<int>()) << '\n';
 	}
 }

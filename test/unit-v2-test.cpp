@@ -3696,5 +3696,31 @@ _pdbx_contact_author.name_mi '+98765432109'
 	CHECK(r["name_mi"].str() == "+98765432109");
 	CHECK(r["name_mi"].get<int64_t>() == 98765432109);
 	CHECK(r["name_mi"].get<double>() == 98765432109.0);
+}// --------------------------------------------------------------------
+
+TEST_CASE("q-1")
+{
+	auto data = R"(data_test
+_test.s
+;1234567890
+1234567890
+;
+	)"_cf;
+
+	auto r = data.front()["test"].find(cif::key("s") == "1234567890\n1234567890");
+	CHECK(r.size() == 1);
 }
 
+TEST_CASE("large-int-1")
+{
+	auto data = R"(data_test
+_entry.id     82E4475FF8B27F36
+)"_cf;
+
+	auto &db = data.front();
+	db.load_dictionary("mmcif_pdbx.dic");
+
+	auto r = db["entry"].front();
+
+	CHECK(r["id"].get<std::string>() == "82E4475FF8B27F36");
+}

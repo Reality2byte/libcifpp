@@ -1,3 +1,7 @@
+Version 10.0.4
+- Fixed find_by_value in the index of a category,
+  avoid swapping columns in the search keys
+
 Version 10.0.3
 - Clear pdbx_nonpoly_scheme before filling it in reconstruction
 - Changed handling of numbers with a preceding plus character,

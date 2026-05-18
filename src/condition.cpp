@@ -129,9 +129,9 @@ namespace detail
 			m_item_ix = *ix;
 			m_icase = is_item_type_uchar(c, m_item_name);
 
-			if (c.get_cat_validator() != nullptr and
-				c.key_item_indices().contains(m_item_ix) and
-				c.key_item_indices().size() == 1)
+			if (auto cv = c.get_cat_validator();
+				cv != nullptr and cv->m_keys.size() == 1 and
+				cv->m_keys.front() == m_item_name)
 			{
 				m_single_hit = c[{ { m_item_name, m_value } }];
 			}

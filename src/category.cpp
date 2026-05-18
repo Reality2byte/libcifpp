@@ -118,6 +118,7 @@ class row_comparator
 
 		for (const auto &[k, f] : m_comparator)
 		{
+			assert(cat.get_item_name(k) == ai->name);
 			d = f(ai->value, rhb[k].value());
 
 			if (d != 0)
@@ -363,10 +364,9 @@ row *category_index::find_by_value(const category &cat, const category::key_type
 	// sort the values in k first
 
 	category::key_type k2;
-	for (auto &f : cat.key_item_indices())
+	auto cv = cat.get_cat_validator();
+	for (auto &fld : cv->m_keys)
 	{
-		auto fld = cat.get_item_name(f);
-
 		auto ki = std::ranges::find_if(k, [&fld](auto &i)
 			{ return i.name == fld; });
 		if (ki == k.end())
